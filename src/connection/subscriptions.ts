@@ -1,0 +1,489 @@
+/**
+ * Event Subscriptions
+ *
+ * Sets up WebSocket event subscriptions to keep state in sync
+ * with Home Assistant.
+ *
+ * @packageDocumentation
+ */
+
+import type { HAEvent } from "@glasshome/ha-types";
+import { produce } from "solid-js/store";
+import {
+  removeArea,
+  removeDevice,
+  removeEntityRegistry,
+  removeFloor,
+  removeLabel,
+  updateArea,
+  updateDevice,
+  updateEntityRegistry,
+  updateFloor,
+  updateLabel,
+  updateStatisticsMetadata,
+} from "../core/reducers";
+import { setState, state } from "../core/store";
+import type { AreaRegistryEntry, HassEntity } from "../core/types";
+import { appendHistoryPoint, isHistoryTracked } from "../history/query";
+import type { SyncLayerConnection } from "./types";
+
+// ============================================
+// EVENT DATA TYPES
+// ============================================
+
+interface RegistryUpdateData {
+  action: "create" | "update" | "remove";
+  entity_id: string;
+}
+
+interface DeviceRegistryUpdateData {
+  action: "create" | "update" | "remove";
+  device_id: string;
+}
+
+interface AreaRegistryUpdateData {
+  action: "create" | "update" | "remove";
+  area_id: string;
+}
+
+interface FloorRegistryUpdateData {
+  action: "create" | "update" | "remove";
+  floor_id: string;
+}
+
+interface LabelRegistryUpdateData {
+  action: "create" | "update" | "remove";
+  label_id: string;
+}
+
+interface StatisticsUpdateData {
+  statistic_ids?: string[];
+}
+
+// ============================================
+// SUBSCRIBE_ENTITIES MESSAGE TYPES
+// ============================================
+
+interface SubscribeEntitiesMessage {
+  a?: Record<string, CompressedEntityState>;
+  c?: Record<string, EntityStateDiff>;
+  r?: string[];
+}
+
+interface CompressedEntityState {
+  s?: string;
+  state?: string;
+  a?: Record<string, unknown>;
+  attributes?: Record<string, unknown>;
+  c?: { id: string; parent_id: string | null; user_id: string | null };
+  context?: { id: string; parent_id: string | null; user_id: string | null };
+  lc?: number;
+  last_changed?: string;
+  lu?: number;
+  last_updated?: string;
+}
+
+interface EntityStateDiff {
+  "+"?: Partial<CompressedEntityState>;
+  "-"?: {
+    a?: string[];
+  };
+}
+
+// ============================================
+// ACTIVE SUBSCRIPTIONS TRACKING
+// ============================================
+
+/** Active subscription cleanup functions (managed externally from store) */
+let activeSubscriptions: (() => Promise<void> | void)[] = [];
+
+// ============================================
+// SUBSCRIPTION SETUP
+// ============================================
+
+/**
+ * Subscribe to all relevant events from Home Assistant
+ */
+export async function subscribeToUpdates(conn: SyncLayerConnection): Promise<void> {
+  // Clear any existing subscriptions
+  await cleanupSubscriptions();
+
+  // Subscribe to registry_updated events
+  const registryUpdatedSub = await conn.subscribeEvents((event) => {
+    handleRegistryUpdate(event as HAEvent<RegistryUpdateData>);
+  }, "entity_registry_updated");
+  activeSubscriptions.push(() => registryUpdatedSub());
+
+  // Subscribe to device registry updates
+  const deviceRegistrySub = await conn.subscribeEvents((event) => {
+    handleDeviceRegistryUpdate(event as HAEvent<DeviceRegistryUpdateData>);
+  }, "device_registry_updated");
+  activeSubscriptions.push(() => deviceRegistrySub());
+
+  // Subscribe to area registry updates
+  const areaRegistrySub = await conn.subscribeEvents((event) => {
+    handleAreaRegistryUpdate(event as HAEvent<AreaRegistryUpdateData>);
+  }, "area_registry_updated");
+  activeSubscriptions.push(() => areaRegistrySub());
+
+  // Subscribe to floor registry updates
+  const floorRegistrySub = await conn.subscribeEvents((event) => {
+    handleFloorRegistryUpdate(event as HAEvent<FloorRegistryUpdateData>);
+  }, "floor_registry_updated");
+  activeSubscriptions.push(() => floorRegistrySub());
+
+  // Subscribe to label registry updates
+  const labelRegistrySub = await conn.subscribeEvents((event) => {
+    handleLabelRegistryUpdate(event as HAEvent<LabelRegistryUpdateData>);
+  }, "label_registry_updated");
+  activeSubscriptions.push(() => labelRegistrySub());
+
+  // Subscribe to statistics updates
+  const statisticsSub = await conn.subscribeEvents((event) => {
+    handleStatisticsUpdate(event as HAEvent<StatisticsUpdateData>);
+  }, "recorder_5min_statistics_generated");
+  activeSubscriptions.push(() => statisticsSub());
+
+  // Subscribe to entity state updates
+  const entityUpdatesSub = await conn.subscribeMessage(
+    (message: SubscribeEntitiesMessage) => {
+      setState(
+        produce((s) => {
+          if (message.a) {
+            for (const [entityId, compressedState] of Object.entries(message.a)) {
+              applyCompressedState(s, entityId, compressedState);
+            }
+          }
+
+          if (message.c) {
+            for (const [entityId, diff] of Object.entries(message.c)) {
+              applyStateDiff(s, entityId, diff);
+            }
+          }
+
+          if (message.r) {
+            for (const entityId of message.r) {
+              delete s.entities[entityId];
+            }
+          }
+        }),
+      );
+
+      if (message.a) {
+        for (const [entityId, compressedState] of Object.entries(message.a)) {
+          maybeAppendHistory(entityId, compressedState);
+        }
+      }
+
+      if (message.c) {
+        for (const [entityId, diff] of Object.entries(message.c)) {
+          if (diff["+"]) {
+            maybeAppendHistoryFromDiff(entityId, diff["+"]);
+          }
+        }
+      }
+    },
+    {
+      type: "subscribe_entities",
+    },
+  );
+  activeSubscriptions.push(() => entityUpdatesSub());
+}
+
+/**
+ * Clean up all active subscriptions
+ */
+export async function cleanupSubscriptions(): Promise<void> {
+  const subscriptions = [...activeSubscriptions];
+
+  for (const unsub of subscriptions) {
+    await unsub();
+  }
+
+  activeSubscriptions = [];
+}
+
+// ============================================
+// EVENT HANDLERS
+// ============================================
+
+async function handleRegistryUpdate(event: HAEvent<RegistryUpdateData>): Promise<void> {
+  const { action, entity_id } = event.data;
+
+  if (action === "create" || action === "update") {
+    const conn = state.conn;
+    if (!conn) return;
+
+    try {
+      const entry = await conn.sendMessagePromise<any>({
+        type: "config/entity_registry/get",
+        entity_id,
+      });
+
+      if (entry) {
+        updateEntityRegistry(entry);
+      }
+    } catch (error) {
+      console.error("Error fetching registry entry:", error);
+    }
+  } else if (action === "remove") {
+    removeEntityRegistry(entity_id);
+  }
+}
+
+async function handleDeviceRegistryUpdate(event: HAEvent<DeviceRegistryUpdateData>): Promise<void> {
+  const { action, device_id } = event.data;
+
+  if (action === "create" || action === "update") {
+    const conn = state.conn;
+    if (!conn) return;
+
+    try {
+      const devices = await conn.sendMessagePromise<any[]>({
+        type: "config/device_registry/list",
+      });
+
+      const device = devices.find((d) => d.id === device_id);
+      if (device) {
+        updateDevice(device);
+      }
+    } catch (error) {
+      console.error("Error fetching device:", error);
+    }
+  } else if (action === "remove") {
+    removeDevice(device_id);
+  }
+}
+
+async function handleAreaRegistryUpdate(event: HAEvent<AreaRegistryUpdateData>): Promise<void> {
+  const { action, area_id } = event.data;
+
+  if (action === "create" || action === "update") {
+    const conn = state.conn;
+    if (!conn) return;
+
+    try {
+      const areas = await conn.sendMessagePromise<any[]>({
+        type: "config/area_registry/list",
+      });
+
+      const areaApi = areas.find((a) => a.area_id === area_id || a.id === area_id);
+      if (areaApi) {
+        const area: AreaRegistryEntry = {
+          id: areaApi.area_id || areaApi.id,
+          name: areaApi.name,
+          normalized_name:
+            areaApi.normalized_name || areaApi.name.toLowerCase().replace(/\s+/g, "_"),
+          aliases: Array.isArray(areaApi.aliases) ? areaApi.aliases : [],
+          floor_id: areaApi.floor_id ?? null,
+          humidity_entity_id: areaApi.humidity_entity_id ?? null,
+          icon: areaApi.icon ?? null,
+          labels: Array.isArray(areaApi.labels) ? areaApi.labels : [],
+          picture: areaApi.picture ?? null,
+          temperature_entity_id: areaApi.temperature_entity_id ?? null,
+          created_at:
+            typeof areaApi.created_at === "number"
+              ? new Date(areaApi.created_at * 1000).toISOString()
+              : areaApi.created_at,
+          modified_at:
+            typeof areaApi.modified_at === "number"
+              ? new Date(areaApi.modified_at * 1000).toISOString()
+              : areaApi.modified_at,
+        };
+        updateArea(area);
+      }
+    } catch (error) {
+      console.error("Error fetching area:", error);
+    }
+  } else if (action === "remove") {
+    removeArea(area_id);
+  }
+}
+
+async function handleFloorRegistryUpdate(event: HAEvent<FloorRegistryUpdateData>): Promise<void> {
+  const { action, floor_id } = event.data;
+
+  if (action === "create" || action === "update") {
+    const conn = state.conn;
+    if (!conn) return;
+
+    try {
+      const floors = await conn.sendMessagePromise<any[]>({
+        type: "config/floor_registry/list",
+      });
+
+      const floor = floors.find((f) => f.floor_id === floor_id);
+      if (floor) {
+        updateFloor(floor);
+      }
+    } catch (error) {
+      console.error("Error fetching floor:", error);
+    }
+  } else if (action === "remove") {
+    removeFloor(floor_id);
+  }
+}
+
+async function handleLabelRegistryUpdate(event: HAEvent<LabelRegistryUpdateData>): Promise<void> {
+  const { action, label_id } = event.data;
+
+  if (action === "create" || action === "update") {
+    const conn = state.conn;
+    if (!conn) return;
+
+    try {
+      const labels = await conn.sendMessagePromise<any[]>({
+        type: "config/label_registry/list",
+      });
+
+      const label = labels.find((l) => l.label_id === label_id);
+      if (label) {
+        updateLabel(label);
+      }
+    } catch (error) {
+      console.error("Error fetching label:", error);
+    }
+  } else if (action === "remove") {
+    removeLabel(label_id);
+  }
+}
+
+async function handleStatisticsUpdate(event: HAEvent<StatisticsUpdateData>): Promise<void> {
+  const { statistic_ids } = event.data;
+  if (!statistic_ids || statistic_ids.length === 0) return;
+
+  const conn = state.conn;
+  if (!conn) return;
+
+  try {
+    const metadata = await conn.sendMessagePromise<any[]>({
+      type: "recorder/get_statistics_metadata",
+      statistic_ids,
+    });
+
+    if (metadata && Array.isArray(metadata)) {
+      updateStatisticsMetadata(metadata);
+    }
+  } catch (error) {
+    console.error("Error fetching statistics metadata:", error);
+  }
+}
+
+// ============================================
+// SUBSCRIPTION UTILITIES
+// ============================================
+
+/**
+ * Check if subscriptions are active
+ */
+export function hasActiveSubscriptions(): boolean {
+  return activeSubscriptions.length > 0;
+}
+
+/**
+ * Get number of active subscriptions
+ */
+export function getSubscriptionCount(): number {
+  return activeSubscriptions.length;
+}
+
+// ============================================
+// COMPRESSED STATE HELPERS
+// ============================================
+
+function timestampToIso(timestamp: number | string | undefined): string {
+  if (timestamp === undefined) {
+    return new Date().toISOString();
+  }
+  if (typeof timestamp === "string") {
+    return timestamp;
+  }
+  return new Date(timestamp * 1000).toISOString();
+}
+
+function maybeAppendHistory(entityId: string, compressed: CompressedEntityState): void {
+  if (!isHistoryTracked(entityId)) return;
+  const stateVal = compressed.s ?? compressed.state ?? "unknown";
+  const attributes = (compressed.a ?? compressed.attributes ?? {}) as Record<string, unknown>;
+  const lu =
+    compressed.lu ??
+    (compressed.last_updated
+      ? new Date(compressed.last_updated as string).getTime() / 1000
+      : Date.now() / 1000);
+  const lc =
+    compressed.lc ??
+    (compressed.last_changed
+      ? new Date(compressed.last_changed as string).getTime() / 1000
+      : undefined);
+  appendHistoryPoint(entityId, stateVal, attributes, lu, lc);
+}
+
+function maybeAppendHistoryFromDiff(
+  entityId: string,
+  additions: Partial<CompressedEntityState>,
+): void {
+  if (!isHistoryTracked(entityId)) return;
+  const entity = state.entities[entityId];
+  if (!entity) return;
+  const lu = additions.lu ?? Date.now() / 1000;
+  const lc = additions.lc;
+  appendHistoryPoint(entityId, entity.state, entity.attributes, lu, lc);
+}
+
+function applyCompressedState(
+  s: import("../core/store").GlassHomeState,
+  entityId: string,
+  compressed: CompressedEntityState,
+): void {
+  const stateVal = compressed.s ?? compressed.state ?? "unknown";
+  const attributes = compressed.a ?? compressed.attributes ?? {};
+  const context = compressed.c ?? compressed.context ?? { id: "", parent_id: null, user_id: null };
+  const lastChanged = timestampToIso(compressed.lc ?? compressed.last_changed);
+  const lastUpdated = timestampToIso(compressed.lu ?? compressed.last_updated);
+
+  const entity: HassEntity = {
+    entity_id: entityId,
+    state: stateVal,
+    attributes: attributes as Record<string, unknown>,
+    last_changed: lastChanged,
+    last_updated: lastUpdated,
+    context,
+  };
+
+  s.entities[entityId] = entity;
+}
+
+function applyStateDiff(
+  s: import("../core/store").GlassHomeState,
+  entityId: string,
+  diff: EntityStateDiff,
+): void {
+  const existing = s.entities[entityId];
+  if (!existing) return;
+
+  const additions = diff["+"];
+  if (additions) {
+    if (additions.s !== undefined) {
+      existing.state = additions.s;
+    }
+    if (additions.a) {
+      Object.assign(existing.attributes, additions.a);
+    }
+    if (additions.lc !== undefined) {
+      existing.last_changed = timestampToIso(additions.lc);
+    }
+    if (additions.lu !== undefined) {
+      existing.last_updated = timestampToIso(additions.lu);
+    }
+    if (additions.c) {
+      existing.context = additions.c;
+    }
+  }
+
+  const removals = diff["-"];
+  if (removals?.a) {
+    for (const key of removals.a) {
+      delete existing.attributes[key];
+    }
+  }
+}

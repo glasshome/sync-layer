@@ -1,0 +1,72 @@
+{
+  "name": "@glasshome/sync-layer",
+  "version": "0.1.0",
+  "description": "Type-safe, reactive state synchronization layer for Home Assistant",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/glasshome-labs/sync-layer.git"
+  },
+  "type": "module",
+  "main": "dist/index.mjs",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.mts",
+  "exports": {
+    ".": {
+      "@glasshome/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./solid": {
+      "@glasshome/source": "./src/solid/index.ts",
+      "types": "./dist/solid/index.d.ts",
+      "import": "./dist/solid/index.js"
+    },
+    "./testing": {
+      "@glasshome/source": "./src/testing/index.ts",
+      "types": "./dist/testing/index.d.ts",
+      "import": "./dist/testing/index.js"
+    },
+    "./demo": {
+      "@glasshome/source": "./src/demo/demo-provider.ts",
+      "types": "./dist/demo/demo-provider.d.ts",
+      "import": "./dist/demo/demo-provider.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "@glasshome/ha-types": "^0.1.0",
+    "solid-js": "^1.9.0"
+  },
+  "peerDependenciesMeta": {
+    "@glasshome/ha-types": {
+      "optional": false
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "test": "bun test",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "home-assistant-js-websocket": "^9.6.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "tsdown": "^0.2.0",
+    "typescript": "^5"
+  },
+  "keywords": [
+    "home-assistant",
+    "websocket",
+    "typescript",
+    "reactive",
+    "solidjs",
+    "smart-home"
+  ],
+  "author": "GlassHome Labs",
+  "license": "MIT"
+}
