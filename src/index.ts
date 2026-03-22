@@ -120,11 +120,6 @@ export type {
 
 export { fetchStream, fetchStreamData } from "./camera/fetch";
 export { getStream, refreshStream } from "./camera/query";
-export {
-  getWebRtcClientConfig,
-  sendWebRtcCandidate,
-  startWebRtcSession,
-} from "./camera/webrtc";
 export type {
   CameraStream,
   CameraStreamData,
@@ -134,6 +129,11 @@ export type {
   StreamQueryOptions,
   StreamResult,
 } from "./camera/types";
+export {
+  getWebRtcClientConfig,
+  sendWebRtcCandidate,
+  startWebRtcSession,
+} from "./camera/webrtc";
 export {
   buildAreaView,
   buildDeviceView,

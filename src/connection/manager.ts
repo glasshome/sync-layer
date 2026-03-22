@@ -8,7 +8,12 @@
  */
 
 import type { EntityRegistryEntry } from "@glasshome/ha-types";
-import { type Auth, type Connection, createConnection } from "home-assistant-js-websocket";
+import {
+  type Auth,
+  type Connection,
+  createConnection,
+  type ConnectionOptions as HAConnectionOptions,
+} from "home-assistant-js-websocket";
 import { produce } from "solid-js/store";
 import { bulkUpdateEntities, bulkUpdateEntityRegistry } from "../core/reducers";
 import { setState, state } from "../core/store";
@@ -28,6 +33,7 @@ import type { SyncLayerConnection } from "./types";
 export interface ConnectionOptions {
   url: string;
   auth: Auth | string | OAuthOptions;
+  createSocket?: HAConnectionOptions["createSocket"];
   onConnect?: () => void;
   onDisconnect?: () => void;
   onReconnect?: () => void;
@@ -60,7 +66,10 @@ export async function initConnection(options: ConnectionOptions): Promise<Connec
       auth = options.auth;
     }
 
-    const conn = await createConnection({ auth });
+    const conn = await createConnection({
+      auth,
+      ...(options.createSocket ? { createSocket: options.createSocket } : {}),
+    });
     const wrappedConn: SyncLayerConnection = wrapHAConnection(conn);
 
     setState(

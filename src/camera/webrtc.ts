@@ -35,9 +35,7 @@ interface WebRtcSession {
 /**
  * Get WebRTC client configuration (STUN/TURN servers) from HA
  */
-export async function getWebRtcClientConfig(
-  entityId: EntityId,
-): Promise<WebRtcClientConfig> {
+export async function getWebRtcClientConfig(entityId: EntityId): Promise<WebRtcClientConfig> {
   const conn = state.conn;
   if (!conn) throw new Error("Not connected");
 
@@ -97,9 +95,7 @@ export function startWebRtcSession(
             case "error":
               clearTimeout(timeout);
               session.unsubscribe?.();
-              reject(
-                new Error(event.message || event.code || "WebRTC offer failed"),
-              );
+              reject(new Error(event.message || event.code || "WebRTC offer failed"));
               break;
           }
         },

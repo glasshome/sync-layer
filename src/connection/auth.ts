@@ -123,28 +123,51 @@ export async function authenticateWithOAuth(options: OAuthOptions): Promise<Auth
     limitHassInstance,
   } = options;
 
-  // Try loading saved auth first
-  if (loadAuth) {
-    const savedAuth = await loadAuth();
-    if (savedAuth) {
-      try {
-        // Verify auth is still valid
-        await savedAuth.refreshAccessToken();
-        return savedAuth;
-      } catch {
-        // Auth expired, continue with new flow
-      }
-    }
+  // Try getAuth with saved tokens first (no auth code).
+  // If loadTokens returns valid tokens, getAuth will reuse them.
+  try {
+    const auth = await getAuth({
+      hassUrl: url,
+      clientId: clientId ?? null,
+      redirectUrl: redirectUri,
+      authCode: authCode,
+      limitHassInstance,
+      async loadTokens() {
+        if (loadAuth) {
+          const saved = await loadAuth();
+          if (saved?.data) {
+            return saved.data as any;
+          }
+        }
+        return null;
+      },
+      saveTokens(tokens) {
+        if (saveAuth && tokens) {
+          const authObj = {
+            hassUrl: url,
+            clientId,
+            redirectUrl: redirectUri,
+            data: tokens,
+            async refreshAccessToken() {
+              return Promise.resolve();
+            },
+          } as unknown as Auth;
+          void saveAuth(authObj);
+        }
+      },
+    });
+    return auth;
+  } catch {
+    // Saved tokens missing or expired — need fresh auth code
   }
 
-  // Get auth code if needed
+  // Get a fresh auth code
   let finalAuthCode = authCode;
   if (!finalAuthCode && getAuthCode) {
     finalAuthCode = await getAuthCode();
   }
 
-  // Use getAuth from home-assistant-js-websocket
-  // This handles the full OAuth flow
+  // Exchange the new code for tokens
   const auth = await getAuth({
     hassUrl: url,
     clientId: clientId ?? null,
