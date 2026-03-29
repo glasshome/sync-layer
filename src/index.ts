@@ -80,6 +80,7 @@ export type { GlassHomeState } from "./core/store";
 export type {
   AreaId,
   AreaView,
+  ConnectionState,
   DeviceId,
   DeviceView,
   EntityDomain,
@@ -87,6 +88,7 @@ export type {
   EntityView,
   HassEntity,
 } from "./core/types";
+export { extractDomain } from "./core/types";
 
 // ============================================
 // STORE ACCESS

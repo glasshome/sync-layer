@@ -10,4 +10,5 @@ export default defineConfig({
   format: ["esm"],
   dts: true,
   clean: true,
+  external: ["@glasshome/sync-layer"],
 });

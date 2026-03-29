@@ -2,8 +2,7 @@
 
 import type { Accessor } from "solid-js";
 import { createMemo } from "solid-js";
-import { state } from "../core/store";
-import { extractDomain } from "../core/types";
+import { extractDomain, state } from "@glasshome/sync-layer";
 
 // ============================================
 // HELPER

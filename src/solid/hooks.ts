@@ -13,22 +13,25 @@
 
 import type { Accessor } from "solid-js";
 import { createMemo } from "solid-js";
-import type { CameraStreamData } from "../camera/types";
-import { callService, toggle, turnOff, turnOn } from "../commands/service";
-import type { GlassHomeState } from "../core/store";
-import { state } from "../core/store";
 import type {
-  AreaId,
   AreaView,
+  CameraStreamData,
   ConnectionState,
-  EntityId,
+  EntityHistoryData,
   EntityView,
+  GlassHomeState,
   HassEntity,
-} from "../core/types";
-import { buildAreaView } from "../entities/area-views";
-import { getEntityView } from "../entities/views";
-import type { EntityHistoryData } from "../history/types";
-import type { WeatherForecastsData } from "../weather/types";
+  WeatherForecastsData,
+} from "@glasshome/sync-layer";
+import {
+  buildAreaView,
+  callService,
+  getEntityView,
+  state,
+  toggle,
+  turnOff,
+  turnOn,
+} from "@glasshome/sync-layer";
 
 // ============================================
 // ENTITY HOOKS
