@@ -167,11 +167,3 @@ export function createStoreInstance(): [GlassHomeState, SetStoreFunction<GlassHo
   return createStore<GlassHomeState>({ ...initialState });
 }
 
-// ============================================
-// TYPE EXPORTS
-// ============================================
-
-/**
- * Store tuple type for dependency injection
- */
-export type Store = [get: GlassHomeState, set: SetStoreFunction<GlassHomeState>];

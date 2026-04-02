@@ -19,10 +19,10 @@ import type { EntityUpdateFields, ServiceTarget } from "./types";
 /**
  * Call a Home Assistant service
  */
-export async function callService(
-  domain: Domain,
-  service: ServiceName<Domain>,
-  serviceData: ServiceCall<Domain, ServiceName<Domain>> = {},
+export async function callService<D extends Domain, S extends ServiceName<D>>(
+  domain: D,
+  service: S,
+  serviceData: ServiceCall<D, S> = {} as ServiceCall<D, S>,
   target: ServiceTarget = {},
 ): Promise<void> {
   const connection = state.conn;
