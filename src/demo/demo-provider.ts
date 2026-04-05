@@ -43,6 +43,7 @@ export async function loadDemoData(): Promise<void> {
   setState("entityRegistry", reconcile(fixtures.entityRegistry));
   setState("areas", reconcile(fixtures.areas));
   setState("devices", reconcile(fixtures.devices));
+  setState("hassUrl", "https://demo.home-assistant.local");
   setState("connectionState", "connected");
 
   _isDemoMode = true;
@@ -56,6 +57,7 @@ export function unloadDemoData(): void {
   setState("entityRegistry", reconcile({}));
   setState("areas", reconcile({}));
   setState("devices", reconcile({}));
+  setState("hassUrl", null);
   setState("connectionState", "disconnected");
 
   _isDemoMode = false;

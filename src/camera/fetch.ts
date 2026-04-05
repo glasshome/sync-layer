@@ -9,13 +9,21 @@ import { state } from "../core/store";
 import type { EntityId } from "../core/types";
 import type { CameraStream, CameraStreamData, StreamFormat, StreamQueryOptions } from "./types";
 
+/** Public HLS test stream for demo/disconnected mode */
+const DEMO_HLS_STREAM = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
+
 /**
- * Fetch stream for a camera entity
+ * Fetch stream for a camera entity.
+ * Returns a public demo HLS stream when not connected.
  */
 export async function fetchStream(
   entityId: EntityId,
   format: StreamFormat = "hls",
 ): Promise<string | null> {
+  if (!state.conn) {
+    return format === "hls" ? DEMO_HLS_STREAM : null;
+  }
+
   const response = await sendCommand<{ url: string }>({
     type: "camera/stream",
     entity_id: entityId,

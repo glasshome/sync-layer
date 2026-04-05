@@ -10,6 +10,7 @@ import type { Domain, ServiceCall, ServiceName, WsCommandType } from "@glasshome
 import { callService as wsCallService } from "home-assistant-js-websocket";
 import { state } from "../core/store";
 import type { EntityId } from "../core/types";
+import { applyDemoServiceCall } from "../demo/demo-provider";
 import type { EntityUpdateFields, ServiceTarget } from "./types";
 
 // ============================================
@@ -28,7 +29,8 @@ export async function callService<D extends Domain, S extends ServiceName<D>>(
   const connection = state.conn;
 
   if (!connection) {
-    throw new Error("Not connected to Home Assistant. Call initConnection() first.");
+    applyDemoServiceCall(domain, service, serviceData as Record<string, any>, target);
+    return;
   }
 
   try {

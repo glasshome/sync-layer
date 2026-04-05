@@ -37,7 +37,7 @@ interface WebRtcSession {
  */
 export async function getWebRtcClientConfig(entityId: EntityId): Promise<WebRtcClientConfig> {
   const conn = state.conn;
-  if (!conn) throw new Error("Not connected");
+  if (!conn) throw new Error("No connection available");
 
   return conn.sendMessagePromise<WebRtcClientConfig>({
     type: "camera/webrtc/get_client_config",

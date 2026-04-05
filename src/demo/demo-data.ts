@@ -470,6 +470,7 @@ export function createDemoFixtures(): DemoFixtures {
     makeEntity("camera.front_door_camera", "streaming", {
       entity_picture: "/api/camera_proxy/camera.front_door_camera",
       frontend_stream_type: "hls",
+      access_token: "demo-token",
     }),
     { device_id: "camera_front", area_id: "entry", supported_features: 2 },
   );

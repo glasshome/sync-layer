@@ -75,6 +75,7 @@ export async function initConnection(options: ConnectionOptions): Promise<Connec
     setState(
       produce((s) => {
         s.conn = conn;
+        s.hassUrl = options.url.replace(/\/$/, "");
         s.connectionState = "connected";
       }),
     );
