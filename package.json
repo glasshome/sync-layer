@@ -1,6 +1,6 @@
 {
   "name": "@glasshome/sync-layer",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "description": "Type-safe, reactive state synchronization layer for Home Assistant",
   "repository": {
     "type": "git",
@@ -25,11 +25,6 @@
       "@glasshome/source": "./src/testing/index.ts",
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js"
-    },
-    "./demo": {
-      "@glasshome/source": "./src/demo/demo-provider.ts",
-      "types": "./dist/demo/demo-provider.d.ts",
-      "import": "./dist/demo/demo-provider.js"
     },
     "./package.json": "./package.json"
   },

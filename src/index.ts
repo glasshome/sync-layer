@@ -187,6 +187,18 @@ export type {
 } from "./weather/types";
 
 // ============================================
+// DEMO MODE
+// ============================================
+
+export {
+  applyDemoServiceCall,
+  createDemoFixtures,
+  isDemoMode,
+  loadDemoData,
+  unloadDemoData,
+} from "./demo/demo-provider";
+
+// ============================================
 // VERSION
 // ============================================
 
