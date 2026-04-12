@@ -12,7 +12,7 @@
  */
 
 import type { Accessor } from "solid-js";
-import { createMemo } from "solid-js";
+import { createEffect, createMemo, onCleanup } from "solid-js";
 import type {
   AreaView,
   CameraStreamData,
@@ -32,6 +32,7 @@ import {
   turnOff,
   turnOn,
 } from "@glasshome/sync-layer";
+import { registerEntity } from "../connection/subscription-manager";
 
 // ============================================
 // ENTITY HOOKS
@@ -40,11 +41,19 @@ import {
 /**
  * Get a reactive EntityView for an entity ID.
  *
- * Direct createMemo over store -- zero overhead, fine-grained reactivity.
+ * Registers the entity for live updates via the subscription manager.
  * Only re-runs when the specific entity's data changes.
  */
 export function useEntity(entityId: Accessor<string> | string): Accessor<EntityView | undefined> {
   const getId = typeof entityId === "function" ? entityId : () => entityId;
+
+  createEffect(() => {
+    const id = getId();
+    if (!id) return;
+    const unregister = registerEntity(id);
+    onCleanup(unregister);
+  });
+
   return createMemo(() => {
     const id = getId();
     if (!id) return undefined;
@@ -54,8 +63,18 @@ export function useEntity(entityId: Accessor<string> | string): Accessor<EntityV
 
 /**
  * Get reactive EntityViews for multiple entity IDs.
+ *
+ * Registers all entity IDs for live updates via the subscription manager.
  */
 export function useEntities(entityIds: Accessor<string[]>): Accessor<EntityView[]> {
+  createEffect(() => {
+    const ids = entityIds();
+    const unregisters = ids.map((id) => registerEntity(id));
+    onCleanup(() => {
+      for (const unreg of unregisters) unreg();
+    });
+  });
+
   return createMemo(() => {
     return entityIds()
       .map((id) => getEntityView(id))
@@ -65,11 +84,21 @@ export function useEntities(entityIds: Accessor<string[]>): Accessor<EntityView[
 
 /**
  * Get raw HassEntity state (without EntityView transformation).
+ *
+ * Registers the entity for live updates via the subscription manager.
  */
 export function useEntityState(
   entityId: Accessor<string> | string,
 ): Accessor<HassEntity | undefined> {
   const getId = typeof entityId === "function" ? entityId : () => entityId;
+
+  createEffect(() => {
+    const id = getId();
+    if (!id) return;
+    const unregister = registerEntity(id);
+    onCleanup(unregister);
+  });
+
   return createMemo(() => state.entities[getId()]);
 }
 
@@ -143,10 +172,13 @@ export function useAreas(): Accessor<AreaView[]> {
 
 /**
  * Get a reactive AreaView for a specific area.
+ *
+ * Registers all entities in the area for live updates.
  */
 export function useArea(areaId: Accessor<string> | string): Accessor<AreaView | undefined> {
   const getId = typeof areaId === "function" ? areaId : () => areaId;
-  return createMemo(() => {
+
+  const view = createMemo(() => {
     const id = getId();
     if (!id || !state.areas[id]) return undefined;
     try {
@@ -155,6 +187,18 @@ export function useArea(areaId: Accessor<string> | string): Accessor<AreaView | 
       return undefined;
     }
   });
+
+  // Register resolved entity IDs from the area
+  createEffect(() => {
+    const v = view();
+    if (!v) return;
+    const unregisters = v.entityIds.map((id) => registerEntity(id));
+    onCleanup(() => {
+      for (const unreg of unregisters) unreg();
+    });
+  });
+
+  return view;
 }
 
 // ============================================

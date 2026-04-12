@@ -4,6 +4,22 @@ import type { EntityId } from "../core/types";
 import { fetchEntityHistory } from "./fetch";
 import type { EntityHistoryData, EntityHistoryQueryOptions } from "./types";
 
+// ============================================
+// TYPES
+// ============================================
+
+export interface HistoryPoint {
+  entityId: EntityId;
+  stateValue: string;
+  attributes: Record<string, unknown>;
+  lastUpdated: number;
+  lastChanged?: number;
+}
+
+// ============================================
+// TRACKING
+// ============================================
+
 /** Set of entity IDs with active history tracking. */
 const trackedEntities = new Set<EntityId>();
 
@@ -66,6 +82,36 @@ export function appendHistoryPoint(
         lastChanged,
         lastUpdated,
       });
+    }),
+  );
+}
+
+/**
+ * Append multiple history points in a single setState(produce(...)).
+ * Called by the rAF-batched subscription flush.
+ */
+export function bulkAppendHistoryPoints(points: HistoryPoint[]): void {
+  if (points.length === 0) return;
+  setState(
+    produce((s) => {
+      for (const { entityId, stateValue, attributes, lastUpdated, lastChanged } of points) {
+        const history = s.history[entityId];
+        if (!history) continue;
+
+        history.entityHistory.push({
+          s: stateValue,
+          a: attributes,
+          lu: lastUpdated,
+          lc: lastChanged,
+        });
+        history.timeline.push({
+          timestamp: lastUpdated,
+          state: stateValue,
+          attributes,
+          lastChanged,
+          lastUpdated,
+        });
+      }
     }),
   );
 }

@@ -23,8 +23,14 @@ import {
   updateStatisticsMetadata,
 } from "../core/reducers";
 import { setState, state } from "../core/store";
-import type { AreaRegistryEntry, HassEntity } from "../core/types";
-import { appendHistoryPoint, isHistoryTracked } from "../history/query";
+import type { AreaRegistryEntry, EntityId, HassEntity } from "../core/types";
+import { bulkAppendHistoryPoints, isHistoryTracked } from "../history/query";
+import type { HistoryPoint } from "../history/query";
+import {
+  setCurrentEntityUnsub,
+  setManagerConnection,
+  setResubscribeHandler,
+} from "./subscription-manager";
 import type { SyncLayerConnection } from "./types";
 
 // ============================================
@@ -94,8 +100,102 @@ interface EntityStateDiff {
 // ACTIVE SUBSCRIPTIONS TRACKING
 // ============================================
 
-/** Active subscription cleanup functions (managed externally from store) */
-let activeSubscriptions: (() => Promise<void> | void)[] = [];
+/** Registry subscription cleanup functions (entity sub managed by subscription-manager) */
+let registrySubscriptions: (() => Promise<void> | void)[] = [];
+
+// ============================================
+// RAF BATCHING
+// ============================================
+
+/** Buffered messages waiting for next animation frame */
+let messageBuffer: SubscribeEntitiesMessage[] = [];
+let rafScheduled = false;
+
+function bufferMessage(message: SubscribeEntitiesMessage): void {
+  messageBuffer.push(message);
+  if (!rafScheduled) {
+    rafScheduled = true;
+    // Use rAF in browser, fallback to microtask in SSR/node
+    const schedule = typeof requestAnimationFrame === "function" ? requestAnimationFrame : queueMicrotask;
+    schedule(flushMessageBuffer);
+  }
+}
+
+function flushMessageBuffer(): void {
+  rafScheduled = false;
+  const messages = messageBuffer;
+  messageBuffer = [];
+  if (messages.length === 0) return;
+
+  // Single setState(produce) for all buffered messages
+  setState(
+    produce((s) => {
+      for (const message of messages) {
+        if (message.a) {
+          for (const [entityId, compressedState] of Object.entries(message.a)) {
+            applyCompressedState(s, entityId, compressedState);
+          }
+        }
+        if (message.c) {
+          for (const [entityId, diff] of Object.entries(message.c)) {
+            applyStateDiff(s, entityId, diff);
+          }
+        }
+        if (message.r) {
+          for (const entityId of message.r) {
+            delete s.entities[entityId];
+          }
+        }
+      }
+    }),
+  );
+
+  // Batch history appends
+  const historyPoints: HistoryPoint[] = [];
+  for (const message of messages) {
+    if (message.a) {
+      for (const [entityId, compressedState] of Object.entries(message.a)) {
+        collectHistoryFromCompressed(historyPoints, entityId, compressedState);
+      }
+    }
+    if (message.c) {
+      for (const [entityId, diff] of Object.entries(message.c)) {
+        if (diff["+"]) {
+          collectHistoryFromDiff(historyPoints, entityId, diff["+"]);
+        }
+      }
+    }
+  }
+  if (historyPoints.length > 0) {
+    bulkAppendHistoryPoints(historyPoints);
+  }
+}
+
+// ============================================
+// ENTITY SUBSCRIPTION (managed by subscription-manager)
+// ============================================
+
+/**
+ * Subscribe to entity state updates with an entity_ids filter.
+ * Called by the subscription manager on flush.
+ */
+export async function subscribeEntities(
+  connection: SyncLayerConnection,
+  entityIds: EntityId[],
+): Promise<() => Promise<void>> {
+  const subscribeMsg: Record<string, unknown> = { type: "subscribe_entities" };
+  if (entityIds.length > 0) {
+    subscribeMsg.entity_ids = entityIds;
+  }
+
+  const unsub = await connection.subscribeMessage(
+    (message: SubscribeEntitiesMessage) => {
+      bufferMessage(message);
+    },
+    subscribeMsg,
+  );
+  return unsub;
+}
 
 // ============================================
 // SUBSCRIPTION SETUP
@@ -105,102 +205,67 @@ let activeSubscriptions: (() => Promise<void> | void)[] = [];
  * Subscribe to all relevant events from Home Assistant
  */
 export async function subscribeToUpdates(conn: SyncLayerConnection): Promise<void> {
-  // Clear any existing subscriptions
+  // Clear any existing registry subscriptions
   await cleanupSubscriptions();
+
+  // Wire up the subscription manager
+  setManagerConnection(conn);
+  setResubscribeHandler(subscribeEntities);
 
   // Subscribe to registry_updated events
   const registryUpdatedSub = await conn.subscribeEvents((event) => {
     handleRegistryUpdate(event as HAEvent<RegistryUpdateData>);
   }, "entity_registry_updated");
-  activeSubscriptions.push(() => registryUpdatedSub());
+  registrySubscriptions.push(() => registryUpdatedSub());
 
   // Subscribe to device registry updates
   const deviceRegistrySub = await conn.subscribeEvents((event) => {
     handleDeviceRegistryUpdate(event as HAEvent<DeviceRegistryUpdateData>);
   }, "device_registry_updated");
-  activeSubscriptions.push(() => deviceRegistrySub());
+  registrySubscriptions.push(() => deviceRegistrySub());
 
   // Subscribe to area registry updates
   const areaRegistrySub = await conn.subscribeEvents((event) => {
     handleAreaRegistryUpdate(event as HAEvent<AreaRegistryUpdateData>);
   }, "area_registry_updated");
-  activeSubscriptions.push(() => areaRegistrySub());
+  registrySubscriptions.push(() => areaRegistrySub());
 
   // Subscribe to floor registry updates
   const floorRegistrySub = await conn.subscribeEvents((event) => {
     handleFloorRegistryUpdate(event as HAEvent<FloorRegistryUpdateData>);
   }, "floor_registry_updated");
-  activeSubscriptions.push(() => floorRegistrySub());
+  registrySubscriptions.push(() => floorRegistrySub());
 
   // Subscribe to label registry updates
   const labelRegistrySub = await conn.subscribeEvents((event) => {
     handleLabelRegistryUpdate(event as HAEvent<LabelRegistryUpdateData>);
   }, "label_registry_updated");
-  activeSubscriptions.push(() => labelRegistrySub());
+  registrySubscriptions.push(() => labelRegistrySub());
 
   // Subscribe to statistics updates
   const statisticsSub = await conn.subscribeEvents((event) => {
     handleStatisticsUpdate(event as HAEvent<StatisticsUpdateData>);
   }, "recorder_5min_statistics_generated");
-  activeSubscriptions.push(() => statisticsSub());
+  registrySubscriptions.push(() => statisticsSub());
 
-  // Subscribe to entity state updates
-  const entityUpdatesSub = await conn.subscribeMessage(
-    (message: SubscribeEntitiesMessage) => {
-      setState(
-        produce((s) => {
-          if (message.a) {
-            for (const [entityId, compressedState] of Object.entries(message.a)) {
-              applyCompressedState(s, entityId, compressedState);
-            }
-          }
-
-          if (message.c) {
-            for (const [entityId, diff] of Object.entries(message.c)) {
-              applyStateDiff(s, entityId, diff);
-            }
-          }
-
-          if (message.r) {
-            for (const entityId of message.r) {
-              delete s.entities[entityId];
-            }
-          }
-        }),
-      );
-
-      if (message.a) {
-        for (const [entityId, compressedState] of Object.entries(message.a)) {
-          maybeAppendHistory(entityId, compressedState);
-        }
-      }
-
-      if (message.c) {
-        for (const [entityId, diff] of Object.entries(message.c)) {
-          if (diff["+"]) {
-            maybeAppendHistoryFromDiff(entityId, diff["+"]);
-          }
-        }
-      }
-    },
-    {
-      type: "subscribe_entities",
-    },
-  );
-  activeSubscriptions.push(() => entityUpdatesSub());
+  // Initial entity subscription — subscribe to all entities until
+  // the subscription manager gets its first flush from hook registrations.
+  // This ensures the initial get_states snapshot stays fresh.
+  const initialUnsub = await subscribeEntities(conn, []);
+  setCurrentEntityUnsub(initialUnsub);
 }
 
 /**
  * Clean up all active subscriptions
  */
 export async function cleanupSubscriptions(): Promise<void> {
-  const subscriptions = [...activeSubscriptions];
+  const subscriptions = [...registrySubscriptions];
 
   for (const unsub of subscriptions) {
     await unsub();
   }
 
-  activeSubscriptions = [];
+  registrySubscriptions = [];
 }
 
 // ============================================
@@ -377,14 +442,14 @@ async function handleStatisticsUpdate(event: HAEvent<StatisticsUpdateData>): Pro
  * Check if subscriptions are active
  */
 export function hasActiveSubscriptions(): boolean {
-  return activeSubscriptions.length > 0;
+  return registrySubscriptions.length > 0;
 }
 
 /**
  * Get number of active subscriptions
  */
 export function getSubscriptionCount(): number {
-  return activeSubscriptions.length;
+  return registrySubscriptions.length;
 }
 
 // ============================================
@@ -401,7 +466,11 @@ function timestampToIso(timestamp: number | string | undefined): string {
   return new Date(timestamp * 1000).toISOString();
 }
 
-function maybeAppendHistory(entityId: string, compressed: CompressedEntityState): void {
+function collectHistoryFromCompressed(
+  points: HistoryPoint[],
+  entityId: string,
+  compressed: CompressedEntityState,
+): void {
   if (!isHistoryTracked(entityId)) return;
   const stateVal = compressed.s ?? compressed.state ?? "unknown";
   const attributes = (compressed.a ?? compressed.attributes ?? {}) as Record<string, unknown>;
@@ -415,10 +484,11 @@ function maybeAppendHistory(entityId: string, compressed: CompressedEntityState)
     (compressed.last_changed
       ? new Date(compressed.last_changed as string).getTime() / 1000
       : undefined);
-  appendHistoryPoint(entityId, stateVal, attributes, lu, lc);
+  points.push({ entityId, stateValue: stateVal, attributes, lastUpdated: lu, lastChanged: lc });
 }
 
-function maybeAppendHistoryFromDiff(
+function collectHistoryFromDiff(
+  points: HistoryPoint[],
   entityId: string,
   additions: Partial<CompressedEntityState>,
 ): void {
@@ -427,7 +497,13 @@ function maybeAppendHistoryFromDiff(
   if (!entity) return;
   const lu = additions.lu ?? Date.now() / 1000;
   const lc = additions.lc;
-  appendHistoryPoint(entityId, entity.state, entity.attributes, lu, lc);
+  points.push({
+    entityId,
+    stateValue: entity.state,
+    attributes: entity.attributes,
+    lastUpdated: lu,
+    lastChanged: lc,
+  });
 }
 
 function applyCompressedState(

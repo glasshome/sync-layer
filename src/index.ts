@@ -157,10 +157,12 @@ export {
 export { fetchEntityHistory, fetchHistory, historyStateToTimeline } from "./history/fetch";
 export {
   appendHistoryPoint,
+  bulkAppendHistoryPoints,
   isHistoryTracked,
   trackEntityHistory,
   untrackEntityHistory,
 } from "./history/query";
+export type { HistoryPoint } from "./history/query";
 export type {
   EntityHistoryData,
   EntityHistoryQueryOptions,

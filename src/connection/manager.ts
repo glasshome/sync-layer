@@ -20,6 +20,7 @@ import { setState, state } from "../core/store";
 import type { AreaRegistryEntry, HassEntity } from "../core/types";
 import { wrapHAConnection } from "./adapter";
 import { authenticateWithOAuth, authenticateWithToken, type OAuthOptions } from "./auth";
+import { forceResubscribe } from "./subscription-manager";
 import { subscribeToUpdates } from "./subscriptions";
 import type { SyncLayerConnection } from "./types";
 
@@ -167,6 +168,7 @@ function setupEventHandlers(conn: Connection, options: ConnectionOptions): void 
 
     if (wasReconnecting) {
       await loadInitialData(conn);
+      await forceResubscribe();
       options.onReconnect?.();
     }
   });
