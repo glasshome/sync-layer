@@ -9,7 +9,6 @@
 
 import { state } from "../core/store";
 import type { AreaId, AreaView, DeviceRegistryEntry, DeviceView, EntityId } from "../core/types";
-import { getEntitiesViaDevices } from "./index";
 import { getEntityViews } from "./views";
 
 // ============================================
@@ -48,25 +47,30 @@ export function buildAreaView(areaId: AreaId): AreaView {
     throw new Error(`Area ${areaId} not found`);
   }
 
-  // Get entities directly assigned to this area (via entityRegistry)
-  const directEntityIds: EntityId[] = [];
-  for (const [entityId, entry] of Object.entries(state.entityRegistry)) {
-    if (entry.area_id === areaId) {
-      directEntityIds.push(entityId);
+  // Collect devices in this area (also needed for device-inherited entities)
+  const devicesInArea: DeviceRegistryEntry[] = [];
+  const deviceIdsInArea = new Set<string>();
+  for (const device of Object.values(state.devices)) {
+    if (device.area_id === areaId) {
+      devicesInArea.push(device);
+      deviceIdsInArea.add(device.id);
     }
   }
 
-  // Get entities via devices in this area
-  const deviceEntityIds = getEntitiesViaDevices(areaId);
+  // Single pass over entityRegistry: collect direct area entities + device-inherited entities
+  const entityIdSet = new Set<EntityId>();
+  for (const [entityId, entry] of Object.entries(state.entityRegistry)) {
+    if (entry.area_id === areaId) {
+      // Direct area assignment
+      entityIdSet.add(entityId);
+    } else if (!entry.area_id && entry.device_id && deviceIdsInArea.has(entry.device_id)) {
+      // Inherits area from device
+      entityIdSet.add(entityId);
+    }
+  }
 
-  // Combine and deduplicate entity IDs
-  const allEntityIds = Array.from(new Set([...directEntityIds, ...deviceEntityIds]));
-
-  // Get entity views
+  const allEntityIds = [...entityIdSet];
   const areaEntities = allEntityIds.length > 0 ? getEntityViews(allEntityIds) : [];
-
-  // Get devices in this area
-  const devicesInArea = Object.values(state.devices).filter((device) => device.area_id === areaId);
   const devices = devicesInArea.map((device) => buildDeviceView(device));
 
   return {
