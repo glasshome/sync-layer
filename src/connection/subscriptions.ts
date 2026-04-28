@@ -502,6 +502,17 @@ function collectHistoryFromDiff(
   });
 }
 
+function shallowEqualAttributes(
+  existing: Record<string, unknown>,
+  incoming: Record<string, unknown>,
+): boolean {
+  const incomingKeys = Object.keys(incoming);
+  for (const key of incomingKeys) {
+    if (existing[key] !== incoming[key]) return false;
+  }
+  return true;
+}
+
 function applyCompressedState(
   s: import("../core/store").GlassHomeState,
   entityId: string,
@@ -513,16 +524,31 @@ function applyCompressedState(
   const lastChanged = timestampToIso(compressed.lc ?? compressed.last_changed);
   const lastUpdated = timestampToIso(compressed.lu ?? compressed.last_updated);
 
-  const entity: HassEntity = {
-    entity_id: entityId,
-    state: stateVal,
-    attributes: attributes as Record<string, unknown>,
-    last_changed: lastChanged,
-    last_updated: lastUpdated,
-    context,
-  };
-
-  s.entities[entityId] = entity;
+  const existing = s.entities[entityId];
+  if (existing) {
+    // Only mutate fields that actually changed
+    if (existing.state !== stateVal) existing.state = stateVal;
+    if (existing.last_changed !== lastChanged) existing.last_changed = lastChanged;
+    // Only write last_updated when state or attributes changed, not on heartbeats
+    if (existing.state !== stateVal || existing.last_changed !== lastChanged) {
+      existing.last_updated = lastUpdated;
+    }
+    if (!shallowEqualAttributes(existing.attributes, attributes as Record<string, unknown>)) {
+      Object.assign(existing.attributes, attributes);
+    }
+    if (existing.context.id !== context.id) {
+      existing.context = context;
+    }
+  } else {
+    s.entities[entityId] = {
+      entity_id: entityId,
+      state: stateVal,
+      attributes: attributes as Record<string, unknown>,
+      last_changed: lastChanged,
+      last_updated: lastUpdated,
+      context,
+    };
+  }
 }
 
 function applyStateDiff(
@@ -535,19 +561,33 @@ function applyStateDiff(
 
   const additions = diff["+"];
   if (additions) {
-    if (additions.s !== undefined) {
+    let stateChanged = false;
+
+    if (additions.s !== undefined && existing.state !== additions.s) {
       existing.state = additions.s;
+      stateChanged = true;
     }
     if (additions.a) {
-      Object.assign(existing.attributes, additions.a);
+      // Only assign attributes that actually differ
+      for (const [key, value] of Object.entries(additions.a)) {
+        if (existing.attributes[key] !== value) {
+          existing.attributes[key] = value;
+          stateChanged = true;
+        }
+      }
     }
     if (additions.lc !== undefined) {
-      existing.last_changed = timestampToIso(additions.lc);
+      const lcIso = timestampToIso(additions.lc);
+      if (existing.last_changed !== lcIso) {
+        existing.last_changed = lcIso;
+        stateChanged = true;
+      }
     }
-    if (additions.lu !== undefined) {
+    // Only write last_updated when something meaningful changed
+    if (additions.lu !== undefined && stateChanged) {
       existing.last_updated = timestampToIso(additions.lu);
     }
-    if (additions.c) {
+    if (additions.c && existing.context.id !== additions.c.id) {
       existing.context = additions.c;
     }
   }
