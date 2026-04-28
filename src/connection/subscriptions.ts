@@ -27,7 +27,6 @@ import type { AreaRegistryEntry, EntityId, HassEntity } from "../core/types";
 import { bulkAppendHistoryPoints, isHistoryTracked } from "../history/query";
 import type { HistoryPoint } from "../history/query";
 import {
-  setCurrentEntityUnsub,
   setManagerConnection,
   setResubscribeHandler,
 } from "./subscription-manager";
@@ -185,6 +184,8 @@ export async function subscribeEntities(
 ): Promise<() => Promise<void>> {
   const subscribeMsg: Record<string, unknown> = { type: "subscribe_entities" };
   if (entityIds.length > 0) {
+    // HA treats entity_ids: [] as Python-falsy None -> sends ALL updates.
+    // Only include entity_ids when the array is non-empty.
     subscribeMsg.entity_ids = entityIds;
   }
 
@@ -248,11 +249,6 @@ export async function subscribeToUpdates(conn: SyncLayerConnection): Promise<voi
   }, "recorder_5min_statistics_generated");
   registrySubscriptions.push(() => statisticsSub());
 
-  // Initial entity subscription — subscribe to all entities until
-  // the subscription manager gets its first flush from hook registrations.
-  // This ensures the initial get_states snapshot stays fresh.
-  const initialUnsub = await subscribeEntities(conn, []);
-  setCurrentEntityUnsub(initialUnsub);
 }
 
 /**

@@ -73,6 +73,10 @@ export function getActiveEntityIds(): Set<EntityId> {
  */
 export function setManagerConnection(connection: SyncLayerConnection): void {
   conn = connection;
+  // If entities were registered before connection was ready, flush now
+  if (refCounts.size > 0) {
+    scheduleFlush();
+  }
 }
 
 /**
