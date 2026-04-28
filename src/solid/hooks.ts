@@ -26,6 +26,7 @@ import type {
 import {
   buildAreaView,
   callService,
+  entityViewEquals,
   getEntityView,
   state,
   toggle,
@@ -54,11 +55,15 @@ export function useEntity(entityId: Accessor<string> | string): Accessor<EntityV
     onCleanup(unregister);
   });
 
-  return createMemo(() => {
-    const id = getId();
-    if (!id) return undefined;
-    return getEntityView(id);
-  });
+  return createMemo(
+    () => {
+      const id = getId();
+      if (!id) return undefined;
+      return getEntityView(id);
+    },
+    undefined,
+    { equals: entityViewEquals },
+  );
 }
 
 /**
@@ -75,11 +80,23 @@ export function useEntities(entityIds: Accessor<string[]>): Accessor<EntityView[
     });
   });
 
-  return createMemo(() => {
-    return entityIds()
-      .map((id) => getEntityView(id))
-      .filter((v): v is EntityView => v !== undefined);
-  });
+  return createMemo(
+    () => {
+      return entityIds()
+        .map((id) => getEntityView(id))
+        .filter((v): v is EntityView => v !== undefined);
+    },
+    undefined,
+    {
+      equals: (a, b) => {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+          if (!entityViewEquals(a[i], b[i])) return false;
+        }
+        return true;
+      },
+    },
+  );
 }
 
 /**
@@ -157,17 +174,29 @@ export function useToggle(): typeof toggle {
  * Get reactive list of all area views.
  */
 export function useAreas(): Accessor<AreaView[]> {
-  return createMemo(() => {
-    return Object.keys(state.areas)
-      .map((areaId) => {
-        try {
-          return buildAreaView(areaId);
-        } catch {
-          return undefined;
+  return createMemo(
+    () => {
+      return Object.keys(state.areas)
+        .map((areaId) => {
+          try {
+            return buildAreaView(areaId);
+          } catch {
+            return undefined;
+          }
+        })
+        .filter((v): v is AreaView => v !== undefined);
+    },
+    undefined,
+    {
+      equals: (a, b) => {
+        if (a.length !== b.length) return false;
+        for (let i = 0; i < a.length; i++) {
+          if (a[i].id !== b[i].id || a[i].entities.length !== b[i].entities.length) return false;
         }
-      })
-      .filter((v): v is AreaView => v !== undefined);
-  });
+        return true;
+      },
+    },
+  );
 }
 
 /**

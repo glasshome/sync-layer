@@ -8,8 +8,40 @@
  */
 
 import { state } from "../core/store";
-import type { AreaId, AreaView, DeviceRegistryEntry, DeviceView, EntityId } from "../core/types";
+import type {
+  AreaId,
+  AreaView,
+  DeviceRegistryEntry,
+  DeviceView,
+  EntityId,
+} from "../core/types";
 import { getEntityViews } from "./views";
+
+// ============================================
+// AREA-SCOPED LOOKUP HELPERS
+// ============================================
+
+function getDevicesForArea(areaId: AreaId): DeviceRegistryEntry[] {
+  const result: DeviceRegistryEntry[] = [];
+  for (const device of Object.values(state.devices)) {
+    if (device.area_id === areaId) {
+      result.push(device);
+    }
+  }
+  return result;
+}
+
+function getEntityIdsForArea(areaId: AreaId, deviceIdsInArea: Set<string>): EntityId[] {
+  const entityIds: EntityId[] = [];
+  for (const [entityId, entry] of Object.entries(state.entityRegistry)) {
+    if (entry.area_id === areaId) {
+      entityIds.push(entityId);
+    } else if (!entry.area_id && entry.device_id && deviceIdsInArea.has(entry.device_id)) {
+      entityIds.push(entityId);
+    }
+  }
+  return entityIds;
+}
 
 // ============================================
 // DEVICE VIEW BUILDER
@@ -47,29 +79,9 @@ export function buildAreaView(areaId: AreaId): AreaView {
     throw new Error(`Area ${areaId} not found`);
   }
 
-  // Collect devices in this area (also needed for device-inherited entities)
-  const devicesInArea: DeviceRegistryEntry[] = [];
-  const deviceIdsInArea = new Set<string>();
-  for (const device of Object.values(state.devices)) {
-    if (device.area_id === areaId) {
-      devicesInArea.push(device);
-      deviceIdsInArea.add(device.id);
-    }
-  }
-
-  // Single pass over entityRegistry: collect direct area entities + device-inherited entities
-  const entityIdSet = new Set<EntityId>();
-  for (const [entityId, entry] of Object.entries(state.entityRegistry)) {
-    if (entry.area_id === areaId) {
-      // Direct area assignment
-      entityIdSet.add(entityId);
-    } else if (!entry.area_id && entry.device_id && deviceIdsInArea.has(entry.device_id)) {
-      // Inherits area from device
-      entityIdSet.add(entityId);
-    }
-  }
-
-  const allEntityIds = [...entityIdSet];
+  const devicesInArea = getDevicesForArea(areaId);
+  const deviceIdsInArea = new Set(devicesInArea.map((d) => d.id));
+  const allEntityIds = getEntityIdsForArea(areaId, deviceIdsInArea);
   const areaEntities = allEntityIds.length > 0 ? getEntityViews(allEntityIds) : [];
   const devices = devicesInArea.map((device) => buildDeviceView(device));
 

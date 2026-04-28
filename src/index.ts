@@ -144,6 +144,7 @@ export {
 } from "./entities/area-views";
 export {
   buildEntityView,
+  entityViewEquals,
   getAllEntityViews,
   getEntityView,
   getEntityViews,
