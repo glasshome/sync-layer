@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import type { HAEvent } from "@glasshome/ha-types";
+import type { AreaEntry, EntityRegistryEntry, HAEvent } from "@glasshome/ha-types";
 import { produce } from "solid-js/store";
 import {
   removeArea,
@@ -23,7 +23,13 @@ import {
   updateStatisticsMetadata,
 } from "../core/reducers";
 import { setState, state } from "../core/store";
-import type { AreaRegistryEntry, EntityId, HassEntity } from "../core/types";
+import type {
+  DeviceRegistryEntry,
+  EntityId,
+  FloorRegistryEntry,
+  LabelRegistryEntry,
+  StatisticMetadata,
+} from "../core/types";
 import { bulkAppendHistoryPoints, isHistoryTracked } from "../history/query";
 import type { HistoryPoint } from "../history/query";
 import {
@@ -276,7 +282,7 @@ async function handleRegistryUpdate(event: HAEvent<RegistryUpdateData>): Promise
     if (!conn) return;
 
     try {
-      const entry = await conn.sendMessagePromise<any>({
+      const entry = await conn.sendMessagePromise<EntityRegistryEntry>({
         type: "config/entity_registry/get",
         entity_id,
       });
@@ -300,7 +306,7 @@ async function handleDeviceRegistryUpdate(event: HAEvent<DeviceRegistryUpdateDat
     if (!conn) return;
 
     try {
-      const devices = await conn.sendMessagePromise<any[]>({
+      const devices = await conn.sendMessagePromise<DeviceRegistryEntry[]>({
         type: "config/device_registry/list",
       });
 
@@ -324,33 +330,12 @@ async function handleAreaRegistryUpdate(event: HAEvent<AreaRegistryUpdateData>):
     if (!conn) return;
 
     try {
-      const areas = await conn.sendMessagePromise<any[]>({
+      const areas = await conn.sendMessagePromise<AreaEntry[]>({
         type: "config/area_registry/list",
       });
 
-      const areaApi = areas.find((a) => a.area_id === area_id || a.id === area_id);
-      if (areaApi) {
-        const area: AreaRegistryEntry = {
-          id: areaApi.area_id || areaApi.id,
-          name: areaApi.name,
-          normalized_name:
-            areaApi.normalized_name || areaApi.name.toLowerCase().replace(/\s+/g, "_"),
-          aliases: Array.isArray(areaApi.aliases) ? areaApi.aliases : [],
-          floor_id: areaApi.floor_id ?? null,
-          humidity_entity_id: areaApi.humidity_entity_id ?? null,
-          icon: areaApi.icon ?? null,
-          labels: Array.isArray(areaApi.labels) ? areaApi.labels : [],
-          picture: areaApi.picture ?? null,
-          temperature_entity_id: areaApi.temperature_entity_id ?? null,
-          created_at:
-            typeof areaApi.created_at === "number"
-              ? new Date(areaApi.created_at * 1000).toISOString()
-              : areaApi.created_at,
-          modified_at:
-            typeof areaApi.modified_at === "number"
-              ? new Date(areaApi.modified_at * 1000).toISOString()
-              : areaApi.modified_at,
-        };
+      const area = areas.find((a) => a.id === area_id);
+      if (area) {
         updateArea(area);
       }
     } catch (error) {
@@ -369,7 +354,7 @@ async function handleFloorRegistryUpdate(event: HAEvent<FloorRegistryUpdateData>
     if (!conn) return;
 
     try {
-      const floors = await conn.sendMessagePromise<any[]>({
+      const floors = await conn.sendMessagePromise<FloorRegistryEntry[]>({
         type: "config/floor_registry/list",
       });
 
@@ -393,7 +378,7 @@ async function handleLabelRegistryUpdate(event: HAEvent<LabelRegistryUpdateData>
     if (!conn) return;
 
     try {
-      const labels = await conn.sendMessagePromise<any[]>({
+      const labels = await conn.sendMessagePromise<LabelRegistryEntry[]>({
         type: "config/label_registry/list",
       });
 
@@ -417,7 +402,7 @@ async function handleStatisticsUpdate(event: HAEvent<StatisticsUpdateData>): Pro
   if (!conn) return;
 
   try {
-    const metadata = await conn.sendMessagePromise<any[]>({
+    const metadata = await conn.sendMessagePromise<StatisticMetadata[]>({
       type: "recorder/get_statistics_metadata",
       statistic_ids,
     });
