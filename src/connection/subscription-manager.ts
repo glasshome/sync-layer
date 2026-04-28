@@ -47,6 +47,9 @@ let onResubscribe:
 /** Delay before unregistered entities are actually removed from subscription */
 const UNREGISTER_DELAY_MS = 5000;
 
+/** Guard against concurrent flush() calls */
+let flushInFlight = false;
+
 // ============================================
 // PUBLIC API
 // ============================================
@@ -114,6 +117,7 @@ export function resetManager(): void {
   currentEntityUnsub = null;
   conn = null;
   flushScheduled = false;
+  flushInFlight = false;
   if (unregisterTimeout) {
     clearTimeout(unregisterTimeout);
     unregisterTimeout = null;
@@ -153,26 +157,31 @@ function scheduleDelayedFlush(): void {
 
 async function flush(): Promise<void> {
   if (!conn || !onResubscribe) return;
+  if (flushInFlight) return; // Coalesce: next scheduled flush will catch any delta
+  flushInFlight = true;
+  try {
+    const newIds = new Set(refCounts.keys());
 
-  const newIds = new Set(refCounts.keys());
+    // Skip if the set hasn't changed
+    if (setsEqual(newIds, subscribedIds)) return;
 
-  // Skip if the set hasn't changed
-  if (setsEqual(newIds, subscribedIds)) return;
+    // Unsubscribe old, subscribe new
+    const oldUnsub = currentEntityUnsub;
+    const entityIds = [...newIds];
 
-  // Unsubscribe old, subscribe new
-  const oldUnsub = currentEntityUnsub;
-  const entityIds = [...newIds];
+    currentEntityUnsub = await onResubscribe(conn, entityIds);
+    subscribedIds = newIds;
 
-  currentEntityUnsub = await onResubscribe(conn, entityIds);
-  subscribedIds = newIds;
-
-  // Clean up old subscription after new one is active (no gap)
-  if (oldUnsub) {
-    try {
-      await oldUnsub();
-    } catch {
-      // Old subscription may already be dead (reconnect scenario)
+    // Clean up old subscription after new one is active (no gap)
+    if (oldUnsub) {
+      try {
+        await oldUnsub();
+      } catch {
+        // Old subscription may already be dead (reconnect scenario)
+      }
     }
+  } finally {
+    flushInFlight = false;
   }
 }
 
