@@ -526,11 +526,13 @@ function applyCompressedState(
 
   const existing = s.entities[entityId];
   if (existing) {
-    // Only mutate fields that actually changed
-    if (existing.state !== stateVal) existing.state = stateVal;
-    if (existing.last_changed !== lastChanged) existing.last_changed = lastChanged;
-    // Only write last_updated when state or attributes changed, not on heartbeats
-    if (existing.state !== stateVal || existing.last_changed !== lastChanged) {
+    // Capture change flags before mutating
+    const stateChanged = existing.state !== stateVal;
+    const changedAt = existing.last_changed !== lastChanged;
+    if (stateChanged) existing.state = stateVal;
+    if (changedAt) existing.last_changed = lastChanged;
+    // Only write last_updated when state or last_changed actually changed, not on heartbeats
+    if (stateChanged || changedAt) {
       existing.last_updated = lastUpdated;
     }
     if (!shallowEqualAttributes(existing.attributes, attributes as Record<string, unknown>)) {
