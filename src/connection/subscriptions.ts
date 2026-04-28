@@ -489,14 +489,17 @@ function collectHistoryFromDiff(
   additions: Partial<CompressedEntityState>,
 ): void {
   if (!isHistoryTracked(entityId)) return;
-  const entity = state.entities[entityId];
-  if (!entity) return;
+  // Use diff data directly — the store has already been mutated by produce(),
+  // so reading state.entities[entityId] would give post-update values
+  const stateVal = additions.s ?? additions.state;
+  if (stateVal === undefined) return; // No state change in this diff, skip history
   const lu = additions.lu ?? Date.now() / 1000;
   const lc = additions.lc;
+  const attributes = (additions.a ?? additions.attributes ?? {}) as Record<string, unknown>;
   points.push({
     entityId,
-    stateValue: entity.state,
-    attributes: entity.attributes,
+    stateValue: stateVal,
+    attributes,
     lastUpdated: lu,
     lastChanged: lc,
   });
