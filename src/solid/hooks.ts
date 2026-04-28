@@ -191,7 +191,12 @@ export function useAreas(): Accessor<AreaView[]> {
       equals: (a, b) => {
         if (a.length !== b.length) return false;
         for (let i = 0; i < a.length; i++) {
-          if (a[i].id !== b[i].id || a[i].entities.length !== b[i].entities.length) return false;
+          if (
+            a[i].id !== b[i].id ||
+            a[i].modifiedAt !== b[i].modifiedAt ||
+            a[i].entities.length !== b[i].entities.length
+          )
+            return false;
         }
         return true;
       },
