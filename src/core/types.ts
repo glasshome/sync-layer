@@ -223,10 +223,8 @@ export interface EntityView {
   state: string;
   /** Entity attributes */
   attributes: Record<string, any>;
-  /** ISO 8601 timestamp string — avoids Date object allocation on every view rebuild */
-  lastChanged: string;
-  /** ISO 8601 timestamp string — avoids Date object allocation on every view rebuild */
-  lastUpdated: string;
+  lastChanged: Date;
+  lastUpdated: Date;
   /** Event context */
   context: {
     id: string;

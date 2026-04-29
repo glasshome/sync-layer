@@ -58,8 +58,8 @@ export function buildEntityView(
     domain,
     state: entity.state,
     attributes: entity.attributes,
-    lastChanged: entity.last_changed,
-    lastUpdated: entity.last_updated,
+    lastChanged: new Date(entity.last_changed),
+    lastUpdated: new Date(entity.last_updated),
     context: {
       id: entity.context.id,
       parentId: entity.context.parent_id,
@@ -135,7 +135,7 @@ export function entityViewEquals(a: EntityView | undefined, b: EntityView | unde
   return (
     a.id === b.id &&
     a.state === b.state &&
-    a.lastChanged === b.lastChanged &&
+    a.lastChanged.getTime() === b.lastChanged.getTime() &&
     a.name === b.name &&
     a.friendlyName === b.friendlyName &&
     a.areaId === b.areaId &&
