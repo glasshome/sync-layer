@@ -10,7 +10,6 @@ import type {
   AreaId,
   AreaView,
   Callback,
-  CompareFunc,
   DeviceId,
   EntityDomain,
   EntityId,

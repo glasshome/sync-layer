@@ -74,7 +74,7 @@ export function unloadDemoData(): void {
  * state locally (no WebSocket message sent). State resets on page refresh.
  */
 export function applyDemoServiceCall(
-  domain: string,
+  _domain: string,
   service: string,
   _serviceData: Record<string, any> = {},
   target: { entity_id?: string | string[] } = {},

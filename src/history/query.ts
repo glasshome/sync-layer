@@ -1,5 +1,5 @@
 import { produce } from "solid-js/store";
-import { setState, state } from "../core/store";
+import { setState } from "../core/store";
 import type { EntityId } from "../core/types";
 import { fetchEntityHistory } from "./fetch";
 import type { EntityHistoryData, EntityHistoryQueryOptions } from "./types";

@@ -6,7 +6,6 @@
  * @packageDocumentation
  */
 
-import { state } from "../core/store";
 import type {
   AreaId,
   Callback,
@@ -35,7 +34,6 @@ import type {
   EntitiesQueryBuilder,
   EntityQueryBuilder,
   IndexFilter,
-  ProjectionConfig,
   QueryState,
 } from "./types";
 

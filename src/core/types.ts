@@ -16,7 +16,6 @@ import type {
   DeviceEntry,
   EntityCategory,
   EntityRegistryEntry,
-  HAEvent,
 } from "@glasshome/ha-types";
 
 // ============================================

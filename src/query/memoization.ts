@@ -31,7 +31,7 @@ export function buildQuerySignature(query: QueryState): string {
 /**
  * Execute query (no caching -- SolidJS createMemo handles this in Plan 03)
  */
-export function memoizedExecute<T>(signature: string, compute: () => T): T {
+export function memoizedExecute<T>(_signature: string, compute: () => T): T {
   return compute();
 }
 

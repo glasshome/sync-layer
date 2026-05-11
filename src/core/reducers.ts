@@ -10,7 +10,7 @@
  * @packageDocumentation
  */
 
-import type { EntityRegistryEntry, HAEvent } from "@glasshome/ha-types";
+import type { EntityRegistryEntry } from "@glasshome/ha-types";
 import { produce } from "solid-js/store";
 import { setState } from "./store";
 import type {

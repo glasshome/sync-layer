@@ -6,7 +6,7 @@
  * @packageDocumentation
  */
 
-import type { AreaEntry, DeviceEntry, EntityRegistryEntry, HAEvent } from "@glasshome/ha-types";
+import type { AreaEntry, DeviceEntry, EntityRegistryEntry } from "@glasshome/ha-types";
 import type { HassEntity } from "../core/types";
 import type { EntityHistoryState } from "../history/types";
 import type { WeatherForecast } from "../weather/types";

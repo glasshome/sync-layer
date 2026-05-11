@@ -15,7 +15,7 @@ import type {
   PredicateFunc,
   UnsubscribeFunc,
 } from "../core/types";
-import { buildAreaView, getAreaView, getAreaViews } from "../entities/area-views";
+import { getAreaView, getAreaViews } from "../entities/area-views";
 
 // ============================================
 // AREA QUERY BUILDER INTERFACE

@@ -47,6 +47,72 @@ function makeEntity(
   };
 }
 
+// ============================================
+// WEATHER DEMO FIXTURES
+// ============================================
+
+interface WeatherFixture {
+  /** suffix appended to `weather.demo_` for the entity_id */
+  slug: string;
+  /** HA condition string (matches WeatherBackground router) */
+  state: string;
+  temp: number;
+  apparent?: number;
+  humidity: number;
+  pressure: number;
+  wind: number;
+  bearing?: number;
+  low: number;
+}
+
+/**
+ * One entity per weather scene the widget can render. Entity IDs use the
+ * `weather.demo_<slug>` form so a demo dashboard can reference them directly.
+ */
+const WEATHER_FIXTURES: WeatherFixture[] = [
+  { slug: "sunny", state: "sunny", temp: 28, apparent: 31, humidity: 35, pressure: 1018, wind: 8, low: 18 },
+  { slug: "clear_night", state: "clear-night", temp: 14, apparent: 12, humidity: 55, pressure: 1016, wind: 5, low: 9 },
+  { slug: "cloudy", state: "cloudy", temp: 17, apparent: 16, humidity: 72, pressure: 1010, wind: 14, low: 11 },
+  { slug: "partly_cloudy", state: "partlycloudy", temp: 23, apparent: 24, humidity: 50, pressure: 1014, wind: 12, low: 15 },
+  { slug: "rainy", state: "rainy", temp: 12, apparent: 10, humidity: 88, pressure: 1004, wind: 18, low: 8 },
+  { slug: "pouring", state: "pouring", temp: 11, apparent: 8, humidity: 95, pressure: 998, wind: 26, low: 7 },
+  { slug: "snowy", state: "snowy", temp: -2, apparent: -6, humidity: 80, pressure: 1020, wind: 10, low: -7 },
+  { slug: "snowy_rainy", state: "snowy-rainy", temp: 1, apparent: -2, humidity: 92, pressure: 1006, wind: 16, low: -2 },
+  { slug: "lightning", state: "lightning", temp: 22, apparent: 24, humidity: 78, pressure: 1001, wind: 22, low: 17 },
+  { slug: "lightning_rainy", state: "lightning-rainy", temp: 19, apparent: 18, humidity: 90, pressure: 996, wind: 28, low: 14 },
+  { slug: "fog", state: "fog", temp: 8, apparent: 6, humidity: 98, pressure: 1015, wind: 4, low: 6 },
+  { slug: "hail", state: "hail", temp: 6, apparent: 3, humidity: 84, pressure: 1002, wind: 20, low: 1 },
+  { slug: "windy", state: "windy", temp: 18, apparent: 15, humidity: 60, pressure: 1009, wind: 42, low: 12 },
+  { slug: "exceptional", state: "exceptional", temp: 38, apparent: 44, humidity: 22, pressure: 1005, wind: 30, low: 28 },
+];
+
+function makeWeatherEntity(w: WeatherFixture): HassEntity {
+  const today = new Date();
+  const day = (n: number) =>
+    new Date(today.getTime() + n * 86400000).toISOString();
+  return makeEntity(`weather.demo_${w.slug}`, w.state, {
+    temperature: w.temp,
+    temperature_unit: "°C",
+    apparent_temperature: w.apparent ?? w.temp,
+    humidity: w.humidity,
+    pressure: w.pressure,
+    pressure_unit: "hPa",
+    wind_speed: w.wind,
+    wind_speed_unit: "km/h",
+    wind_bearing: w.bearing ?? 220,
+    visibility: 10,
+    visibility_unit: "km",
+    uv_index: w.state === "sunny" ? 8 : 2,
+    forecast: [
+      { datetime: day(0), condition: w.state,        temperature: w.temp,     templow: w.low },
+      { datetime: day(1), condition: "partlycloudy", temperature: w.temp + 2, templow: w.low },
+      { datetime: day(2), condition: "cloudy",       temperature: w.temp + 1, templow: w.low - 1 },
+      { datetime: day(3), condition: "sunny",        temperature: w.temp + 4, templow: w.low + 1 },
+      { datetime: day(4), condition: "rainy",        temperature: w.temp - 2, templow: w.low - 2 },
+    ],
+  });
+}
+
 function friendlyName(entityId: string): string {
   const objectId = entityId.split(".")[1] ?? entityId;
   return objectId
@@ -443,27 +509,10 @@ export function createDemoFixtures(): DemoFixtures {
     { device_id: "speaker_lr", area_id: "living_room", supported_features: 152461 },
   );
 
-  // ----- Weather (1) -----
-  add(
-    makeEntity("weather.home_forecast", "partlycloudy", {
-      temperature: 3,
-      temperature_unit: "\u00b0C",
-      humidity: 72,
-      pressure: 1013,
-      pressure_unit: "hPa",
-      wind_speed: 12,
-      wind_speed_unit: "km/h",
-      wind_bearing: 220,
-      forecast: [
-        { datetime: "2026-03-07T00:00:00Z", condition: "cloudy", temperature: 4, templow: -1 },
-        { datetime: "2026-03-08T00:00:00Z", condition: "sunny", temperature: 7, templow: 1 },
-        { datetime: "2026-03-09T00:00:00Z", condition: "rainy", temperature: 5, templow: 2 },
-        { datetime: "2026-03-10T00:00:00Z", condition: "partlycloudy", temperature: 6, templow: 0 },
-        { datetime: "2026-03-11T00:00:00Z", condition: "snowy", temperature: 1, templow: -3 },
-      ],
-    }),
-    { platform: "met" },
-  );
+  // ----- Weather (one entity per scene for demo previews) -----
+  for (const w of WEATHER_FIXTURES) {
+    add(makeWeatherEntity(w), { platform: "met" });
+  }
 
   // ----- Camera (1) -----
   add(
