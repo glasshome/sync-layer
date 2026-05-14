@@ -28,12 +28,12 @@ import {
   callService,
   entityViewEquals,
   getEntityView,
+  registerEntity,
   state,
   toggle,
   turnOff,
   turnOn,
 } from "@glasshome/sync-layer";
-import { registerEntity } from "../connection/subscription-manager";
 
 // ============================================
 // ENTITY HOOKS

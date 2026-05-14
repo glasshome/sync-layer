@@ -21,6 +21,20 @@ type UnsubscribeFn = () => Promise<void> | void;
 // STATE
 // ============================================
 
+declare global {
+  // eslint-disable-next-line no-var
+  var __GH_SYNC_LAYER_SUB_MGR__: boolean | undefined;
+}
+if (globalThis.__GH_SYNC_LAYER_SUB_MGR__) {
+  console.error(
+    "[@glasshome/sync-layer] DUPLICATE subscription-manager module instantiated. " +
+      "registerEntity() and the connection setter will hit different singletons → " +
+      "subscribe_entities will never be sent. " +
+      "Cause: relative import of subscription-manager from a separate entry point.",
+  );
+}
+globalThis.__GH_SYNC_LAYER_SUB_MGR__ = true;
+
 /** Ref counts — how many consumers need each entity */
 const refCounts = new Map<EntityId, number>();
 

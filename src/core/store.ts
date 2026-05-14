@@ -143,6 +143,20 @@ const initialState: GlassHomeState = {
  * setState("entities", reconcile(newEntities));
  * ```
  */
+declare global {
+  // eslint-disable-next-line no-var
+  var __GH_SYNC_LAYER_STORE__: boolean | undefined;
+}
+if (globalThis.__GH_SYNC_LAYER_STORE__) {
+  console.error(
+    "[@glasshome/sync-layer] DUPLICATE store module instantiated. " +
+      "This means @glasshome/sync-layer was bundled into >1 chunk. " +
+      "Reads and writes will hit different singletons. " +
+      "Check vendor build externals and relative-vs-bare imports across entry points.",
+  );
+}
+globalThis.__GH_SYNC_LAYER_STORE__ = true;
+
 const storeTuple = createStore<GlassHomeState>(initialState);
 export const state: Store<GlassHomeState> = storeTuple[0];
 export const setState: SetStoreFunction<GlassHomeState> = storeTuple[1];

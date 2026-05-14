@@ -17,6 +17,7 @@ export {
 } from "./connection/adapter";
 export type { ConnectionOptions } from "./connection/manager";
 export { disconnect, getConnection, initConnection, isConnected } from "./connection/manager";
+export { registerEntity } from "./connection/subscription-manager";
 export type { SyncLayerConnection } from "./connection/types";
 
 // ============================================
