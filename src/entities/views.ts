@@ -44,6 +44,16 @@ export function buildEntityView(
   const name = registry?.name ?? friendlyName;
   const iconResolution = resolveIcon(entity, registry);
 
+  // Strip resolved keys out of attributes so widgets have one canonical path
+  // (deviceClass, unitOfMeasurement, friendlyName, icon) instead of two.
+  const {
+    device_class: _dc,
+    unit_of_measurement: _uom,
+    friendly_name: _fn,
+    icon: _icon,
+    ...restAttributes
+  } = entity.attributes;
+
   // Determine areaId: use entity's area_id if assigned, otherwise inherit from device
   let areaId: AreaId | null = registry?.area_id ?? null;
   if (areaId === null && registry?.device_id) {
@@ -57,7 +67,7 @@ export function buildEntityView(
     id: entity.entity_id,
     domain,
     state: entity.state,
-    attributes: entity.attributes,
+    attributes: restAttributes,
     lastChanged: new Date(entity.last_changed),
     lastUpdated: new Date(entity.last_updated),
     context: {
