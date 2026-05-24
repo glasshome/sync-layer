@@ -44,8 +44,7 @@ export function buildEntityView(
   const name = registry?.name ?? friendlyName;
   const iconResolution = resolveIcon(entity, registry);
 
-  // Strip resolved keys out of attributes so widgets have one canonical path
-  // (deviceClass, unitOfMeasurement, friendlyName, icon) instead of two.
+  // Stripped so the resolved top-level fields are the only path.
   const {
     device_class: _dc,
     unit_of_measurement: _uom,
