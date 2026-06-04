@@ -16,6 +16,9 @@ export interface HistoryPoint {
   lastChanged?: number;
 }
 
+/** Hard cap on retained points per entity timeline. */
+export const MAX_HISTORY_POINTS = 5760;
+
 // ============================================
 // TRACKING
 // ============================================
@@ -94,6 +97,7 @@ export function bulkAppendHistoryPoints(points: HistoryPoint[]): void {
   if (points.length === 0) return;
   setState(
     produce((s) => {
+      const touched = new Set<EntityId>();
       for (const { entityId, stateValue, attributes, lastUpdated, lastChanged } of points) {
         const history = s.history[entityId];
         if (!history) continue;
@@ -111,6 +115,19 @@ export function bulkAppendHistoryPoints(points: HistoryPoint[]): void {
           lastChanged,
           lastUpdated,
         });
+        touched.add(entityId);
+      }
+
+      // Trim oldest points from the front so each timeline keeps the cap.
+      for (const entityId of touched) {
+        const history = s.history[entityId];
+        if (!history) continue;
+        if (history.entityHistory.length > MAX_HISTORY_POINTS) {
+          history.entityHistory.splice(0, history.entityHistory.length - MAX_HISTORY_POINTS);
+        }
+        if (history.timeline.length > MAX_HISTORY_POINTS) {
+          history.timeline.splice(0, history.timeline.length - MAX_HISTORY_POINTS);
+        }
       }
     }),
   );

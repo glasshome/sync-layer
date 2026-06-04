@@ -20,6 +20,7 @@ export {
   useEntity,
   useEntityHistory,
   useEntityState,
+  useEntityStatistics,
   useForecast,
   useService,
   useStore,

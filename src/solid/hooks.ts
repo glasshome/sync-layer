@@ -11,8 +11,8 @@
  * @packageDocumentation
  */
 
-import type { Accessor } from "solid-js";
-import { createEffect, createMemo, onCleanup } from "solid-js";
+import type { Accessor, Resource } from "solid-js";
+import { createEffect, createMemo, createResource, onCleanup } from "solid-js";
 import type {
   AreaView,
   CameraStreamData,
@@ -21,12 +21,15 @@ import type {
   EntityView,
   GlassHomeState,
   HassEntity,
+  StatisticsQueryOptions,
+  StatisticValue,
   WeatherForecastsData,
 } from "@glasshome/sync-layer";
 import {
   buildAreaView,
   callService,
   entityViewEquals,
+  fetchStatisticsDuringPeriod,
   getEntityView,
   registerEntity,
   state,
@@ -253,6 +256,34 @@ export function useEntityHistory(
 ): Accessor<EntityHistoryData | undefined> {
   const getId = typeof entityId === "function" ? entityId : () => entityId;
   return createMemo(() => state.history[getId()]);
+}
+
+/**
+ * Get reactive long-term statistics for a statistic id.
+ *
+ * Fetches via `recorder/statistics_during_period` and re-fetches whenever the
+ * statistic id or options change. The returned Resource exposes `.loading`
+ * and `.error` alongside the value accessor.
+ */
+export function useEntityStatistics(
+  statisticId: Accessor<string> | string,
+  options: Accessor<StatisticsQueryOptions> | StatisticsQueryOptions,
+): Resource<StatisticValue[]> {
+  const getId = typeof statisticId === "function" ? statisticId : () => statisticId;
+  const getOptions = typeof options === "function" ? options : () => options;
+
+  const [data] = createResource(
+    () => ({ id: getId(), options: getOptions() }),
+    async ({ id, options: opts }) => {
+      if (!id) return [];
+      const conn = state.conn;
+      if (!conn) return [];
+      const result = await fetchStatisticsDuringPeriod(conn, [id], opts);
+      return result[id] ?? [];
+    },
+  );
+
+  return data;
 }
 
 /**

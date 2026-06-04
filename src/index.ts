@@ -129,6 +129,12 @@ export type {
 
 export { fetchStream, fetchStreamData } from "./camera/fetch";
 export { getStream, refreshStream } from "./camera/query";
+export { fetchEnergyPreferences } from "./energy/prefs";
+export type {
+  EnergyDeviceConsumption,
+  EnergyPreferences,
+  EnergySource,
+} from "./energy/prefs";
 export type {
   CameraStream,
   CameraStreamData,
@@ -167,10 +173,20 @@ export {
   appendHistoryPoint,
   bulkAppendHistoryPoints,
   isHistoryTracked,
+  MAX_HISTORY_POINTS,
   trackEntityHistory,
   untrackEntityHistory,
 } from "./history/query";
 export type { HistoryPoint } from "./history/query";
+export {
+  fetchStatisticsDuringPeriod,
+  normalizeStatisticTime,
+} from "./history/statistics";
+export type {
+  StatisticsPeriod,
+  StatisticsQueryOptions,
+  StatisticValue,
+} from "./history/statistics";
 export type {
   EntityHistoryData,
   EntityHistoryQueryOptions,
