@@ -9,6 +9,13 @@
 
 import type { EntityRegistryEntry } from "@glasshome/ha-types";
 import type { AreaRegistryEntry, DeviceRegistryEntry, HassEntity } from "../core/types";
+import {
+  energyEntityValue,
+  formatEnergyState,
+  isSunUp,
+  simulateEnergy,
+  sunEvents,
+} from "./energy-sim";
 
 // ============================================
 // TYPES
@@ -236,6 +243,7 @@ export function createDemoFixtures(): DemoFixtures {
     bedroom: makeArea("bedroom", "Bedroom"),
     kitchen: makeArea("kitchen", "Kitchen"),
     entry: makeArea("entry", "Entry"),
+    utility: makeArea("utility", "Utility"),
   };
 
   areas.living_room!.temperature_entity_id = "sensor.temperature_living";
@@ -586,6 +594,64 @@ export function createDemoFixtures(): DemoFixtures {
       unit_of_measurement: "%",
     },
   );
+
+  // ----- Energy: solar home simulation (sun + power sensors) -----
+  const nowMs = Date.now();
+  const sample = simulateEnergy(nowMs);
+  const sun = sunEvents(nowMs);
+
+  add(
+    makeEntity("sun.sun", isSunUp(nowMs) ? "above_horizon" : "below_horizon", {
+      friendly_name: "Sun",
+      elevation: sun.elevation,
+      next_rising: sun.nextRising,
+      next_setting: sun.nextSetting,
+    }),
+    {},
+  );
+
+  const powerSensors: Array<{
+    id: string;
+    name: string;
+    deviceClass: "power" | "battery";
+    unit: string;
+  }> = [
+    { id: "sensor.solar_power", name: "Solar Production", deviceClass: "power", unit: "W" },
+    { id: "sensor.grid_import_power", name: "Grid Import", deviceClass: "power", unit: "W" },
+    { id: "sensor.grid_export_power", name: "Grid Export", deviceClass: "power", unit: "W" },
+    { id: "sensor.battery_charge_power", name: "Battery Charge", deviceClass: "power", unit: "W" },
+    {
+      id: "sensor.battery_discharge_power",
+      name: "Battery Discharge",
+      deviceClass: "power",
+      unit: "W",
+    },
+    { id: "sensor.battery_soc", name: "Battery", deviceClass: "battery", unit: "%" },
+    { id: "sensor.home_power", name: "Home Consumption", deviceClass: "power", unit: "W" },
+    { id: "sensor.fridge_power", name: "Fridge", deviceClass: "power", unit: "W" },
+    { id: "sensor.dishwasher_power", name: "Dishwasher", deviceClass: "power", unit: "W" },
+    { id: "sensor.washing_machine_power", name: "Washing Machine", deviceClass: "power", unit: "W" },
+    { id: "sensor.oven_power", name: "Oven", deviceClass: "power", unit: "W" },
+    { id: "sensor.ev_charger_power", name: "EV Charger", deviceClass: "power", unit: "W" },
+    { id: "sensor.always_on_power", name: "Always On", deviceClass: "power", unit: "W" },
+  ];
+
+  for (const s of powerSensors) {
+    const value = energyEntityValue(s.id, sample) ?? 0;
+    add(
+      makeEntity(s.id, formatEnergyState(s.id, value), {
+        friendly_name: s.name,
+        unit_of_measurement: s.unit,
+        device_class: s.deviceClass,
+        state_class: "measurement",
+      }),
+      {
+        area_id: "utility",
+        device_class: s.deviceClass,
+        unit_of_measurement: s.unit,
+      },
+    );
+  }
 
   return { entities, entityRegistry, areas, devices };
 }

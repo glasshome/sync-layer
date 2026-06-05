@@ -12,6 +12,14 @@ import { setState, state } from "../core/store";
 import type { HassEntity } from "../core/types";
 import { extractDomain } from "../core/types";
 import { createDemoFixtures } from "./demo-data";
+import {
+  ENERGY_ENTITY_IDS,
+  energyEntityValue,
+  formatEnergyState,
+  isSunUp,
+  simulateEnergy,
+  sunEvents,
+} from "./energy-sim";
 
 // ============================================
 // DEMO STATE
@@ -47,12 +55,16 @@ export async function loadDemoData(): Promise<void> {
   setState("connectionState", "connected");
 
   _isDemoMode = true;
+
+  startDemoEnergyTicker();
 }
 
 /**
  * Unload demo data and reset to disconnected state.
  */
 export function unloadDemoData(): void {
+  stopDemoEnergyTicker();
+
   setState("entities", reconcile({}));
   setState("entityRegistry", reconcile({}));
   setState("areas", reconcile({}));
@@ -61,6 +73,66 @@ export function unloadDemoData(): void {
   setState("connectionState", "disconnected");
 
   _isDemoMode = false;
+}
+
+// ============================================
+// ENERGY LIVE TICKER
+// ============================================
+
+const ENERGY_TICK_MS = 5000;
+let _energyTicker: ReturnType<typeof setInterval> | null = null;
+
+/** Write the current energy sample into the store as string states (like real HA). */
+function tickEnergy(): void {
+  const nowMs = Date.now();
+  const sample = simulateEnergy(nowMs);
+  const sun = sunEvents(nowMs);
+  const nowIso = new Date(nowMs).toISOString();
+
+  setState(
+    produce((s) => {
+      for (const entityId of ENERGY_ENTITY_IDS) {
+        const e = s.entities[entityId];
+        if (!e) continue;
+        const value = energyEntityValue(entityId, sample);
+        if (value === undefined) continue;
+        const next = formatEnergyState(entityId, value);
+        if (e.state !== next) e.last_changed = nowIso;
+        e.state = next;
+        e.last_updated = nowIso;
+      }
+
+      const sunEntity = s.entities["sun.sun"];
+      if (sunEntity) {
+        const nextState = isSunUp(nowMs) ? "above_horizon" : "below_horizon";
+        if (sunEntity.state !== nextState) sunEntity.last_changed = nowIso;
+        sunEntity.state = nextState;
+        sunEntity.last_updated = nowIso;
+        sunEntity.attributes.elevation = sun.elevation;
+        sunEntity.attributes.next_rising = sun.nextRising;
+        sunEntity.attributes.next_setting = sun.nextSetting;
+      }
+    }),
+  );
+}
+
+/**
+ * Start the demo energy ticker. Updates the energy sensors and `sun.sun`
+ * every 5 seconds. Idempotent: clears any prior interval first. SSR-safe.
+ */
+export function startDemoEnergyTicker(): void {
+  stopDemoEnergyTicker();
+  if (typeof setInterval !== "function") return;
+  tickEnergy();
+  _energyTicker = setInterval(tickEnergy, ENERGY_TICK_MS);
+}
+
+/** Stop the demo energy ticker if running. */
+export function stopDemoEnergyTicker(): void {
+  if (_energyTicker !== null) {
+    clearInterval(_energyTicker);
+    _energyTicker = null;
+  }
 }
 
 // ============================================

@@ -31,6 +31,7 @@ import {
   entityViewEquals,
   fetchStatisticsDuringPeriod,
   getEntityView,
+  isDemoMode,
   registerEntity,
   state,
   toggle,
@@ -259,6 +260,16 @@ export function useEntityHistory(
 }
 
 /**
+ * Connection stub for demo mode: the statistics fetcher's demo branch never
+ * sends a message, so this only satisfies the signature.
+ */
+const DEMO_STATS_CONNECTION = {
+  sendMessagePromise<T>(): Promise<T> {
+    return Promise.reject(new Error("demo mode: no connection"));
+  },
+};
+
+/**
  * Get reactive long-term statistics for a statistic id.
  *
  * Fetches via `recorder/statistics_during_period` and re-fetches whenever the
@@ -277,8 +288,14 @@ export function useEntityStatistics(
     async ({ id, options: opts }) => {
       if (!id) return [];
       const conn = state.conn;
-      if (!conn) return [];
-      const result = await fetchStatisticsDuringPeriod(conn, [id], opts);
+      // Demo mode has no real connection; the statistics fetcher synthesizes
+      // data from the energy model and ignores the connection argument.
+      if (!conn && !isDemoMode()) return [];
+      const result = await fetchStatisticsDuringPeriod(
+        conn ?? DEMO_STATS_CONNECTION,
+        [id],
+        opts,
+      );
       return result[id] ?? [];
     },
   );

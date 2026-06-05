@@ -7,6 +7,8 @@
  */
 
 import type { SyncLayerConnection } from "../connection/types";
+import { isDemoMode } from "../demo/demo-provider";
+import { isEnergyEntity, synthesizeEnergyStatistics } from "../demo/energy-sim";
 
 /**
  * A single statistics bucket for one statistic id.
@@ -96,6 +98,21 @@ export async function fetchStatisticsDuringPeriod(
   options: StatisticsQueryOptions,
 ): Promise<Record<string, StatisticValue[]>> {
   const { startTime, endTime, period } = options;
+
+  // Demo mode: integrate the pure energy model across each bucket. Only
+  // hour/day periods are synthesized (week/month derive from these on the
+  // widget side); non-energy ids resolve to empty arrays.
+  if (isDemoMode()) {
+    const result: Record<string, StatisticValue[]> = {};
+    const statPeriod = period === "hour" || period === "day" ? period : "day";
+    const endMs = (endTime ?? new Date()).getTime();
+    for (const id of statisticIds) {
+      result[id] = isEnergyEntity(id)
+        ? synthesizeEnergyStatistics(id, startTime.getTime(), endMs, statPeriod)
+        : [];
+    }
+    return result;
+  }
 
   const params: {
     type: "recorder/statistics_during_period";

@@ -7,6 +7,8 @@
  */
 
 import type { SyncLayerConnection } from "../connection/types";
+import { demoEnergyPreferences } from "../demo/energy-sim";
+import { isDemoMode } from "../demo/demo-provider";
 
 /**
  * An energy source entry. Only the fields the widgets read are typed; the
@@ -59,6 +61,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 export async function fetchEnergyPreferences(
   connection: EnergyConnection,
 ): Promise<EnergyPreferences | null> {
+  // Demo mode: return preferences wiring the simulated energy sensors.
+  if (isDemoMode()) {
+    const prefs = demoEnergyPreferences();
+    return {
+      ...prefs,
+      energy_sources: prefs.energy_sources as EnergySource[],
+      device_consumption: prefs.device_consumption as EnergyDeviceConsumption[],
+    };
+  }
+
   let response: unknown;
   try {
     response = await connection.sendMessagePromise({ type: "energy/get_prefs" });

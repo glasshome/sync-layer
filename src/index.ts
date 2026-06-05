@@ -221,6 +221,8 @@ export {
   createDemoFixtures,
   isDemoMode,
   loadDemoData,
+  startDemoEnergyTicker,
+  stopDemoEnergyTicker,
   unloadDemoData,
 } from "./demo/demo-provider";
 

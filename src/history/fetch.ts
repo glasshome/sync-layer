@@ -6,6 +6,8 @@
 
 import { sendCommand } from "../commands/service";
 import type { EntityId } from "../core/types";
+import { isDemoMode } from "../demo/demo-provider";
+import { isEnergyEntity, synthesizeEnergyHistory } from "../demo/energy-sim";
 import { entityIdHistoryNeedsAttributes } from "./constants";
 import type {
   EntityHistoryData,
@@ -30,6 +32,22 @@ export async function fetchHistory(
     minimalResponse = true,
     noAttributes: noAttributesOverride,
   } = options;
+
+  // Demo mode: synthesize energy entity history from the pure model; other
+  // demo entities have no history to serve and resolve to empty arrays.
+  if (isDemoMode()) {
+    const endMs = (endTime ?? new Date()).getTime();
+    const result: Record<EntityId, EntityHistoryState[]> = {};
+    for (const id of entityIds) {
+      if (!isEnergyEntity(id)) continue;
+      result[id] = synthesizeEnergyHistory(id, startTime.getTime(), endMs).map((p) => ({
+        s: p.s,
+        a: {},
+        lu: p.lu,
+      }));
+    }
+    return result;
+  }
 
   const startTimeStr = startTime.toISOString();
   const endTimeStr = endTime?.toISOString();
