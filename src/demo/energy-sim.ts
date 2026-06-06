@@ -296,7 +296,7 @@ function socPrefix(dayKey: number, midnightMs: number): Float64Array {
 }
 
 /** Battery SOC (%) at an exact timestamp, linearly interpolated between steps. */
-function batterySoc(timestampMs: number, lt: LocalTime, midnightMs: number): number {
+function batterySoc(lt: LocalTime, midnightMs: number): number {
   const prefix = socPrefix(lt.dayKey, midnightMs);
   const stepFloat = lt.minuteOfDay / SOC_STEP_MIN;
   const i = Math.floor(stepFloat);
@@ -349,7 +349,7 @@ export function simulateEnergy(timestampMs: number): EnergySample {
   const alwaysOnW = ALWAYS_ON_W;
   const homeW = homePower(lt);
 
-  const soc = batterySoc(timestampMs, lt, midnightMs);
+  const soc = batterySoc(lt, midnightMs);
 
   // Instantaneous battery action mirrors the SOC integration: charge on
   // surplus, discharge on deficit, capped by power and SOC headroom.
