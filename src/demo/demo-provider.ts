@@ -190,10 +190,10 @@ export function applyDemoServiceCall(
           e.state = "unlocked";
         } else if (service === "open_cover") {
           e.state = "open";
-          e.attributes.current_position = 100;
+          if ("current_position" in e.attributes) e.attributes.current_position = 100;
         } else if (service === "close_cover") {
           e.state = "closed";
-          e.attributes.current_position = 0;
+          if ("current_position" in e.attributes) e.attributes.current_position = 0;
         } else if (service === "set_cover_position" && _serviceData.position != null) {
           e.attributes.current_position = _serviceData.position;
           e.state = _serviceData.position > 0 ? "open" : "closed";
@@ -224,7 +224,7 @@ function applyTurnOn(e: HassEntity, domain: string, serviceData: Record<string, 
     e.state = "playing";
   } else if (domain === "cover") {
     e.state = "open";
-    e.attributes.current_position = 100;
+    if ("current_position" in e.attributes) e.attributes.current_position = 100;
   } else {
     e.state = "on";
   }
@@ -238,7 +238,7 @@ function applyTurnOff(e: HassEntity, domain: string): void {
     e.state = "paused";
   } else if (domain === "cover") {
     e.state = "closed";
-    e.attributes.current_position = 0;
+    if ("current_position" in e.attributes) e.attributes.current_position = 0;
   } else {
     e.state = "off";
   }

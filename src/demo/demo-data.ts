@@ -231,7 +231,7 @@ function makeArea(
  *
  * Entities span lights, sensors, binary sensors, climate, covers,
  * locks, switches, media player, weather, camera, scenes, and buttons
- * across 4 areas: living_room, bedroom, kitchen, entry.
+ * across 6 areas: living_room, bedroom, kitchen, entry, utility, garage.
  */
 export function createDemoFixtures(): DemoFixtures {
   // Reset context counter for deterministic output
@@ -244,6 +244,7 @@ export function createDemoFixtures(): DemoFixtures {
     kitchen: makeArea("kitchen", "Kitchen"),
     entry: makeArea("entry", "Entry"),
     utility: makeArea("utility", "Utility"),
+    garage: makeArea("garage", "Garage"),
   };
 
   areas.living_room!.temperature_entity_id = "sensor.temperature_living";
@@ -278,6 +279,21 @@ export function createDemoFixtures(): DemoFixtures {
       "Roller Shade",
     ),
     curtains_br: makeDevice("curtains_br", "Bedroom Curtains", "bedroom", "IKEA", "Fyrtur"),
+    garage_door_opener: makeDevice(
+      "garage_door_opener",
+      "Garage Door Opener",
+      "garage",
+      "Chamberlain",
+      "MyQ",
+    ),
+    shutters_lr: makeDevice(
+      "shutters_lr",
+      "Living Room Shutters",
+      "living_room",
+      "Somfy",
+      "Venetian Shutter",
+    ),
+    blinds_kitchen: makeDevice("blinds_kitchen", "Kitchen Blinds", "kitchen", "IKEA", "Praktlysing"),
     lock_front: makeDevice("lock_front", "Front Door Lock", "entry", "Yale", "Assure Lock 2"),
     lock_back: makeDevice("lock_back", "Back Door Lock", "entry", "August", "Smart Lock Pro"),
     speaker_lr: makeDevice("speaker_lr", "Living Room Speaker", "living_room", "Sonos", "One"),
@@ -449,7 +465,9 @@ export function createDemoFixtures(): DemoFixtures {
     { device_id: "thermostat_br", area_id: "bedroom", supported_features: 385 },
   );
 
-  // ----- Covers (2) -----
+  // ----- Covers (6) -----
+  // Cover supported_features bitmask: OPEN=1 CLOSE=2 SET_POSITION=4 STOP=8
+  // OPEN_TILT=16 CLOSE_TILT=32 STOP_TILT=64 SET_TILT_POSITION=128
   add(
     makeEntity("cover.living_room_blinds", "open", {
       current_position: 80,
@@ -473,6 +491,61 @@ export function createDemoFixtures(): DemoFixtures {
       area_id: "bedroom",
       device_class: "curtain",
       supported_features: 15,
+    },
+  );
+
+  // Position-less garage door: only open/close/stop, state-driven (no current_position)
+  add(
+    makeEntity("cover.garage_door", "closed", {
+      device_class: "garage",
+    }),
+    {
+      device_id: "garage_door_opener",
+      area_id: "garage",
+      device_class: "garage",
+      supported_features: 11,
+    },
+  );
+
+  // Minimal gate with assumed state: open/close only, no stop, no position feedback
+  add(
+    makeEntity("cover.driveway_gate", "open", {
+      device_class: "gate",
+      assumed_state: true,
+    }),
+    {
+      area_id: "garage",
+      device_class: "gate",
+      supported_features: 3,
+    },
+  );
+
+  // Full-featured shutter: position + tilt position, partially open
+  add(
+    makeEntity("cover.living_room_shutters", "open", {
+      current_position: 45,
+      current_tilt_position: 30,
+      device_class: "shutter",
+    }),
+    {
+      device_id: "shutters_lr",
+      area_id: "living_room",
+      device_class: "shutter",
+      supported_features: 255,
+    },
+  );
+
+  // Venetian blind: position slider plus tilt buttons (no tilt position)
+  add(
+    makeEntity("cover.kitchen_blinds", "open", {
+      current_position: 100,
+      device_class: "blind",
+    }),
+    {
+      device_id: "blinds_kitchen",
+      area_id: "kitchen",
+      device_class: "blind",
+      supported_features: 127,
     },
   );
 
