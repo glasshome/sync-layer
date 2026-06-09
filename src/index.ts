@@ -115,6 +115,8 @@ export type {
   EntityRegistryEntry,
   EventStateChangedData,
   HAEvent,
+  HassConfig,
+  HassUnitSystem,
   RegistryEntryDisabler,
   RegistryEntryHider,
   ServiceCall,

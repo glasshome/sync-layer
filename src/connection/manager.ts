@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import type { EntityRegistryEntry } from "@glasshome/ha-types";
+import type { EntityRegistryEntry, HassConfig } from "@glasshome/ha-types";
 import {
   type Auth,
   type Connection,
@@ -308,29 +308,38 @@ function setupEventHandlers(conn: Connection, options: ConnectionOptions): void 
 
 async function loadInitialData(conn: Connection): Promise<void> {
   try {
-    const [states, entityRegistry, deviceRegistry, areaRegistry, floorRegistry, labelRegistry] =
-      await Promise.all([
-        conn.sendMessagePromise<HassEntity[]>({ type: "get_states" }),
-        conn.sendMessagePromise<EntityRegistryEntry[]>({
-          type: "config/entity_registry/list",
-        }),
-        conn.sendMessagePromise<any[]>({
-          type: "config/device_registry/list",
-        }),
-        conn.sendMessagePromise<any[]>({
-          type: "config/area_registry/list",
-        }),
-        conn.sendMessagePromise<any[]>({
-          type: "config/floor_registry/list",
-        }),
-        conn.sendMessagePromise<any[]>({
-          type: "config/label_registry/list",
-        }),
-      ]);
+    const [
+      states,
+      entityRegistry,
+      deviceRegistry,
+      areaRegistry,
+      floorRegistry,
+      labelRegistry,
+      config,
+    ] = await Promise.all([
+      conn.sendMessagePromise<HassEntity[]>({ type: "get_states" }),
+      conn.sendMessagePromise<EntityRegistryEntry[]>({
+        type: "config/entity_registry/list",
+      }),
+      conn.sendMessagePromise<any[]>({
+        type: "config/device_registry/list",
+      }),
+      conn.sendMessagePromise<any[]>({
+        type: "config/area_registry/list",
+      }),
+      conn.sendMessagePromise<any[]>({
+        type: "config/floor_registry/list",
+      }),
+      conn.sendMessagePromise<any[]>({
+        type: "config/label_registry/list",
+      }),
+      conn.sendMessagePromise<HassConfig>({ type: "get_config" }),
+    ]);
 
     // Use reducers for entities and entity registry
     bulkUpdateEntities(states);
     bulkUpdateEntityRegistry(entityRegistry);
+    setState("config", config);
 
     // Update devices, areas, floors, labels
     setState(

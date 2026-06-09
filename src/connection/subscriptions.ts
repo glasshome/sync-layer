@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import type { AreaEntry, EntityRegistryEntry, HAEvent } from "@glasshome/ha-types";
+import type { AreaEntry, EntityRegistryEntry, HassConfig, HAEvent } from "@glasshome/ha-types";
 import { produce } from "solid-js/store";
 import {
   removeArea,
@@ -255,6 +255,11 @@ export async function subscribeToUpdates(conn: SyncLayerConnection): Promise<voi
   }, "recorder_5min_statistics_generated");
   registrySubscriptions.push(() => statisticsSub());
 
+  // Refresh core config (unit system, locale, currency) when HA Region settings change
+  const coreConfigSub = await conn.subscribeEvents(() => {
+    void handleCoreConfigUpdate();
+  }, "core_config_updated");
+  registrySubscriptions.push(() => coreConfigSub());
 }
 
 /**
@@ -273,6 +278,20 @@ export async function cleanupSubscriptions(): Promise<void> {
 // ============================================
 // EVENT HANDLERS
 // ============================================
+
+async function handleCoreConfigUpdate(): Promise<void> {
+  const conn = state.conn;
+  if (!conn) return;
+
+  try {
+    const config = await conn.sendMessagePromise<HassConfig>({ type: "get_config" });
+    if (config) {
+      setState("config", config);
+    }
+  } catch (error) {
+    console.error("Error refreshing core config:", error);
+  }
+}
 
 async function handleRegistryUpdate(event: HAEvent<RegistryUpdateData>): Promise<void> {
   const { action, entity_id } = event.data;

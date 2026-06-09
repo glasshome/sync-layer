@@ -46,6 +46,8 @@ export interface GlassHomeState {
   connectionError: Error | null;
   /** Home Assistant base URL */
   hassUrl: string | null;
+  /** Home Assistant core config (unit system, locale, currency); null until loaded */
+  config: import("@glasshome/ha-types").HassConfig | null;
 
   // ========== Runtime Entities ==========
   /** Live entity state (keyed by entity_id) */
@@ -92,6 +94,7 @@ const initialState: GlassHomeState = {
   connectionState: "disconnected",
   connectionError: null,
   hassUrl: null,
+  config: null,
 
   // Entities
   entities: {},

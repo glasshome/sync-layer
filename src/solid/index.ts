@@ -16,17 +16,22 @@ export {
   useAreas,
   useCamera,
   useConnection,
+  useCurrency,
   useEntities,
   useEntity,
   useEntityHistory,
   useEntityState,
   useEntityStatistics,
   useForecast,
+  useHassConfig,
+  useLocale,
   useService,
   useStore,
+  useTemperatureUnit,
   useToggle,
   useTurnOff,
   useTurnOn,
+  useUnitSystem,
 } from "./hooks";
 
 // ============================================

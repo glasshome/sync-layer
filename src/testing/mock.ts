@@ -11,6 +11,7 @@ import type {
   AuthOk,
   AuthRequired,
   EntityRegistryEntry,
+  HassConfig,
   HAEvent,
   SubscribeEventsRequest,
   UnsubscribeEventsRequest,
@@ -63,6 +64,7 @@ export class MockConnection implements SyncLayerConnection {
   private messageIdCounter = 1;
   private autoReact: boolean;
   private reactionDelay: number;
+  private configOverride: Partial<HassConfig>;
 
   // Tracking for test assertions
   public serviceCalls: Array<{
@@ -87,12 +89,27 @@ export class MockConnection implements SyncLayerConnection {
       autoReact?: boolean;
       /** Delay before emitting entity update events after service calls in ms (default: 0) */
       reactionDelay?: number;
+      /** Override fields of the get_config response (unit_system, language, currency, etc.) */
+      config?: Partial<HassConfig>;
     },
   ) {
     this.fixtures = fixtures;
     this.latency = latency;
     this.autoReact = options?.autoReact ?? true;
     this.reactionDelay = options?.reactionDelay ?? 0;
+    this.configOverride = options?.config ?? {};
+  }
+
+  /** Replace the core config and fire core_config_updated (simulates HA Region change). */
+  setConfig(config: Partial<HassConfig>): void {
+    this.configOverride = { ...this.configOverride, ...config };
+    this.emitEvent({
+      event_type: "core_config_updated",
+      data: {},
+      origin: "LOCAL",
+      time_fired: new Date(0).toISOString(),
+      context: { id: "mock", parent_id: null, user_id: null },
+    });
   }
 
   /**
@@ -382,7 +399,7 @@ export class MockConnection implements SyncLayerConnection {
         return {};
 
       case "get_config":
-        // Return mock config
+        // Return mock config, merged with any per-test override
         return {
           latitude: 0,
           longitude: 0,
@@ -404,6 +421,7 @@ export class MockConnection implements SyncLayerConnection {
           currency: "USD",
           country: null,
           language: "en",
+          ...this.configOverride,
         };
 
       case "get_services":

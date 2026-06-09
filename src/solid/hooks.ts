@@ -11,6 +11,7 @@
  * @packageDocumentation
  */
 
+import type { HassConfig, HassUnitSystem } from "@glasshome/ha-types";
 import type { Accessor, Resource } from "solid-js";
 import { createEffect, createMemo, createResource, onCleanup } from "solid-js";
 import type {
@@ -137,6 +138,35 @@ export function useConnection(): {
   const status: Accessor<ConnectionState> = createMemo(() => state.connectionState);
   const isConnected: Accessor<boolean> = createMemo(() => state.connectionState === "connected");
   return { status, isConnected };
+}
+
+// ============================================
+// CONFIG / LOCALIZATION HOOKS
+// ============================================
+
+/** Reactive Home Assistant core config (null until loaded). */
+export function useHassConfig(): Accessor<HassConfig | null> {
+  return createMemo(() => state.config);
+}
+
+/** Reactive HA unit system (length/mass/temperature/volume), or null until loaded. */
+export function useUnitSystem(): Accessor<HassUnitSystem | null> {
+  return createMemo(() => state.config?.unit_system ?? null);
+}
+
+/** Reactive temperature unit from HA config, including the degree sign. Defaults to "°C". */
+export function useTemperatureUnit(): Accessor<string> {
+  return createMemo(() => state.config?.unit_system.temperature ?? "°C");
+}
+
+/** Reactive UI locale (BCP 47 tag) from HA config. Defaults to "en". */
+export function useLocale(): Accessor<string> {
+  return createMemo(() => state.config?.language || "en");
+}
+
+/** Reactive currency (ISO 4217) from HA config. Defaults to "USD". */
+export function useCurrency(): Accessor<string> {
+  return createMemo(() => state.config?.currency || "USD");
 }
 
 // ============================================
