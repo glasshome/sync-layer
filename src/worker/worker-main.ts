@@ -58,8 +58,14 @@ class BrokeredAuth extends Auth {
   }
 
   override async refreshAccessToken(): Promise<void> {
-    const res = await fetch(this.mintUrl, { credentials: "same-origin" });
+    const res = await fetch(this.mintUrl, {
+      credentials: "same-origin",
+      headers: { accept: "application/json" },
+    });
     if (!res.ok) throw new Error(`Token broker responded ${res.status}`);
+    if (!res.headers.get("content-type")?.includes("application/json")) {
+      throw new Error(`Token broker did not return JSON (is ${this.mintUrl} reachable?)`);
+    }
     const broker = (await res.json()) as {
       accessToken: string;
       expiresInSec: number;
