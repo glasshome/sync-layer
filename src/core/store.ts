@@ -1,6 +1,5 @@
 /** Central reactive state store for sync-layer using SolidJS createStore. */
 
-import type { Connection } from "home-assistant-js-websocket";
 import type { SetStoreFunction, Store } from "solid-js/store";
 import { createStore, reconcile } from "solid-js/store";
 
@@ -36,10 +35,21 @@ import type {
  * NOTE: No EntityIndices field -- indices are derived reactively in Plan 03.
  * NOTE: No _activeSubscriptions -- managed externally.
  */
+/**
+ * The structural surface every conn consumer actually uses. Satisfied by a
+ * real home-assistant-js-websocket Connection, the bridge facade (traffic
+ * tunneled through the HA worker), and mock connections.
+ */
+export interface HaLink {
+  sendMessagePromise<T>(message: unknown): Promise<T>;
+  subscribeMessage<T>(callback: (message: T) => void, message: unknown): Promise<() => Promise<void>>;
+  subscribeEvents(callback: (event: unknown) => void, eventType?: string): Promise<() => void | Promise<void>>;
+}
+
 export interface GlassHomeState {
   // ========== Connection ==========
-  /** WebSocket connection instance */
-  conn: Connection | null;
+  /** Live HA link (real socket, worker bridge facade, or mock) */
+  conn: HaLink | null;
   /** Current connection state */
   connectionState: ConnectionState;
   /** Connection error (if any) */

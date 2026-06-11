@@ -7,7 +7,6 @@
  */
 
 import type { Domain, ServiceCall, ServiceName, WsCommandType } from "@glasshome/ha-types";
-import { callService as wsCallService } from "home-assistant-js-websocket";
 import { state } from "../core/store";
 import type { EntityId } from "../core/types";
 import { applyDemoServiceCall } from "../demo/demo-provider";
@@ -38,7 +37,15 @@ export async function callService<D extends Domain, S extends ServiceName<D>>(
     if (mockConnection && typeof mockConnection.callService === "function") {
       await mockConnection.callService(domain, service, serviceData, target);
     } else {
-      await wsCallService(connection, domain, service, serviceData, target);
+      // Same wire message wsCallService builds; sending it directly keeps
+      // the call on the HaLink surface (works for sockets and the bridge).
+      await connection.sendMessagePromise({
+        type: "call_service",
+        domain,
+        service,
+        service_data: serviceData,
+        target,
+      });
     }
   } catch (error: any) {
     throw new Error(`Service call failed: ${error.message || String(error)}`);

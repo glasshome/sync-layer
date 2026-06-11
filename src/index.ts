@@ -232,4 +232,24 @@ export {
 // VERSION
 // ============================================
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";
+
+// ============================================
+// HA BRIDGE (worker-backed connection)
+// ============================================
+
+export {
+  applyBridgeConnState,
+  attachBridgeToStore,
+  detachBridgeFromStore,
+  reloadAfterBridgeReconnect,
+} from "./connection/bridged";
+export {
+  BridgeNeedsAuthError,
+  createHaBridge,
+  type BridgeConnectOptions,
+  type BridgeEvents,
+  type HaBridge,
+} from "./worker/bridge-client";
+export type { AuthMode, ConnState, OAuthTokenData } from "./worker/protocol";
+export { runHaBridgeWorker, type WorkerScope } from "./worker/worker-main";

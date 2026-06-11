@@ -16,7 +16,7 @@ import {
 } from "home-assistant-js-websocket";
 import { produce } from "solid-js/store";
 import { bulkUpdateEntities, bulkUpdateEntityRegistry } from "../core/reducers";
-import { setState, state } from "../core/store";
+import { type HaLink, setState, state } from "../core/store";
 import type { AreaRegistryEntry, HassEntity } from "../core/types";
 import { wrapHAConnection } from "./adapter";
 import { authenticateWithOAuth, authenticateWithToken, type OAuthOptions } from "./auth";
@@ -48,6 +48,10 @@ export interface ConnectionOptions {
 const HEARTBEAT_INTERVAL_MS = 30_000;
 const HEARTBEAT_TIMEOUT_MS = 15_000;
 const SUSPEND_DELAY_MS = 5 * 60 * 1000;
+
+// The real socket for the direct (non-bridged) mode. The store only holds
+// the structural HaLink; socket lifecycle methods live here.
+let activeConn: Connection | null = null;
 
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
 let suspendTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -184,6 +188,7 @@ export async function initConnection(options: ConnectionOptions): Promise<Connec
     });
     const wrappedConn: SyncLayerConnection = wrapHAConnection(conn);
 
+    activeConn = conn;
     setState(
       produce((s) => {
         s.conn = conn;
@@ -220,14 +225,11 @@ export async function initConnection(options: ConnectionOptions): Promise<Connec
  * Disconnect from Home Assistant
  */
 export function disconnect(): void {
-  const conn = state.conn;
-
   stopHeartbeat();
   teardownLifecycleListeners();
 
-  if (conn) {
-    conn.close();
-  }
+  activeConn?.close();
+  activeConn = null;
 
   setState(
     produce((s) => {
@@ -238,9 +240,9 @@ export function disconnect(): void {
 }
 
 /**
- * Get current connection
+ * Get current connection link
  */
-export function getConnection(): Connection | null {
+export function getConnection(): HaLink | null {
   return state.conn;
 }
 
@@ -258,8 +260,7 @@ export function isConnected(): boolean {
  * `isConnected()` which reflects the manager's internal lifecycle state.
  */
 export function getConnectionState(): boolean {
-  const conn = state.conn;
-  return conn ? conn.connected : false;
+  return activeConn ? activeConn.connected : state.connectionState === "connected";
 }
 
 // ============================================
@@ -306,7 +307,7 @@ function setupEventHandlers(conn: Connection, options: ConnectionOptions): void 
 // INITIAL DATA LOADING
 // ============================================
 
-async function loadInitialData(conn: Connection): Promise<void> {
+export async function loadInitialData(conn: Pick<HaLink, "sendMessagePromise">): Promise<void> {
   try {
     const [
       states,

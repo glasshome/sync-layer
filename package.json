@@ -1,6 +1,6 @@
 {
   "name": "@glasshome/sync-layer",
-  "version": "0.1.16",
+  "version": "0.2.0",
   "description": "Type-safe, reactive state synchronization layer for Home Assistant",
   "repository": {
     "type": "git",
@@ -26,6 +26,11 @@
       "types": "./dist/testing/index.d.ts",
       "import": "./dist/testing/index.js"
     },
+    "./worker": {
+      "@glasshome/source": "./src/worker/worker-main.ts",
+      "types": "./dist/worker/worker-main.d.ts",
+      "import": "./dist/worker/worker-main.js"
+    },
     "./package.json": "./package.json"
   },
   "peerDependencies": {
@@ -50,7 +55,8 @@
     "lint": "tsc --noEmit"
   },
   "dependencies": {
-    "home-assistant-js-websocket": "^9.6.0"
+    "home-assistant-js-websocket": "^9.6.0",
+    "@glasshome/widget-contract": "0.1.0"
   },
   "devDependencies": {
     "@glasshome/ha-types": "0.1.2",
