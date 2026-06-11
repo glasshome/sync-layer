@@ -25,8 +25,8 @@ export interface ServiceCallShape {
 }
 
 export class RegistryMirror {
-  readonly entities = new Map<string, EntityFacts>();
-  readonly devices = new Map<string, DeviceFacts>();
+  readonly entities: Map<string, EntityFacts> = new Map();
+  readonly devices: Map<string, DeviceFacts> = new Map();
 
   replace(
     entityRegistry: {
