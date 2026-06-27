@@ -18,6 +18,7 @@ export interface BridgeConnectOptions {
   url: string;
   mode: AuthMode;
   proxyWsPath?: string;
+  proxyTicket?: string;
 }
 
 export interface BridgeEvents {
@@ -163,7 +164,13 @@ export function createHaBridge(worker: Worker, events: BridgeEvents = {}): HaBri
     connect(opts) {
       return new Promise<void>((resolve, reject) => {
         pendingConnect = { resolve, reject };
-        post({ k: "connect", url: opts.url, mode: opts.mode, proxyWsPath: opts.proxyWsPath });
+        post({
+          k: "connect",
+          url: opts.url,
+          mode: opts.mode,
+          proxyWsPath: opts.proxyWsPath,
+          proxyTicket: opts.proxyTicket,
+        });
       });
     },
     disconnect: () => post({ k: "disconnect" }),

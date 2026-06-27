@@ -30,8 +30,13 @@ export type MainToWorker =
       k: "connect";
       url: string;
       mode: AuthMode;
-      /** Same-origin WS path to use instead of the HA host (tunnel proxy). */
+      /** Proxy WS endpoint to use instead of the HA host. A path (web, resolved
+       *  same-origin) or an absolute ws(s)/http(s) URL (native, where the worker
+       *  origin is localhost, not dash-server). */
       proxyWsPath?: string;
+      /** Short-lived ticket authorizing the proxy WS + broker mint when a
+       *  cross-origin cookie/bearer can't ride them (native). */
+      proxyTicket?: string;
     }
   | { k: "send"; id: number; message: unknown }
   | { k: "sub"; id: number; kind: "events" | "message"; eventType?: string; message?: unknown }

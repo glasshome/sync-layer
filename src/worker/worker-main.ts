@@ -53,14 +53,20 @@ class BrokeredAuth extends Auth {
   constructor(
     private mintUrl: string,
     data: AuthData,
+    private ticket?: string,
   ) {
     super(data);
   }
 
   override async refreshAccessToken(): Promise<void> {
     const res = await fetch(this.mintUrl, {
-      credentials: "same-origin",
-      headers: { accept: "application/json" },
+      // Web rides the same-origin cookie; native can't (cross-origin), so it
+      // presents the proxy ticket as a header instead.
+      credentials: "include",
+      headers: {
+        accept: "application/json",
+        ...(this.ticket ? { "x-proxy-ticket": this.ticket } : {}),
+      },
     });
     if (!res.ok) throw new Error(`Token broker responded ${res.status}`);
     if (!res.headers.get("content-type")?.includes("application/json")) {
@@ -82,6 +88,26 @@ class BrokeredAuth extends Auth {
       clientId: broker.haClientId,
     };
   }
+}
+
+/** Resolve the proxy WS endpoint. Accepts a same-origin path (web) or an
+ *  absolute ws(s)/http(s) URL (native), and appends the auth ticket if given. */
+function buildProxyWsUrl(
+  scope: { location: { protocol: string; host: string } },
+  proxyWsPath: string,
+  ticket?: string,
+): string {
+  let base: string;
+  if (/^wss?:\/\//i.test(proxyWsPath)) {
+    base = proxyWsPath;
+  } else if (/^https?:\/\//i.test(proxyWsPath)) {
+    base = proxyWsPath.replace(/^http/i, "ws");
+  } else {
+    const proto = scope.location.protocol === "https:" ? "wss:" : "ws:";
+    base = `${proto}//${scope.location.host}${proxyWsPath}`;
+  }
+  if (ticket) base += `${base.includes("?") ? "&" : "?"}ticket=${encodeURIComponent(ticket)}`;
+  return base;
 }
 
 export function runHaBridgeWorker(scope: WorkerScope): void {
@@ -216,7 +242,11 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
 
   // ---- auth ----
 
-  async function buildAuth(url: string, mode: AuthMode): Promise<Auth | "needs-auth"> {
+  async function buildAuth(
+    url: string,
+    mode: AuthMode,
+    ticket?: string,
+  ): Promise<Auth | "needs-auth"> {
     switch (mode.kind) {
       case "token":
         return new Auth({
@@ -229,14 +259,18 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
         });
       case "brokered":
         // Starts expired: the socket layer mints via the broker before connecting.
-        return new BrokeredAuth(mode.mintUrl, {
-          hassUrl: url,
-          clientId: null,
-          access_token: "",
-          refresh_token: "",
-          expires: 0,
-          expires_in: 0,
-        });
+        return new BrokeredAuth(
+          mode.mintUrl,
+          {
+            hassUrl: url,
+            clientId: null,
+            access_token: "",
+            refresh_token: "",
+            expires: 0,
+            expires_in: 0,
+          },
+          ticket,
+        );
       case "oauth": {
         const data = mode.data ?? (await loadTokens());
         if (!data) return "needs-auth";
@@ -248,8 +282,13 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
     }
   }
 
-  async function connect(url: string, mode: AuthMode, proxyWsPath?: string): Promise<void> {
-    const auth = await buildAuth(url, mode);
+  async function connect(
+    url: string,
+    mode: AuthMode,
+    proxyWsPath?: string,
+    proxyTicket?: string,
+  ): Promise<void> {
+    const auth = await buildAuth(url, mode, proxyTicket);
     if (auth === "needs-auth") {
       post({ k: "connect_result", ok: false, needsAuth: true });
       return;
@@ -271,14 +310,12 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
       }
     }
 
-    const socketFactory = proxyWsPath
+    const proxyWsUrl = proxyWsPath ? buildProxyWsUrl(scope, proxyWsPath, proxyTicket) : null;
+    const socketFactory = proxyWsUrl
       ? (options: Parameters<typeof createSocket>[0]) => {
-          const proto = scope.location.protocol === "https:" ? "wss:" : "ws:";
           const proxied = new Proxy(options.auth as Auth, {
             get: (target, prop) =>
-              prop === "wsUrl"
-                ? `${proto}//${scope.location.host}${proxyWsPath}`
-                : Reflect.get(target, prop),
+              prop === "wsUrl" ? proxyWsUrl : Reflect.get(target, prop),
           });
           return createSocket({ ...options, auth: proxied });
         }
@@ -323,7 +360,7 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
     const msg = ev.data;
     switch (msg.k) {
       case "connect":
-        await connect(msg.url, msg.mode, msg.proxyWsPath);
+        await connect(msg.url, msg.mode, msg.proxyWsPath, msg.proxyTicket);
         break;
 
       case "send": {
