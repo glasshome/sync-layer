@@ -132,6 +132,7 @@ export type {
 export { fetchStream, fetchStreamData } from "./camera/fetch";
 export { getStream, refreshStream } from "./camera/query";
 export { fetchEnergyPreferences } from "./energy/prefs";
+export { hassMediaUrl } from "./media/url";
 export type {
   EnergyDeviceConsumption,
   EnergyPreferences,

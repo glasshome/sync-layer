@@ -13,11 +13,16 @@ import { subscribeToUpdates } from "./subscriptions";
  *
  * Call after bridge.connect() resolved. Returns when initial data is loaded.
  */
-export async function attachBridgeToStore(bridge: HaBridge, hassUrl: string): Promise<void> {
+export async function attachBridgeToStore(
+  bridge: HaBridge,
+  hassUrl: string,
+  mediaProxyBase?: string,
+): Promise<void> {
   setState(
     produce((s) => {
       s.conn = bridge.conn;
       s.hassUrl = hassUrl.replace(/\/$/, "");
+      s.mediaProxyBase = mediaProxyBase ?? null;
       s.connectionState = "connected";
       s.connectionError = null;
     }),

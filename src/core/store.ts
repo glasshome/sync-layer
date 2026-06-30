@@ -56,6 +56,9 @@ export interface GlassHomeState {
   connectionError: Error | null;
   /** Home Assistant base URL */
   hassUrl: string | null;
+  /** Same-origin prefix for the HA media proxy (e.g. "/ha-proxy/media"), or null
+   *  to resolve media directly against hassUrl. Set by the host at connect. */
+  mediaProxyBase: string | null;
   /** Home Assistant core config (unit system, locale, currency); null until loaded */
   config: import("@glasshome/ha-types").HassConfig | null;
 
@@ -104,6 +107,7 @@ const initialState: GlassHomeState = {
   connectionState: "disconnected",
   connectionError: null,
   hassUrl: null,
+  mediaProxyBase: null,
   config: null,
 
   // Entities
