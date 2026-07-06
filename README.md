@@ -2,7 +2,7 @@
 
 Type-safe, reactive state synchronization layer for Home Assistant.
 
-Provides connection management, entity querying, service calls, and reactive state via a SolidJS store — all with full TypeScript types powered by `@glasshome/ha-types`.
+Provides connection management, entity querying, service calls, and reactive state via a SolidJS store — all with full TypeScript types powered by `@glasshome/ha-types`. Part of [GlassHome](https://glasshome.app), the local-first dashboard for Home Assistant.
 
 ## Install
 
