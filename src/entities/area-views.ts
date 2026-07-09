@@ -1,8 +1,14 @@
 /**
  * Area View Builder
  *
- * Constructs unified AreaView objects by combining registry data
- * with computed entities and devices using the query engine.
+ * Constructs unified AreaView objects by combining registry data with computed
+ * entities and devices.
+ *
+ * Membership (which entities/devices belong to an area) is registry-driven and
+ * cheap; live entity *views* read entity state and are therefore exposed as a
+ * lazy `entities` getter. Callers that only need names, ids, or counts never
+ * touch entity state, so building the whole-area list does not recompute on
+ * every entity state tick.
  *
  * @packageDocumentation
  */
@@ -14,33 +20,61 @@ import type {
   DeviceRegistryEntry,
   DeviceView,
   EntityId,
+  EntityView,
 } from "../core/types";
 import { getEntityViews } from "./views";
 
 // ============================================
-// AREA-SCOPED LOOKUP HELPERS
+// MEMBERSHIP
 // ============================================
 
-function getDevicesForArea(areaId: AreaId): DeviceRegistryEntry[] {
-  const result: DeviceRegistryEntry[] = [];
-  for (const device of Object.values(state.devices)) {
-    if (device.area_id === areaId) {
-      result.push(device);
-    }
-  }
-  return result;
+interface AreaMembership {
+  devices: DeviceRegistryEntry[];
+  entityIds: EntityId[];
 }
 
-function getEntityIdsForArea(areaId: AreaId, deviceIdsInArea: Set<string>): EntityId[] {
+/** The area an entity belongs to: its own `area_id` wins; otherwise it inherits
+ *  the area of its device. Null when neither resolves. */
+function entityAreaId(entry: { area_id: string | null; device_id: string | null }): AreaId | null {
+  if (entry.area_id) return entry.area_id;
+  if (entry.device_id) return state.devices[entry.device_id]?.area_id ?? null;
+  return null;
+}
+
+/** One pass over the device + entity registries → membership per area.
+ *  O(devices + entities) for the whole home, vs the O(areas × (devices +
+ *  entities)) of resolving each area independently. */
+function computeAreaMembership(): Map<AreaId, AreaMembership> {
+  const byArea = new Map<AreaId, AreaMembership>();
+  const ensure = (areaId: AreaId): AreaMembership => {
+    let m = byArea.get(areaId);
+    if (!m) {
+      m = { devices: [], entityIds: [] };
+      byArea.set(areaId, m);
+    }
+    return m;
+  };
+  for (const device of Object.values(state.devices)) {
+    if (device.area_id) ensure(device.area_id).devices.push(device);
+  }
+  for (const [entityId, entry] of Object.entries(state.entityRegistry)) {
+    const areaId = entityAreaId(entry);
+    if (areaId) ensure(areaId).entityIds.push(entityId);
+  }
+  return byArea;
+}
+
+/** Membership for a single area, without indexing every other area. */
+function membershipFor(areaId: AreaId): AreaMembership {
+  const devices: DeviceRegistryEntry[] = [];
+  for (const device of Object.values(state.devices)) {
+    if (device.area_id === areaId) devices.push(device);
+  }
   const entityIds: EntityId[] = [];
   for (const [entityId, entry] of Object.entries(state.entityRegistry)) {
-    if (entry.area_id === areaId) {
-      entityIds.push(entityId);
-    } else if (!entry.area_id && entry.device_id && deviceIdsInArea.has(entry.device_id)) {
-      entityIds.push(entityId);
-    }
+    if (entityAreaId(entry) === areaId) entityIds.push(entityId);
   }
-  return entityIds;
+  return { devices, entityIds };
 }
 
 // ============================================
@@ -70,20 +104,19 @@ export function buildDeviceView(device: DeviceRegistryEntry): DeviceView {
 // AREA VIEW BUILDER
 // ============================================
 
-/**
- * Build an AreaView from registry data using query engine
- */
-export function buildAreaView(areaId: AreaId): AreaView {
+/** Assemble an AreaView from pre-resolved membership. `entities` is a lazy
+ *  getter: materializing live EntityViews reads entity state, so deferring it
+ *  keeps callers that only need names/ids/counts off the per-state-tick
+ *  recompute path. The getter stays reactive — read inside a tracking scope it
+ *  tracks those entities' state and updates like any other store read. */
+function assembleAreaView(areaId: AreaId, membership: AreaMembership): AreaView {
   const area = state.areas[areaId];
   if (!area) {
     throw new Error(`Area ${areaId} not found`);
   }
 
-  const devicesInArea = getDevicesForArea(areaId);
-  const deviceIdsInArea = new Set(devicesInArea.map((d) => d.id));
-  const allEntityIds = getEntityIdsForArea(areaId, deviceIdsInArea);
-  const areaEntities = allEntityIds.length > 0 ? getEntityViews(allEntityIds) : [];
-  const devices = devicesInArea.map((device) => buildDeviceView(device));
+  const devices = membership.devices.map((device) => buildDeviceView(device));
+  const entityIds = membership.entityIds;
 
   return {
     id: areaId,
@@ -98,18 +131,31 @@ export function buildAreaView(areaId: AreaId): AreaView {
     humidityEntityId: area.humidity_entity_id ?? null,
     createdAt: area.created_at ?? new Date().toISOString(),
     modifiedAt: area.modified_at ?? new Date().toISOString(),
-    entities: areaEntities,
     devices,
-    entityIds: allEntityIds,
+    entityIds,
     deviceIds: devices.map((d) => d.id),
+    get entities(): EntityView[] {
+      return entityIds.length > 0 ? getEntityViews(entityIds) : [];
+    },
   };
 }
 
 /**
- * Get all area views
+ * Build an AreaView for a single area from registry data.
+ */
+export function buildAreaView(areaId: AreaId): AreaView {
+  return assembleAreaView(areaId, membershipFor(areaId));
+}
+
+/**
+ * Get all area views. Membership is resolved in a single registry pass; entity
+ * views stay lazy per area (see `assembleAreaView`).
  */
 export function getAreaViews(): AreaView[] {
-  return Object.keys(state.areas).map((areaId) => buildAreaView(areaId));
+  const membership = computeAreaMembership();
+  return Object.keys(state.areas).map((areaId) =>
+    assembleAreaView(areaId, membership.get(areaId) ?? { devices: [], entityIds: [] }),
+  );
 }
 
 /**

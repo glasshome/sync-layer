@@ -31,6 +31,7 @@ import {
   callService,
   entityViewEquals,
   fetchStatisticsDuringPeriod,
+  getAreaViews,
   getEntityView,
   isDemoMode,
   registerEntity,
@@ -209,17 +210,10 @@ export function useToggle(): typeof toggle {
  */
 export function useAreas(): Accessor<AreaView[]> {
   return createMemo(
-    () => {
-      return Object.keys(state.areas)
-        .map((areaId) => {
-          try {
-            return buildAreaView(areaId);
-          } catch {
-            return undefined;
-          }
-        })
-        .filter((v): v is AreaView => v !== undefined);
-    },
+    // Registry-driven: getAreaViews resolves membership without reading entity
+    // state (AreaView.entities is a lazy getter), so this memo recomputes on
+    // registry changes, not on every entity state tick.
+    () => getAreaViews(),
     undefined,
     {
       equals: (a, b) => {
@@ -228,10 +222,12 @@ export function useAreas(): Accessor<AreaView[]> {
           const aItem = a[i];
           const bItem = b[i];
           if (!aItem || !bItem) return false;
+          // Compare entityIds.length, not entities.length: the latter would
+          // invoke the lazy getter and pull entity state back into this memo.
           if (
             aItem.id !== bItem.id ||
             aItem.modifiedAt !== bItem.modifiedAt ||
-            aItem.entities.length !== bItem.entities.length
+            aItem.entityIds.length !== bItem.entityIds.length
           )
             return false;
         }
