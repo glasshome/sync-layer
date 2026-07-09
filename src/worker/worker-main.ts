@@ -44,6 +44,19 @@ function isHaWireMessage(value: unknown): value is HaWireMessage {
   return typeof value === "object" && value !== null && typeof (value as { type?: unknown }).type === "string";
 }
 
+/** Extract a readable message from a thrown value. HA's websocket client rejects
+ *  with a plain `{ code, message }` object, not an Error, so `String(err)` would
+ *  yield "[object Object]" and hide the real reason. */
+function errText(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object" && "message" in err) {
+    const m = (err as { message?: unknown }).message;
+    if (typeof m === "string") return m;
+  }
+  return String(err);
+}
+
 interface WidgetChannel {
   port: MessagePort;
   caps: CapabilityGrant[];
@@ -192,7 +205,7 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
           id: call.id,
           ok: false,
           code: "ERROR",
-          message: err instanceof Error ? err.message : String(err),
+          message: errText(err),
         });
       }
     };
@@ -304,7 +317,7 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
         post({
           k: "connect_result",
           ok: false,
-          error: err instanceof Error ? err.message : String(err),
+          error: errText(err),
         });
         return;
       }
@@ -330,7 +343,7 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
       post({
         k: "connect_result",
         ok: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: errText(err),
       });
       return;
     }
@@ -381,7 +394,7 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
             k: "result",
             id: msg.id,
             ok: false,
-            error: err instanceof Error ? err.message : String(err),
+            error: errText(err),
           });
         }
         break;
@@ -409,7 +422,7 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
           post({
             k: "sub_end",
             id: msg.id,
-            error: err instanceof Error ? err.message : String(err),
+            error: errText(err),
           });
         }
         break;
