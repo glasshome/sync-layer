@@ -6,6 +6,7 @@
 
 import { sendCommand } from "../commands/service";
 import { state } from "../core/store";
+import { isDemoMode } from "../demo/demo-provider";
 import type { EntityId } from "../core/types";
 import type { CameraStream, CameraStreamData, StreamFormat, StreamQueryOptions } from "./types";
 
@@ -20,9 +21,11 @@ export async function fetchStream(
   entityId: EntityId,
   format: StreamFormat = "hls",
 ): Promise<string | null> {
-  if (!state.conn) {
+  if (isDemoMode()) {
     return format === "hls" ? DEMO_HLS_STREAM : null;
   }
+
+  if (!state.conn) return null;
 
   const response = await sendCommand<{ url: string }>({
     type: "camera/stream",
