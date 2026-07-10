@@ -220,6 +220,25 @@ function evChargerPower(lt: LocalTime): number {
   return 7200 * ramp;
 }
 
+const HEAT_PUMP_PEAK_W = 3200;
+
+/**
+ * A smooth heat-pump load: a slow morning/evening envelope carrying a
+ * few-minute shimmer. Its peaks push the home deficit past the battery's power
+ * cap, so grid import (and the running cost) visibly rise and fall on live
+ * ticks instead of sitting at zero. Gated out of the deep-night window so the
+ * quiet 02:00-03:00 baseline is unchanged.
+ */
+function heatPumpPower(lt: LocalTime): number {
+  const h = lt.hourFrac;
+  let envelope = 0;
+  if (h >= 6 && h <= 9) envelope = Math.sin(((h - 6) / 3) * Math.PI);
+  else if (h >= 16 && h <= 23) envelope = Math.sin(((h - 16) / 7) * Math.PI);
+  else return 0;
+  const shimmer = 0.7 + 0.3 * Math.sin(lt.minuteOfDay * Math.PI * 2);
+  return HEAT_PUMP_PEAK_W * envelope * shimmer;
+}
+
 /** Smooth occupancy envelope: extra load mornings and evenings. */
 function occupancyEnvelope(lt: LocalTime): number {
   const h = lt.hourFrac;
@@ -319,6 +338,7 @@ function homePower(lt: LocalTime): number {
     dishwasherPower(lt) +
     washerPower(lt) +
     evChargerPower(lt) +
+    heatPumpPower(lt) +
     occupancyEnvelope(lt);
   return base * homeNoise(lt);
 }
@@ -544,6 +564,12 @@ export interface DemoStatisticBucket {
   max: number;
   /** Energy in Wh accumulated over the bucket (W-h integration). */
   sum: number;
+  /**
+   * Energy added during this bucket, in kWh, matching HA's `change` field for
+   * an energy (kWh) sensor. This is the per-bucket delta (not cumulative), the
+   * value daily-total consumers read.
+   */
+  change: number;
 }
 
 /** Bucket length in ms for a statistics period. */
@@ -599,6 +625,7 @@ export function synthesizeEnergyStatistics(
       min: min === Number.POSITIVE_INFINITY ? mean : min,
       max: max === Number.NEGATIVE_INFINITY ? mean : max,
       sum: cumulativeWh,
+      change: energyWh / 1000,
     });
   }
 
