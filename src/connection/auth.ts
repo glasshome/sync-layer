@@ -71,18 +71,18 @@ export interface OAuthOptions {
  * Authenticate using OAuth flow
  *
  * This function uses `getAuth` from `home-assistant-js-websocket` which:
- * 1. Opens Home Assistant authorization page in a popup
+ * 1. Redirects the whole page to the Home Assistant authorization page
  * 2. Waits for user authorization
- * 3. Exchanges authorization code for tokens
- * 4. Returns authenticated Auth object
+ * 3. On return, HA redirects back to the app URL with `?auth_callback=1&code=…`
+ * 4. Exchanges the authorization code for tokens and returns an Auth object
  *
  * Note: For a complete OAuth flow, you typically need to:
  * - Set up a redirect URI endpoint in your app
  * - Handle the OAuth callback with the authorization code
  * - Use `getAuthCode` callback to provide the code
  *
- * Alternatively, `getAuth` can automatically handle the flow in browser environments
- * by opening a popup and listening for the callback.
+ * In browser environments `getAuth` handles this automatically via a full-page
+ * redirect (not a popup); native platforms supply `getAuthCode` instead.
  *
  * @param options - OAuth options
  * @returns Authenticated Auth object
