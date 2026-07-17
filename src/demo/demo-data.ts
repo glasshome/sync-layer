@@ -323,7 +323,7 @@ export function createDemoFixtures(): DemoFixtures {
     entityRegistry[e.entity_id] = makeRegistryEntry(e.entity_id, regOverrides);
   }
 
-  // ----- Lights (5) -----
+  // ----- Lights (7) -----
   add(
     makeEntity("light.living_room_main", "on", {
       brightness: 179, // ~70%
@@ -365,6 +365,26 @@ export function createDemoFixtures(): DemoFixtures {
       supported_color_modes: ["brightness"],
     }),
     { device_id: "hallway_lights", area_id: "entry", supported_features: 1 },
+  );
+
+  add(
+    makeEntity("light.studio_rgb", "on", {
+      brightness: 205, // ~80%
+      hs_color: [265, 66], // violet
+      color_mode: "hs",
+      supported_color_modes: ["hs", "color_temp"],
+    }),
+    { device_id: "studio_lights", area_id: "living_room", supported_features: 44 },
+  );
+
+  add(
+    makeEntity("light.desk_rgb", "on", {
+      brightness: 200, // ~78%
+      hs_color: [172, 79], // teal
+      color_mode: "hs",
+      supported_color_modes: ["hs", "color_temp"],
+    }),
+    { device_id: "desk_lights", area_id: "bedroom", supported_features: 44 },
   );
 
   // ----- Sensors (5) -----
