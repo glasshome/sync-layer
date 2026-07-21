@@ -40,7 +40,11 @@ export function buildEntityView(
   registry: EntityRegistryEntry | undefined,
 ): EntityView {
   const domain = extractDomain(entity.entity_id);
-  const friendlyName = entity.attributes.friendly_name ?? registry?.name ?? entity.entity_id;
+  // Defensive: a partial entity from a reconnect/state race (or an
+  // `unavailable` entity) may arrive without attributes/context. Never crash
+  // the widget render over it; degrade to empty.
+  const attributes = entity.attributes ?? {};
+  const friendlyName = attributes.friendly_name ?? registry?.name ?? entity.entity_id;
   const name = registry?.name ?? friendlyName;
   const iconResolution = resolveIcon(entity, registry);
 
@@ -51,7 +55,7 @@ export function buildEntityView(
     friendly_name: _fn,
     icon: _icon,
     ...restAttributes
-  } = entity.attributes;
+  } = attributes;
 
   // Determine areaId: use entity's area_id if assigned, otherwise inherit from device
   let areaId: AreaId | null = registry?.area_id ?? null;
@@ -70,9 +74,9 @@ export function buildEntityView(
     lastChanged: new Date(entity.last_changed),
     lastUpdated: new Date(entity.last_updated),
     context: {
-      id: entity.context.id,
-      parentId: entity.context.parent_id,
-      userId: entity.context.user_id,
+      id: entity.context?.id ?? "",
+      parentId: entity.context?.parent_id ?? null,
+      userId: entity.context?.user_id ?? null,
     },
     name,
     friendlyName,
@@ -87,10 +91,9 @@ export function buildEntityView(
     entityCategory: registry?.entity_category ?? null,
     labels: registry?.labels ?? [],
     aliases: registry?.aliases ?? [],
-    deviceClass: registry?.device_class ?? entity.attributes.device_class ?? null,
-    unitOfMeasurement:
-      registry?.unit_of_measurement ?? entity.attributes.unit_of_measurement ?? null,
-    supportedFeatures: registry?.supported_features ?? entity.attributes.supported_features,
+    deviceClass: registry?.device_class ?? attributes.device_class ?? null,
+    unitOfMeasurement: registry?.unit_of_measurement ?? attributes.unit_of_measurement ?? null,
+    supportedFeatures: registry?.supported_features ?? attributes.supported_features,
   };
 }
 
