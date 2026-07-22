@@ -216,7 +216,12 @@ export function applyDemoServiceCall(
 function applyTurnOn(e: HassEntity, domain: string, serviceData: Record<string, any> = {}): void {
   if (domain === "light") {
     e.state = "on";
-    e.attributes.brightness = serviceData.brightness ?? e.attributes.brightness ?? 255;
+    if (serviceData.brightness_pct !== undefined) {
+      const pct = Math.max(0, Math.min(100, serviceData.brightness_pct));
+      e.attributes.brightness = Math.round((pct / 100) * 255);
+    } else {
+      e.attributes.brightness = serviceData.brightness ?? e.attributes.brightness ?? 255;
+    }
     if (serviceData.color_temp_kelvin) {
       e.attributes.color_temp_kelvin = serviceData.color_temp_kelvin;
     }

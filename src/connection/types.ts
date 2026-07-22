@@ -8,7 +8,6 @@
  */
 
 import type { HAEvent } from "@glasshome/ha-types";
-import type { Fixtures } from "../testing/types";
 
 /**
  * Unified connection interface for Home Assistant connections
@@ -159,14 +158,4 @@ export interface SyncLayerConnection {
    * ```
    */
   addEventListener(handler: (message: any) => void): () => void;
-
-  /**
-   * Get fixtures (MockConnection only)
-   *
-   * Returns the fixture data for mock connections. SyncLayer uses this
-   * to load fixtures into its store during connection setup.
-   *
-   * @returns Fixture data (entities, registries, etc.)
-   */
-  getFixtures?(): Fixtures;
 }

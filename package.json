@@ -21,11 +21,6 @@
       "types": "./dist/solid/index.d.ts",
       "import": "./dist/solid/index.js"
     },
-    "./testing": {
-      "@glasshome/source": "./src/testing/index.ts",
-      "types": "./dist/testing/index.d.ts",
-      "import": "./dist/testing/index.js"
-    },
     "./worker": {
       "@glasshome/source": "./src/worker/worker-main.ts",
       "types": "./dist/worker/worker-main.d.ts",
