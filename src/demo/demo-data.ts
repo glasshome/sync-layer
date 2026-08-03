@@ -485,6 +485,53 @@ export function createDemoFixtures(): DemoFixtures {
     { device_id: "thermostat_br", area_id: "bedroom", supported_features: 385 },
   );
 
+  // ----- Water Heaters (2) -----
+  // supported_features bitmask: TARGET_TEMPERATURE=1 OPERATION_MODE=2 AWAY_MODE=4
+  add(
+    makeEntity("water_heater.boiler", "eco", {
+      temperature: 50,
+      current_temperature: 47.5,
+      operation_list: ["off", "eco", "performance"],
+      min_temp: 43,
+      max_temp: 60,
+      away_mode: "off",
+    }),
+    { device_id: "boiler", area_id: "utility", supported_features: 7 },
+  );
+
+  add(
+    makeEntity("water_heater.heat_pump_tank", "heat_pump", {
+      temperature: 55,
+      current_temperature: 52.3,
+      operation_list: ["off", "eco", "heat_pump", "high_demand"],
+      min_temp: 43,
+      max_temp: 60,
+    }),
+    { device_id: "hp_tank", area_id: "garage", supported_features: 3 },
+  );
+
+  // ----- Fans (2) -----
+  // supported_features bitmask: SET_SPEED=1 OSCILLATE=2 DIRECTION=4 PRESET_MODE=8
+  add(
+    makeEntity("fan.bedroom_ceiling", "on", {
+      // 3-speed fan: fractional grid exercises the widget's round-on-commit path
+      percentage: 200 / 3,
+      percentage_step: 100 / 3,
+      current_direction: "forward",
+    }),
+    { device_id: "ceiling_fan", area_id: "bedroom", supported_features: 5 },
+  );
+
+  add(
+    makeEntity("fan.air_purifier", "on", {
+      percentage: 40,
+      preset_modes: ["auto", "sleep", "turbo"],
+      preset_mode: "auto",
+      oscillating: false,
+    }),
+    { device_id: "purifier", area_id: "living_room", supported_features: 11 },
+  );
+
   // ----- Covers (6) -----
   // Cover supported_features bitmask: OPEN=1 CLOSE=2 SET_POSITION=4 STOP=8
   // OPEN_TILT=16 CLOSE_TILT=32 STOP_TILT=64 SET_TILT_POSITION=128
