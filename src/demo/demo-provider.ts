@@ -176,6 +176,9 @@ export function applyDemoServiceCall(
 
         if (service === "turn_on") {
           applyTurnOn(e, entityDomain, _serviceData);
+        } else if (service === "press" && entityDomain === "button") {
+          // Button state is the timestamp of the last press.
+          e.state = now;
         } else if (service === "turn_off") {
           applyTurnOff(e, entityDomain);
         } else if (service === "toggle") {
@@ -197,12 +200,44 @@ export function applyDemoServiceCall(
         } else if (service === "set_cover_position" && _serviceData.position != null) {
           e.attributes.current_position = _serviceData.position;
           e.state = _serviceData.position > 0 ? "open" : "closed";
-        } else if (service === "set_temperature" && _serviceData.temperature != null) {
-          e.attributes.temperature = _serviceData.temperature;
+        } else if (service === "open_cover_tilt") {
+          e.attributes.current_tilt_position = 100;
+        } else if (service === "close_cover_tilt") {
+          e.attributes.current_tilt_position = 0;
+        } else if (service === "set_cover_tilt_position" && _serviceData.tilt_position != null) {
+          e.attributes.current_tilt_position = _serviceData.tilt_position;
+        } else if (service === "set_temperature") {
+          if (_serviceData.temperature != null) e.attributes.temperature = _serviceData.temperature;
+          if (_serviceData.target_temp_low != null)
+            e.attributes.target_temp_low = _serviceData.target_temp_low;
+          if (_serviceData.target_temp_high != null)
+            e.attributes.target_temp_high = _serviceData.target_temp_high;
         } else if (service === "set_hvac_mode" && _serviceData.hvac_mode != null) {
           e.state = _serviceData.hvac_mode;
+        } else if (service === "set_fan_mode" && _serviceData.fan_mode != null) {
+          e.attributes.fan_mode = _serviceData.fan_mode;
+        } else if (service === "set_preset_mode" && _serviceData.preset_mode != null) {
+          e.attributes.preset_mode = _serviceData.preset_mode;
+          if (entityDomain === "fan") e.state = "on";
+        } else if (service === "set_percentage" && _serviceData.percentage != null) {
+          e.attributes.percentage = _serviceData.percentage;
+          e.state = _serviceData.percentage > 0 ? "on" : "off";
+        } else if (service === "oscillate" && _serviceData.oscillating != null) {
+          e.attributes.oscillating = _serviceData.oscillating;
+        } else if (service === "set_direction" && _serviceData.direction != null) {
+          e.attributes.current_direction = _serviceData.direction;
+        } else if (service === "set_operation_mode" && _serviceData.operation_mode != null) {
+          e.state = _serviceData.operation_mode;
+        } else if (service === "set_away_mode" && _serviceData.away_mode != null) {
+          e.attributes.away_mode = _serviceData.away_mode ? "on" : "off";
         } else if (service === "volume_set" && _serviceData.volume_level != null) {
           e.attributes.volume_level = _serviceData.volume_level;
+        } else if (service === "media_play_pause") {
+          e.state = e.state === "playing" ? "paused" : "playing";
+        } else if (service === "media_next_track" || service === "media_previous_track") {
+          applyTrackSkip(e, service === "media_next_track" ? 1 : -1);
+        } else if (service === "select_source" && _serviceData.source != null) {
+          e.attributes.source = _serviceData.source;
         }
       }),
     );
@@ -225,6 +260,12 @@ function applyTurnOn(e: HassEntity, domain: string, serviceData: Record<string, 
     if (serviceData.color_temp_kelvin) {
       e.attributes.color_temp_kelvin = serviceData.color_temp_kelvin;
     }
+    if (serviceData.hs_color) {
+      e.attributes.hs_color = serviceData.hs_color;
+    }
+  } else if (domain === "scene") {
+    // Scene state is the timestamp of the last activation.
+    e.state = new Date().toISOString();
   } else if (domain === "media_player") {
     e.state = "playing";
   } else if (domain === "cover") {
@@ -233,6 +274,21 @@ function applyTurnOn(e: HassEntity, domain: string, serviceData: Record<string, 
   } else {
     e.state = "on";
   }
+}
+
+// Small looping playlist so next/previous give visible feedback in the demo.
+const DEMO_TRACKS = [
+  { title: "Lo-fi Beats", artist: "Chill Station" },
+  { title: "Golden Hour", artist: "Analog Sunset" },
+  { title: "Night Drive", artist: "Neon Coast" },
+];
+
+function applyTrackSkip(e: HassEntity, delta: number): void {
+  const current = DEMO_TRACKS.findIndex((t) => t.title === e.attributes.media_title);
+  const next = DEMO_TRACKS[(current + delta + DEMO_TRACKS.length) % DEMO_TRACKS.length];
+  if (!next) return;
+  e.attributes.media_title = next.title;
+  e.attributes.media_artist = next.artist;
 }
 
 function applyTurnOff(e: HassEntity, domain: string): void {
