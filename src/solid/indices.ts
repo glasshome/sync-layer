@@ -2,7 +2,10 @@
  * so consumers wrap in createMemo within their own reactive root for memoization. */
 
 import type { Accessor } from "solid-js";
-import { extractDomain, state } from "@glasshome/sync-layer";
+// Relative for the same reason as solid/hooks.ts: a value import from this
+// package's own entry loads a second copy of the store.
+import { state } from "../core/store";
+import { extractDomain } from "../core/types";
 
 function groupBy<T>(items: T[], keyFn: (item: T) => string | null): Record<string, T[]> {
   const result: Record<string, T[]> = {};

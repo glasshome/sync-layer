@@ -7,10 +7,10 @@
  */
 
 import type { Domain, ServiceCall, ServiceName, WsCommandType } from "@glasshome/ha-types";
-import { state } from "../core/store";
 import type { EntityId } from "../core/types";
 import { applyDemoServiceCall } from "../demo/demo-provider";
 import type { EntityUpdateFields, ServiceTarget } from "./types";
+import { privilegedConn } from "../core/privileged-conn";
 
 // ============================================
 // SERVICE CALLS
@@ -25,7 +25,7 @@ export async function callService<D extends Domain, S extends ServiceName<D>>(
   serviceData: ServiceCall<D, S> = {} as ServiceCall<D, S>,
   target: ServiceTarget = {},
 ): Promise<void> {
-  const connection = state.conn;
+  const connection = privilegedConn();
 
   if (!connection) {
     applyDemoServiceCall(domain, service, serviceData as Record<string, any>, target);
@@ -121,7 +121,7 @@ export async function toggle(
  * Update entity registry entry
  */
 export async function updateEntity(entityId: EntityId, updates: EntityUpdateFields): Promise<any> {
-  const connection = state.conn;
+  const connection = privilegedConn();
 
   if (!connection) {
     throw new Error("Not connected to Home Assistant. Call initConnection() first.");
@@ -158,7 +158,7 @@ export async function sendCommand<T = unknown>(command: {
   type: WsCommandType | string;
   [key: string]: unknown;
 }): Promise<T> {
-  const connection = state.conn;
+  const connection = privilegedConn();
 
   if (!connection) {
     throw new Error("Not connected");

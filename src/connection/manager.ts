@@ -23,6 +23,7 @@ import { authenticateWithOAuth, authenticateWithToken, type OAuthOptions } from 
 import { forceResubscribe } from "./subscription-manager";
 import { subscribeToUpdates } from "./subscriptions";
 import type { SyncLayerConnection } from "./types";
+import { privilegedConn, setPrivilegedConn } from "../core/privileged-conn";
 
 // ============================================
 // CONNECTION OPTIONS
@@ -191,7 +192,7 @@ export async function initConnection(options: ConnectionOptions): Promise<Connec
     activeConn = conn;
     setState(
       produce((s) => {
-        s.conn = conn;
+        setPrivilegedConn(conn);
         s.hassUrl = options.url.replace(/\/$/, "");
         s.connectionState = "connected";
       }),
@@ -233,7 +234,7 @@ export function disconnect(): void {
 
   setState(
     produce((s) => {
-      s.conn = null;
+      setPrivilegedConn(null);
       s.connectionState = "disconnected";
     }),
   );
@@ -243,7 +244,7 @@ export function disconnect(): void {
  * Get current connection link
  */
 export function getConnection(): HaLink | null {
-  return state.conn;
+  return privilegedConn();
 }
 
 /**
@@ -393,7 +394,7 @@ export async function loadInitialData(conn: Pick<HaLink, "sendMessagePromise">):
  * Refresh all data
  */
 export async function refreshData(): Promise<void> {
-  const conn = state.conn;
+  const conn = privilegedConn();
   if (!conn) {
     throw new Error("Not connected");
   }

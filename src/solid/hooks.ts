@@ -11,6 +11,7 @@
  * @packageDocumentation
  */
 
+import { privilegedConn } from "../core/privileged-conn";
 import type { HassConfig, HassUnitSystem } from "@glasshome/ha-types";
 import type { Accessor, Resource } from "solid-js";
 import { createEffect, createMemo, createResource, onCleanup } from "solid-js";
@@ -26,20 +27,20 @@ import type {
   StatisticValue,
   WeatherForecastsData,
 } from "@glasshome/sync-layer";
-import {
-  buildAreaView,
-  callService,
-  entityViewEquals,
-  fetchStatisticsDuringPeriod,
-  getAreaViews,
-  getEntityView,
-  isDemoMode,
-  registerEntity,
-  state,
-  toggle,
-  turnOff,
-  turnOn,
-} from "@glasshome/sync-layer";
+// Relative, not the package's own entry. Importing values from
+// "@glasshome/sync-layer" here loads a SECOND copy of this package — the store
+// included — so reads and writes hit different singletons. It only ever looked
+// fine because everything went through that second copy consistently; the store
+// has a runtime detector for exactly this (`__GH_SYNC_LAYER_STORE__`) and it
+// fires the moment one module reaches the store relatively. Same class as
+// finding 45, inside the package this time. Reach your own modules by path.
+import { buildAreaView, getAreaViews } from "../entities/area-views";
+import { entityViewEquals, getEntityView } from "../entities/views";
+import { callService, toggle, turnOff, turnOn } from "../commands/service";
+import { registerEntity } from "../connection/subscription-manager";
+import { isDemoMode } from "../demo/demo-provider";
+import { fetchStatisticsDuringPeriod } from "../history/statistics";
+import { state } from "../core/store";
 
 // ============================================
 // ENTITY HOOKS
@@ -313,7 +314,7 @@ export function useEntityStatistics(
     () => ({ id: getId(), options: getOptions() }),
     async ({ id, options: opts }) => {
       if (!id) return [];
-      const conn = state.conn;
+      const conn = privilegedConn();
       // Demo mode has no real connection; the statistics fetcher synthesizes
       // data from the energy model and ignores the connection argument.
       if (!conn && !isDemoMode()) return [];

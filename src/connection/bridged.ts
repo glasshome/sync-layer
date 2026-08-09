@@ -4,6 +4,7 @@ import type { HaBridge } from "../worker/bridge-client";
 import { loadInitialData } from "./manager";
 import { forceResubscribe } from "./subscription-manager";
 import { subscribeToUpdates } from "./subscriptions";
+import { setPrivilegedConn } from "../core/privileged-conn";
 
 /**
  * Wire an HA bridge (worker-backed connection) into the store. The bridge's
@@ -20,7 +21,7 @@ export async function attachBridgeToStore(
 ): Promise<void> {
   setState(
     produce((s) => {
-      s.conn = bridge.conn;
+      setPrivilegedConn(bridge.conn);
       s.hassUrl = hassUrl.replace(/\/$/, "");
       s.mediaProxyBase = mediaProxyBase ?? null;
       s.connectionState = "connected";
@@ -52,7 +53,7 @@ export async function reloadAfterBridgeReconnect(bridge: HaBridge): Promise<void
 export function detachBridgeFromStore(): void {
   setState(
     produce((s) => {
-      s.conn = null;
+      setPrivilegedConn(null);
       s.connectionState = "disconnected";
     }),
   );

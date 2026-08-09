@@ -1,6 +1,8 @@
 import type { HassConfig } from "@glasshome/ha-types";
 import { afterEach, describe, expect, test } from "bun:test";
-import { resetStore, setState } from "@glasshome/sync-layer";
+// Internal path on purpose: the package entry no longer exports store writers,
+// because the host serves that entry to widget bundles (finding 46).
+import { resetStore, setState } from "../core/store";
 import { createRoot } from "solid-js";
 import {
   useCurrency,

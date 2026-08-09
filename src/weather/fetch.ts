@@ -4,6 +4,7 @@
  * @packageDocumentation
  */
 
+import { privilegedConn } from "../core/privileged-conn";
 import { state } from "../core/store";
 import type { EntityId } from "../core/types";
 import { isDemoMode } from "../demo/demo-provider";
@@ -78,7 +79,7 @@ export async function fetchForecast(
     return buildDemoForecast(entityId, type);
   }
 
-  const conn = state.conn;
+  const conn = privilegedConn();
   if (!conn) {
     throw new Error("Not connected");
   }

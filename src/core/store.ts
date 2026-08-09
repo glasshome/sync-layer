@@ -48,8 +48,12 @@ export interface HaLink {
 
 export interface GlassHomeState {
   // ========== Connection ==========
-  /** Live HA link (real socket, worker bridge facade, or mock) */
-  conn: HaLink | null;
+  // The live HA link is deliberately NOT here. `state` is exported from this
+  // package's entry, which the host serves to every widget bundle through its
+  // import map, so anything on this object is widget-readable. The link tunnels
+  // arbitrary HA traffic, so parking it here let any widget call any service on
+  // any entity regardless of its declared capabilities (finding 46). It lives
+  // in `./privileged-conn`, which is not exported.
   /** Current connection state */
   connectionState: ConnectionState;
   /** Connection error (if any) */
@@ -103,7 +107,6 @@ export interface GlassHomeState {
 
 const initialState: GlassHomeState = {
   // Connection
-  conn: null,
   connectionState: "disconnected",
   connectionError: null,
   hassUrl: null,

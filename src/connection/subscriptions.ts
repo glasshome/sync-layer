@@ -22,7 +22,7 @@ import {
   updateLabel,
   updateStatisticsMetadata,
 } from "../core/reducers";
-import { setState, state } from "../core/store";
+import { setState } from "../core/store";
 import type {
   DeviceRegistryEntry,
   EntityId,
@@ -37,6 +37,7 @@ import {
   setResubscribeHandler,
 } from "./subscription-manager";
 import type { SyncLayerConnection } from "./types";
+import { privilegedConn } from "../core/privileged-conn";
 
 // ============================================
 // EVENT DATA TYPES
@@ -280,7 +281,7 @@ export async function cleanupSubscriptions(): Promise<void> {
 // ============================================
 
 async function handleCoreConfigUpdate(): Promise<void> {
-  const conn = state.conn;
+  const conn = privilegedConn();
   if (!conn) return;
 
   try {
@@ -297,7 +298,7 @@ async function handleRegistryUpdate(event: HAEvent<RegistryUpdateData>): Promise
   const { action, entity_id } = event.data;
 
   if (action === "create" || action === "update") {
-    const conn = state.conn;
+    const conn = privilegedConn();
     if (!conn) return;
 
     try {
@@ -321,7 +322,7 @@ async function handleDeviceRegistryUpdate(event: HAEvent<DeviceRegistryUpdateDat
   const { action, device_id } = event.data;
 
   if (action === "create" || action === "update") {
-    const conn = state.conn;
+    const conn = privilegedConn();
     if (!conn) return;
 
     try {
@@ -345,7 +346,7 @@ async function handleAreaRegistryUpdate(event: HAEvent<AreaRegistryUpdateData>):
   const { action, area_id } = event.data;
 
   if (action === "create" || action === "update") {
-    const conn = state.conn;
+    const conn = privilegedConn();
     if (!conn) return;
 
     try {
@@ -369,7 +370,7 @@ async function handleFloorRegistryUpdate(event: HAEvent<FloorRegistryUpdateData>
   const { action, floor_id } = event.data;
 
   if (action === "create" || action === "update") {
-    const conn = state.conn;
+    const conn = privilegedConn();
     if (!conn) return;
 
     try {
@@ -393,7 +394,7 @@ async function handleLabelRegistryUpdate(event: HAEvent<LabelRegistryUpdateData>
   const { action, label_id } = event.data;
 
   if (action === "create" || action === "update") {
-    const conn = state.conn;
+    const conn = privilegedConn();
     if (!conn) return;
 
     try {
@@ -417,7 +418,7 @@ async function handleStatisticsUpdate(event: HAEvent<StatisticsUpdateData>): Pro
   const { statistic_ids } = event.data;
   if (!statistic_ids || statistic_ids.length === 0) return;
 
-  const conn = state.conn;
+  const conn = privilegedConn();
   if (!conn) return;
 
   try {

@@ -11,18 +11,17 @@
 // CONNECTION MANAGEMENT
 // ============================================
 
-export {
-  addDebugIncomingMessageListener,
-  addDebugOutgoingMessageListener,
-} from "./connection/adapter";
+// The debug message listeners are NOT exported: they tap every HA frame in and
+// out, so from a widget bundle they are a live read of whole-home traffic.
+// No consumer outside this package (swept 2026-08-09).
 export type { ConnectionOptions } from "./connection/manager";
-export {
-  disconnect,
-  getConnection,
-  getConnectionState,
-  initConnection,
-  isConnected,
-} from "./connection/manager";
+// getConnection and initConnection are NOT exported: this entry is served to
+// every widget bundle through the host import map, and getConnection returns
+// the live HA link, which the worker forwards to unvalidated (finding 46).
+// Neither had a consumer outside this package (swept 2026-08-09).
+// `disconnect` stays because dash uses it (user-flow, connection-section); a
+// widget calling it drops the connection, which is a nuisance, not control.
+export { getConnectionState, isConnected } from "./connection/manager";
 export { registerEntity } from "./connection/subscription-manager";
 export type { SyncLayerConnection } from "./connection/types";
 
@@ -31,12 +30,14 @@ export type { SyncLayerConnection } from "./connection/types";
 // ============================================
 
 export type { OAuthOptions } from "./connection/auth";
-export {
-  authenticateWithOAuth,
-  authenticateWithToken,
-  isAuthValid,
-  refreshAuth,
-} from "./connection/auth";
+// Only authenticateWithOAuth, which dash's sync-provider needs. The rest had no
+// consumer outside this package. NOTE: authenticateWithOAuth returns an `Auth`
+// carrying an access token, so it is the one privileged export still reachable
+// from a widget bundle — tracked on finding 46, and not closable by moving it
+// to a subpath (an unserved subpath gets bundled into the host, forking the
+// store; a served one is reachable by widgets again).
+// authenticateWithOAuth is host-only (it returns an Auth carrying a live access
+// token) and now ships via claimHostApi().
 
 // ============================================
 // QUERY API
@@ -101,7 +102,18 @@ export { extractDomain } from "./core/types";
 // STORE ACCESS
 // ============================================
 
-export { resetStore, setState, state } from "./core/store";
+// `state` only. The host serves this entry to every widget bundle through its
+// import map, so each export here is reachable by untrusted widget code:
+// `setState` would be an arbitrary write to the store the whole dashboard
+// renders from, and `resetStore` would wipe it. Neither has ever had a consumer
+// outside this package (swept 2026-08-09) — they were public by habit. The live
+// connection left this object entirely; see ./core/privileged-conn.
+//
+// `state` stays exported because dash reads it directly (widget-slot,
+// dashboard-header). That still exposes whole-home entity reads to widgets,
+// which is narrower than control but not nothing; closing it needs a read-only
+// projection and is tracked on finding 46.
+export { state } from "./core/store";
 
 // ============================================
 // RE-EXPORT COMMON HA-TYPES
@@ -223,10 +235,8 @@ export {
   applyDemoServiceCall,
   createDemoFixtures,
   isDemoMode,
-  loadDemoData,
   startDemoEnergyTicker,
   stopDemoEnergyTicker,
-  unloadDemoData,
 } from "./demo/demo-provider";
 
 // ============================================
@@ -239,18 +249,20 @@ export const VERSION = "0.2.1";
 // HA BRIDGE (worker-backed connection)
 // ============================================
 
-export {
-  applyBridgeConnState,
-  attachBridgeToStore,
-  detachBridgeFromStore,
-  reloadAfterBridgeReconnect,
-} from "./connection/bridged";
+// The bridge lifecycle (attach/detach/connState/reload/createHaBridge) installs
+// and replaces the host's connection, so it is host-only and ships via
+// claimHostApi(). Types and the error class stay: they carry no authority.
 export {
   BridgeNeedsAuthError,
-  createHaBridge,
   type BridgeConnectOptions,
   type BridgeEvents,
   type HaBridge,
 } from "./worker/bridge-client";
+
+// ============================================
+// HOST-ONLY SURFACE (one-shot handoff)
+// ============================================
+
+export { claimHostApi, type HostApi } from "./host-api";
 export type { AuthMode, ConnState, OAuthTokenData } from "./worker/protocol";
 export { runHaBridgeWorker, type WorkerScope } from "./worker/worker-main";

@@ -1,5 +1,5 @@
-import { state } from "../core/store";
 import type { EntityId } from "../core/types";
+import { privilegedConn } from "../core/privileged-conn";
 
 // ============================================
 // TYPES
@@ -36,7 +36,7 @@ interface WebRtcSession {
  * Get WebRTC client configuration (STUN/TURN servers) from HA
  */
 export async function getWebRtcClientConfig(entityId: EntityId): Promise<WebRtcClientConfig> {
-  const conn = state.conn;
+  const conn = privilegedConn();
   if (!conn) throw new Error("No connection available");
 
   return conn.sendMessagePromise<WebRtcClientConfig>({
@@ -56,7 +56,7 @@ export function startWebRtcSession(
   sdpOffer: string,
   onCandidate: (candidate: RtcIceCandidateInit) => void,
 ): Promise<{ answer: string; session: WebRtcSession }> {
-  const conn = state.conn;
+  const conn = privilegedConn();
   if (!conn) return Promise.reject(new Error("Not connected"));
 
   return new Promise((resolve, reject) => {
@@ -123,7 +123,7 @@ export async function sendWebRtcCandidate(
   sessionId: string,
   candidate: RtcIceCandidateInit,
 ): Promise<void> {
-  const conn = state.conn;
+  const conn = privilegedConn();
   if (!conn) throw new Error("Not connected");
 
   await conn.sendMessagePromise({
