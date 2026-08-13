@@ -387,7 +387,7 @@ export function createDemoFixtures(): DemoFixtures {
     { device_id: "desk_lights", area_id: "bedroom", supported_features: 44 },
   );
 
-  // ----- Sensors (5) -----
+  // ----- Sensors (8) -----
   add(
     makeEntity("sensor.temperature_living", "22.5", {
       unit_of_measurement: "\u00b0C",
@@ -436,6 +436,32 @@ export function createDemoFixtures(): DemoFixtures {
       device_class: "battery",
       unit_of_measurement: "%",
     },
+  );
+
+  // Grid-level sensors as the Electricity Maps and Nordpool integrations
+  // expose them (no device_class; the units are the identity).
+  add(
+    makeEntity("sensor.electricity_maps_co2_intensity", "214", {
+      unit_of_measurement: "gCO2eq/kWh",
+      state_class: "measurement",
+    }),
+    { unit_of_measurement: "gCO2eq/kWh" },
+  );
+
+  add(
+    makeEntity("sensor.electricity_maps_fossil_fuel_percentage", "31", {
+      unit_of_measurement: "%",
+      state_class: "measurement",
+    }),
+    { unit_of_measurement: "%" },
+  );
+
+  add(
+    makeEntity("sensor.nordpool_current_price", "0.18", {
+      unit_of_measurement: "EUR/kWh",
+      state_class: "measurement",
+    }),
+    { unit_of_measurement: "EUR/kWh" },
   );
 
   // ----- Binary Sensors (3) -----
