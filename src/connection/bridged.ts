@@ -1,4 +1,5 @@
 import { produce } from "solid-js/store";
+import { forceResubscribeCalendars } from "../calendar/track";
 import { setState } from "../core/store";
 import type { HaBridge } from "../worker/bridge-client";
 import { loadInitialData } from "./manager";
@@ -31,6 +32,7 @@ export async function attachBridgeToStore(
 
   await loadInitialData(bridge.conn);
   await subscribeToUpdates(bridge.conn);
+  await forceResubscribeCalendars();
 }
 
 /** Map worker connection-state messages onto the store. */
@@ -47,6 +49,7 @@ export function applyBridgeConnState(state: "connected" | "disconnected" | "reco
 export async function reloadAfterBridgeReconnect(bridge: HaBridge): Promise<void> {
   await loadInitialData(bridge.conn);
   await forceResubscribe();
+  await forceResubscribeCalendars();
 }
 
 /** Detach on shutdown; the caller terminates the worker itself. */

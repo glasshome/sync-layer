@@ -4,6 +4,16 @@
  * Type-safe, reactive state synchronization layer for Home Assistant
  * Uses SolidJS createStore for reactive state management.
  *
+ * THIS ENTRY IS AN ACCESS-CONTROL SURFACE, not an ordinary barrel. The host
+ * import map serves it to every untrusted widget bundle, so anything exported
+ * here is callable by widget code. Before adding an export, ask who outside
+ * this package needs it: in-package callers use relative imports and need
+ * nothing here, host-only lifecycle belongs on claimHostApi(), and widget
+ * hooks belong on the ./solid subpath. Types are always safe; they carry no
+ * authority. scripts/check-widget-reachable-surface.ts guards this, but it is
+ * a DENYLIST of known-dangerous names and is blind to any handle invented
+ * after it was written — it cannot be relied on to catch a new mistake.
+ *
  * @packageDocumentation
  */
 
@@ -214,6 +224,7 @@ export type {
   TimelineState,
 } from "./history/types";
 export { fetchForecast, fetchForecastData, fetchForecasts } from "./weather/fetch";
+export type { CalendarEvent, CalendarEventsData, CalendarWindowOptions } from "./calendar/types";
 export { getForecast, getForecasts, refreshForecast, refreshForecasts } from "./weather/query";
 export type {
   EntityForecastQueryOptions,

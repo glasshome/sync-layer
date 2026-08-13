@@ -14,6 +14,7 @@
 export {
   useArea,
   useAreas,
+  useCalendarEvents,
   useCamera,
   useConnection,
   useCurrency,

@@ -33,6 +33,9 @@ const FORBIDDEN: Record<string, string> = {
   refreshAuth: "refreshes host credentials",
   addDebugIncomingMessageListener: "taps every inbound HA frame",
   addDebugOutgoingMessageListener: "taps every outbound HA frame",
+  forceResubscribeCalendars: "host reconnect lifecycle — a widget could drive resubscribe storms",
+  trackCalendarEvents:
+    "opens an upstream calendar subscription directly, bypassing the useCalendarEvents hook",
 };
 
 const source = readFileSync(ENTRY, "utf-8");

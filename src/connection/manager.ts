@@ -18,6 +18,7 @@ import { produce } from "solid-js/store";
 import { bulkUpdateEntities, bulkUpdateEntityRegistry } from "../core/reducers";
 import { type HaLink, setState, state } from "../core/store";
 import type { AreaRegistryEntry, HassEntity } from "../core/types";
+import { forceResubscribeCalendars } from "../calendar/track";
 import { wrapHAConnection } from "./adapter";
 import { authenticateWithOAuth, authenticateWithToken, type OAuthOptions } from "./auth";
 import { forceResubscribe } from "./subscription-manager";
@@ -201,6 +202,7 @@ export async function initConnection(options: ConnectionOptions): Promise<Connec
     setupEventHandlers(conn, options);
     await loadInitialData(conn);
     await subscribeToUpdates(wrappedConn);
+    await forceResubscribeCalendars();
 
     setupLifecycleListeners(conn);
     startHeartbeat(conn);
@@ -299,6 +301,7 @@ function setupEventHandlers(conn: Connection, options: ConnectionOptions): void 
     if (wasReconnecting) {
       await loadInitialData(conn);
       await forceResubscribe();
+      await forceResubscribeCalendars();
       options.onReconnect?.();
     }
   });

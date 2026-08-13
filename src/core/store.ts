@@ -3,6 +3,7 @@
 import type { SetStoreFunction, Store } from "solid-js/store";
 import { createStore, reconcile } from "solid-js/store";
 
+import type { CalendarEventsData } from "../calendar/types";
 import type { CameraStreamData } from "../camera/types";
 import type { EntityHistoryData } from "../history/types";
 import type { WeatherForecastsData } from "../weather/types";
@@ -96,6 +97,10 @@ export interface GlassHomeState {
   /** Weather forecasts data (keyed by entity ID) */
   forecasts: Record<EntityId, WeatherForecastsData>;
 
+  // ========== Calendars ==========
+  /** Live calendar events (keyed by entity ID), maintained by calendar/track */
+  calendars: Record<EntityId, CalendarEventsData>;
+
   // ========== Camera Streams ==========
   /** Camera stream data (keyed by entity ID) */
   streams: Record<EntityId, CameraStreamData>;
@@ -132,6 +137,9 @@ const initialState: GlassHomeState = {
 
   // Weather Forecasts
   forecasts: {},
+
+  // Calendars
+  calendars: {},
 
   // Camera Streams
   streams: {},

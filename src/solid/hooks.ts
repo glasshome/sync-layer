@@ -38,6 +38,8 @@ import { buildAreaView, getAreaViews } from "../entities/area-views";
 import { entityViewEquals, getEntityView } from "../entities/views";
 import { callService, toggle, turnOff, turnOn } from "../commands/service";
 import { registerEntity } from "../connection/subscription-manager";
+import { trackCalendarEvents } from "../calendar/track";
+import type { CalendarEventsData, CalendarWindowOptions } from "../calendar/types";
 import { isDemoMode } from "../demo/demo-provider";
 import { fetchStatisticsDuringPeriod } from "../history/statistics";
 import { state } from "../core/store";
@@ -345,6 +347,28 @@ export function useCamera(entityId: Accessor<string> | string): {
       // This is a placeholder for widget-level refresh triggers
     },
   };
+}
+
+/**
+ * Live calendar events for one calendar entity.
+ *
+ * Tracks the entity on mount (opening or joining the shared
+ * `calendar/event/subscribe`) and untracks on cleanup; HA pushes the initial
+ * snapshot and every later change, so the accessor is reactive with no
+ * polling. `undefined` until the subscription is established.
+ */
+export function useCalendarEvents(
+  entityId: Accessor<string> | string,
+  options?: CalendarWindowOptions,
+): Accessor<CalendarEventsData | undefined> {
+  const getId = typeof entityId === "function" ? entityId : () => entityId;
+  createEffect(() => {
+    const id = getId();
+    if (!id) return;
+    const untrack = trackCalendarEvents(id, options);
+    onCleanup(untrack);
+  });
+  return createMemo(() => state.calendars[getId()]);
 }
 
 /**
