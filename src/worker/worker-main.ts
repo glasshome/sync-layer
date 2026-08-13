@@ -192,14 +192,19 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
         return;
       }
       try {
-        await conn.sendMessagePromise({
+        const res = await conn.sendMessagePromise<{ context?: unknown; response?: unknown }>({
           type: "call_service",
           domain: call.domain,
           service: call.service,
           service_data: call.data ?? {},
           ...(call.target ? { target: call.target } : {}),
+          ...(call.returnResponse ? { return_response: true } : {}),
         });
-        reply({ id: call.id, ok: true });
+        reply({
+          id: call.id,
+          ok: true,
+          ...(call.returnResponse ? { result: res.response } : {}),
+        });
       } catch (err) {
         reply({
           id: call.id,

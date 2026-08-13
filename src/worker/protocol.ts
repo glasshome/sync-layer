@@ -81,8 +81,11 @@ export interface WidgetServiceCall {
   service: string;
   data?: Record<string, unknown>;
   target?: Record<string, unknown>;
+  /** Opt in to HA's service response (return_response). Only set for services
+      that support/require it; HA errors otherwise. */
+  returnResponse?: boolean;
 }
 
 export type WidgetServiceResult =
-  | { id: number; ok: true }
+  | { id: number; ok: true; result?: unknown }
   | { id: number; ok: false; code: "CAPABILITY_DENIED" | "UNAVAILABLE" | "ERROR"; message: string };
