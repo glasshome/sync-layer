@@ -23,8 +23,11 @@ export const MAX_HISTORY_POINTS = 5760;
 // TRACKING
 // ============================================
 
-/** Set of entity IDs with active history tracking. */
-const trackedEntities = new Set<EntityId>();
+/** Live tracker count per entity. Ref-counted because a timeline is shared: two
+ *  widgets on the same entity must not let the first unmount delete the store
+ *  data the second is still rendering (appendHistoryPoint would then silently
+ *  drop every update and the survivor's chart would freeze). */
+const trackedEntities = new Map<EntityId, number>();
 
 /** Check if an entity has active history tracking. */
 export function isHistoryTracked(entityId: EntityId): boolean {
@@ -36,7 +39,7 @@ export async function trackEntityHistory(
   entityId: EntityId,
   options: EntityHistoryQueryOptions,
 ): Promise<EntityHistoryData> {
-  trackedEntities.add(entityId);
+  trackedEntities.set(entityId, (trackedEntities.get(entityId) ?? 0) + 1);
 
   const historyData = await fetchEntityHistory(entityId, options);
 
@@ -49,8 +52,13 @@ export async function trackEntityHistory(
   return historyData;
 }
 
-/** Stop tracking history for an entity and clear its data. */
+/** Release one tracker. The entity's data is cleared only when the last one goes. */
 export function untrackEntityHistory(entityId: EntityId): void {
+  const remaining = (trackedEntities.get(entityId) ?? 0) - 1;
+  if (remaining > 0) {
+    trackedEntities.set(entityId, remaining);
+    return;
+  }
   trackedEntities.delete(entityId);
 
   setState(

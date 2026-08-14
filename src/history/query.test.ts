@@ -1,7 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { produce } from "solid-js/store";
 import { resetStore, setState, state } from "../core/store";
-import { bulkAppendHistoryPoints, type HistoryPoint, MAX_HISTORY_POINTS } from "./query";
+import {
+  bulkAppendHistoryPoints,
+  type HistoryPoint,
+  isHistoryTracked,
+  MAX_HISTORY_POINTS,
+  trackEntityHistory,
+  untrackEntityHistory,
+} from "./query";
 import { normalizeStatisticTime } from "./statistics";
 import type { EntityHistoryData } from "./types";
 
@@ -80,6 +87,59 @@ describe("bulkAppendHistoryPoints history cap", () => {
     // 5759 + 100 = 5859 total, trimmed to 5760, first kept is index 99.
     expect(history.entityHistory[0]?.lu).toBe(99);
     expect(history.entityHistory[history.entityHistory.length - 1]?.lu).toBe(5858);
+  });
+});
+
+describe("history tracking is ref-counted", () => {
+  // No privileged connection in tests: fetchEntityHistory catches the
+  // "Not connected" throw and resolves to an empty timeline, which is all
+  // these tests need — they assert on tracker lifecycle, not on data.
+  const opts = { startTime: new Date(0) };
+
+  afterEach(() => {
+    // Drain any tracker the test left behind so counts don't leak between tests.
+    while (isHistoryTracked(ENTITY_ID)) untrackEntityHistory(ENTITY_ID);
+    resetStore();
+  });
+
+  test("two trackers: the first untrack keeps the data for the survivor", async () => {
+    await trackEntityHistory(ENTITY_ID, opts);
+    await trackEntityHistory(ENTITY_ID, opts);
+
+    untrackEntityHistory(ENTITY_ID);
+
+    expect(isHistoryTracked(ENTITY_ID)).toBe(true);
+    expect(state.history[ENTITY_ID]).toBeDefined();
+  });
+
+  test("the last untrack clears tracking and the store data", async () => {
+    await trackEntityHistory(ENTITY_ID, opts);
+    await trackEntityHistory(ENTITY_ID, opts);
+
+    untrackEntityHistory(ENTITY_ID);
+    untrackEntityHistory(ENTITY_ID);
+
+    expect(isHistoryTracked(ENTITY_ID)).toBe(false);
+    expect(state.history[ENTITY_ID]).toBeUndefined();
+  });
+
+  test("a single tracker still clears on untrack", async () => {
+    await trackEntityHistory(ENTITY_ID, opts);
+
+    untrackEntityHistory(ENTITY_ID);
+
+    expect(isHistoryTracked(ENTITY_ID)).toBe(false);
+    expect(state.history[ENTITY_ID]).toBeUndefined();
+  });
+
+  test("untracking an untracked entity does not underflow into a negative count", async () => {
+    untrackEntityHistory(ENTITY_ID);
+
+    await trackEntityHistory(ENTITY_ID, opts);
+    untrackEntityHistory(ENTITY_ID);
+
+    expect(isHistoryTracked(ENTITY_ID)).toBe(false);
+    expect(state.history[ENTITY_ID]).toBeUndefined();
   });
 });
 
