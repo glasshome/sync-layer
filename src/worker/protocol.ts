@@ -10,32 +10,16 @@ import type { CapabilityGrant } from "@glasshome/widget-contract";
  *   against the widget's granted capabilities inside the worker.
  */
 
-export type AuthMode =
-  | { kind: "token"; token: string }
-  | { kind: "brokered"; mintUrl: string }
-  | { kind: "oauth"; data?: OAuthTokenData };
-
-/** Serializable subset of home-assistant-js-websocket AuthData. */
-export interface OAuthTokenData {
-  hassUrl: string;
-  clientId: string | null;
-  access_token: string;
-  refresh_token: string;
-  expires: number;
-  expires_in: number;
-}
-
 export type MainToWorker =
   | {
       k: "connect";
       url: string;
-      mode: AuthMode;
       /** Proxy WS endpoint to use instead of the HA host. A path (web, resolved
        *  same-origin) or an absolute ws(s)/http(s) URL (native, where the worker
        *  origin is localhost, not dash-server). */
-      proxyWsPath?: string;
-      /** Short-lived ticket authorizing the proxy WS + broker mint when a
-       *  cross-origin cookie/bearer can't ride them (native). */
+      proxyWsPath: string;
+      /** Short-lived ticket authorizing the proxy WS when a cross-origin
+       *  cookie/bearer can't ride it (native). */
       proxyTicket?: string;
     }
   | { k: "send"; id: number; message: unknown }
@@ -45,21 +29,14 @@ export type MainToWorker =
   | { k: "pageshow_persisted" }
   | { k: "reconnect" }
   | { k: "disconnect" }
-  | { k: "clear_tokens" }
   | { k: "register_widget"; widgetId: string; caps: CapabilityGrant[] }
   | { k: "unregister_widget"; widgetId: string };
 
 export type ConnState = "connected" | "disconnected" | "reconnecting";
 
 export type WorkerToMain =
-  | {
-      k: "connect_result";
-      ok: boolean;
-      error?: string;
-      /** OAuth mode with no stored tokens: main thread must run interactive auth. */
-      needsAuth?: boolean;
-    }
-  | { k: "conn"; state: ConnState }
+  | { k: "connect_result"; ok: boolean; error?: string; reason?: "invalid_auth" }
+  | { k: "conn"; state: ConnState; reason?: "invalid_auth" }
   /** Fired after a reconnect completes; main thread reloads data + resubscribes. */
   | { k: "ready_after_reconnect" }
   | { k: "result"; id: number; ok: boolean; result?: unknown; error?: string }

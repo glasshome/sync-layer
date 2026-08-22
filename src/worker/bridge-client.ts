@@ -1,7 +1,7 @@
 import type { CapabilityGrant } from "@glasshome/widget-contract";
 import type { HAEvent } from "@glasshome/ha-types";
 import type { SyncLayerConnection } from "../connection/types";
-import type { AuthMode, ConnState, MainToWorker, WorkerToMain } from "./protocol";
+import type { ConnState, MainToWorker, WorkerToMain } from "./protocol";
 
 /**
  * Main-thread side of the HA bridge. Wraps the Worker and exposes:
@@ -16,14 +16,14 @@ import type { AuthMode, ConnState, MainToWorker, WorkerToMain } from "./protocol
 
 export interface BridgeConnectOptions {
   url: string;
-  mode: AuthMode;
-  proxyWsPath?: string;
+  proxyWsPath: string;
   proxyTicket?: string;
 }
 
 export interface BridgeEvents {
   onConnState?: (state: ConnState) => void;
   onReadyAfterReconnect?: () => void;
+  onInvalidAuth?: () => void;
   onDenial?: (denial: {
     widgetId: string;
     domain: string;
@@ -34,11 +34,10 @@ export interface BridgeEvents {
 }
 
 export interface HaBridge {
-  /** Resolves on socket-up; rejects with BridgeNeedsAuthError when the worker has no stored OAuth tokens. */
+  /** Resolves on socket-up; rejects with BridgeInvalidAuthError when the relay or HA refused the handshake. */
   connect(opts: BridgeConnectOptions): Promise<void>;
   disconnect(): void;
   reconnect(): void;
-  clearTokens(): void;
   conn: SyncLayerConnection;
   registerWidget(widgetId: string, caps: CapabilityGrant[]): MessagePort;
   unregisterWidget(widgetId: string): void;
@@ -47,9 +46,11 @@ export interface HaBridge {
   terminate(): void;
 }
 
-export class BridgeNeedsAuthError extends Error {
+export class BridgeInvalidAuthError extends Error {
   constructor() {
-    super("No stored Home Assistant tokens; interactive sign-in required");
+    super(
+      "Home Assistant rejected the connection; an admin needs to sign in to Home Assistant again",
+    );
   }
 }
 
@@ -82,7 +83,9 @@ export function createHaBridge(worker: Worker, events: BridgeEvents = {}): HaBri
           pendingConnect?.resolve();
         } else {
           pendingConnect?.reject(
-            msg.needsAuth ? new BridgeNeedsAuthError() : new Error(msg.error ?? "Connect failed"),
+            msg.reason === "invalid_auth"
+              ? new BridgeInvalidAuthError()
+              : new Error(msg.error ?? "Connect failed"),
           );
         }
         pendingConnect = null;
@@ -90,6 +93,7 @@ export function createHaBridge(worker: Worker, events: BridgeEvents = {}): HaBri
       case "conn":
         connState = msg.state;
         events.onConnState?.(msg.state);
+        if (msg.reason === "invalid_auth") events.onInvalidAuth?.();
         break;
       case "ready_after_reconnect":
         events.onReadyAfterReconnect?.();
@@ -167,7 +171,6 @@ export function createHaBridge(worker: Worker, events: BridgeEvents = {}): HaBri
         post({
           k: "connect",
           url: opts.url,
-          mode: opts.mode,
           proxyWsPath: opts.proxyWsPath,
           proxyTicket: opts.proxyTicket,
         });
@@ -175,7 +178,6 @@ export function createHaBridge(worker: Worker, events: BridgeEvents = {}): HaBri
     },
     disconnect: () => post({ k: "disconnect" }),
     reconnect: () => post({ k: "reconnect" }),
-    clearTokens: () => post({ k: "clear_tokens" }),
     conn,
     registerWidget(widgetId, caps) {
       const channel = new MessageChannel();

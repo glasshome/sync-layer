@@ -19,12 +19,10 @@
  * - attachBridgeToStore / createHaBridge: install a connection, i.e. replace the
  *   host's link with one the widget controls — every subsequent service call is
  *   intercepted and every entity the dashboard renders can be fabricated.
- * - authenticateWithOAuth: returns an `Auth` carrying a live access token.
  * - disconnect / detachBridgeFromStore: drop the household's connection.
  * - loadDemoData / unloadDemoData: overwrite live state with fixtures.
  */
 
-import { authenticateWithOAuth } from "./connection/auth";
 import {
   applyBridgeConnState,
   attachBridgeToStore,
@@ -41,7 +39,6 @@ export interface HostApi {
   applyBridgeConnState: typeof applyBridgeConnState;
   reloadAfterBridgeReconnect: typeof reloadAfterBridgeReconnect;
   createHaBridge: typeof createHaBridge;
-  authenticateWithOAuth: typeof authenticateWithOAuth;
   disconnect: typeof disconnect;
   loadDemoData: typeof loadDemoData;
   unloadDemoData: typeof unloadDemoData;
@@ -53,7 +50,6 @@ let unclaimed: HostApi | null = {
   applyBridgeConnState,
   reloadAfterBridgeReconnect,
   createHaBridge,
-  authenticateWithOAuth,
   disconnect,
   loadDemoData,
   unloadDemoData,

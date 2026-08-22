@@ -1,30 +1,21 @@
 import type { CapabilityGrant } from "@glasshome/widget-contract";
-import {
-  Auth,
-  type AuthData,
-  type Connection,
-  createConnection,
-  createSocket,
-  genExpires,
-} from "home-assistant-js-websocket";
+import { type Connection, createConnection, createSocket } from "home-assistant-js-websocket";
 import { enforceServiceCall, RegistryMirror } from "./enforcement";
 import type {
-  AuthMode,
   MainToWorker,
-  OAuthTokenData,
   WidgetServiceCall,
   WidgetServiceResult,
   WorkerToMain,
 } from "./protocol";
-import { loadTokens, saveTokens } from "./token-store";
+import { invalidAuthReason, proxyAuth } from "./proxy-auth";
 
 /**
- * HA bridge worker. Owns the socket and the auth tokens; neither ever
- * reaches the main thread. The privileged channel (the worker's own port)
- * tunnels arbitrary HA traffic for the host. Widget MessagePorts get exactly
- * one verb — call_service — validated against the widget's granted
- * capabilities with the worker's own registry mirror, so enforcement does
- * not trust anything computed in the widget's realm.
+ * HA bridge worker. Owns the socket, which never reaches the main thread, and
+ * holds no HA token: the relay authenticates upstream. The privileged channel
+ * (the worker's own port) tunnels arbitrary HA traffic for the host. Widget
+ * MessagePorts get exactly one verb, call_service, validated against the
+ * widget's granted capabilities with the worker's own registry mirror, so
+ * enforcement does not trust anything computed in the widget's realm.
  */
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -60,47 +51,6 @@ function errText(err: unknown): string {
 interface WidgetChannel {
   port: MessagePort;
   caps: CapabilityGrant[];
-}
-
-class BrokeredAuth extends Auth {
-  constructor(
-    private mintUrl: string,
-    data: AuthData,
-    private ticket?: string,
-  ) {
-    super(data);
-  }
-
-  override async refreshAccessToken(): Promise<void> {
-    const res = await fetch(this.mintUrl, {
-      // Web rides the same-origin cookie; native can't (cross-origin), so it
-      // presents the proxy ticket as a header instead.
-      credentials: "include",
-      headers: {
-        accept: "application/json",
-        ...(this.ticket ? { "x-proxy-ticket": this.ticket } : {}),
-      },
-    });
-    if (!res.ok) throw new Error(`Token broker responded ${res.status}`);
-    if (!res.headers.get("content-type")?.includes("application/json")) {
-      throw new Error(`Token broker did not return JSON (is ${this.mintUrl} reachable?)`);
-    }
-    const broker = (await res.json()) as {
-      accessToken: string;
-      expiresInSec: number;
-      haUrl: string;
-      haClientId: string | null;
-    };
-    this.data = {
-      ...this.data,
-      access_token: broker.accessToken,
-      expires_in: broker.expiresInSec,
-      expires: genExpires(broker.expiresInSec),
-      refresh_token: "",
-      hassUrl: broker.haUrl,
-      clientId: broker.haClientId,
-    };
-  }
 }
 
 /** Resolve the proxy WS endpoint. Accepts a same-origin path (web) or an
@@ -258,103 +208,27 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
     }
   }
 
-  // ---- auth ----
-
-  async function buildAuth(
-    url: string,
-    mode: AuthMode,
-    ticket?: string,
-  ): Promise<Auth | "needs-auth"> {
-    switch (mode.kind) {
-      case "token":
-        return new Auth({
-          hassUrl: url,
-          clientId: null,
-          access_token: mode.token,
-          refresh_token: "",
-          expires: Date.now() + 365 * 24 * 3600 * 1000,
-          expires_in: 365 * 24 * 3600,
-        });
-      case "brokered":
-        // Starts expired: the socket layer mints via the broker before connecting.
-        return new BrokeredAuth(
-          mode.mintUrl,
-          {
-            hassUrl: url,
-            clientId: null,
-            access_token: "",
-            refresh_token: "",
-            expires: 0,
-            expires_in: 0,
-          },
-          ticket,
-        );
-      case "oauth": {
-        const data = mode.data ?? (await loadTokens());
-        if (!data) return "needs-auth";
-        if (mode.data) await saveTokens(mode.data);
-        return new Auth(data, (updated) => {
-          void saveTokens(updated as OAuthTokenData | null);
-        });
-      }
-    }
-  }
-
-  async function connect(
-    url: string,
-    mode: AuthMode,
-    proxyWsPath?: string,
-    proxyTicket?: string,
-  ): Promise<void> {
-    const auth = await buildAuth(url, mode, proxyTicket);
-    if (auth === "needs-auth") {
-      post({ k: "connect_result", ok: false, needsAuth: true });
-      return;
-    }
-
-    // Pre-mint for the broker path so a failure (e.g. 404: household has no
-    // HA account) reaches the main thread with its real message instead of
-    // the socket layer's generic invalid-auth error.
-    if (mode.kind === "brokered") {
-      try {
-        await auth.refreshAccessToken();
-      } catch (err) {
-        post({
-          k: "connect_result",
-          ok: false,
-          error: errText(err),
-        });
-        return;
-      }
-    }
-
-    const proxyWsUrl = proxyWsPath ? buildProxyWsUrl(scope, proxyWsPath, proxyTicket) : null;
-    const socketFactory = proxyWsUrl
-      ? (options: Parameters<typeof createSocket>[0]) => {
-          const proxied = new Proxy(options.auth as Auth, {
-            get: (target, prop) =>
-              prop === "wsUrl" ? proxyWsUrl : Reflect.get(target, prop),
-          });
-          return createSocket({ ...options, auth: proxied });
-        }
-      : undefined;
+  async function connect(url: string, proxyWsPath: string, proxyTicket?: string): Promise<void> {
+    const auth = proxyAuth(url);
+    const proxyWsUrl = buildProxyWsUrl(scope, proxyWsPath, proxyTicket);
+    const socketFactory = (options: Parameters<typeof createSocket>[0]) => {
+      const proxied = new Proxy(options.auth ?? auth, {
+        get: (target, prop) => (prop === "wsUrl" ? proxyWsUrl : Reflect.get(target, prop)),
+      });
+      return createSocket({ ...options, auth: proxied });
+    };
 
     try {
-      conn = await createConnection({
-        auth,
-        ...(socketFactory ? { createSocket: socketFactory } : {}),
-      });
+      conn = await createConnection({ auth, createSocket: socketFactory });
     } catch (err) {
-      post({
-        k: "connect_result",
-        ok: false,
-        error: errText(err),
-      });
+      post({ k: "connect_result", ok: false, error: errText(err), ...invalidAuthReason(err) });
       return;
     }
 
     conn.addEventListener("disconnected", () => post({ k: "conn", state: "disconnected" }));
-    conn.addEventListener("reconnect-error", () => post({ k: "conn", state: "reconnecting" }));
+    conn.addEventListener("reconnect-error", (_c, err) =>
+      post({ k: "conn", state: "reconnecting", ...invalidAuthReason(err) }),
+    );
     let everReady = false;
     conn.addEventListener("ready", () => {
       post({ k: "conn", state: "connected" });
@@ -378,7 +252,7 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
     const msg = ev.data;
     switch (msg.k) {
       case "connect":
-        await connect(msg.url, msg.mode, msg.proxyWsPath, msg.proxyTicket);
+        await connect(msg.url, msg.proxyWsPath, msg.proxyTicket);
         break;
 
       case "send": {
@@ -461,10 +335,6 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
         conn?.close();
         conn = null;
         post({ k: "conn", state: "disconnected" });
-        break;
-
-      case "clear_tokens":
-        await saveTokens(null);
         break;
 
       case "register_widget": {

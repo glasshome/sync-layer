@@ -39,15 +39,8 @@ export type { SyncLayerConnection } from "./connection/types";
 // AUTHENTICATION
 // ============================================
 
-export type { OAuthOptions } from "./connection/auth";
-// Only authenticateWithOAuth, which dash's sync-provider needs. The rest had no
-// consumer outside this package. NOTE: authenticateWithOAuth returns an `Auth`
-// carrying an access token, so it is the one privileged export still reachable
-// from a widget bundle — tracked on finding 46, and not closable by moving it
-// to a subpath (an unserved subpath gets bundled into the host, forking the
-// store; a served one is reachable by widgets again).
-// authenticateWithOAuth is host-only (it returns an Auth carrying a live access
-// token) and now ships via claimHostApi().
+// Nothing: the bridge holds no HA token, and the OAuth helpers have no consumer
+// outside this package.
 
 // ============================================
 // QUERY API
@@ -264,7 +257,7 @@ export const VERSION = "0.2.1";
 // and replaces the host's connection, so it is host-only and ships via
 // claimHostApi(). Types and the error class stay: they carry no authority.
 export {
-  BridgeNeedsAuthError,
+  BridgeInvalidAuthError,
   type BridgeConnectOptions,
   type BridgeEvents,
   type HaBridge,
@@ -275,5 +268,5 @@ export {
 // ============================================
 
 export { claimHostApi, type HostApi } from "./host-api";
-export type { AuthMode, ConnState, OAuthTokenData } from "./worker/protocol";
+export type { ConnState } from "./worker/protocol";
 export { runHaBridgeWorker, type WorkerScope } from "./worker/worker-main";
