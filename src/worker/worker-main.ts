@@ -7,7 +7,7 @@ import type {
   WidgetServiceResult,
   WorkerToMain,
 } from "./protocol";
-import { invalidAuthReason, proxyAuth } from "./proxy-auth";
+import { invalidAuthReason, proxyAuth, reconnectErrorMessage } from "./proxy-auth";
 
 /**
  * HA bridge worker. Owns the socket, which never reaches the main thread, and
@@ -211,12 +211,11 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
   async function connect(url: string, proxyWsPath: string, proxyTicket?: string): Promise<void> {
     const auth = proxyAuth(url);
     const proxyWsUrl = buildProxyWsUrl(scope, proxyWsPath, proxyTicket);
-    const socketFactory = (options: Parameters<typeof createSocket>[0]) => {
-      const proxied = new Proxy(options.auth ?? auth, {
-        get: (target, prop) => (prop === "wsUrl" ? proxyWsUrl : Reflect.get(target, prop)),
-      });
-      return createSocket({ ...options, auth: proxied });
-    };
+    const proxiedAuth = new Proxy(auth, {
+      get: (target, prop) => (prop === "wsUrl" ? proxyWsUrl : Reflect.get(target, prop)),
+    });
+    const socketFactory = (options: Parameters<typeof createSocket>[0]) =>
+      createSocket({ ...options, auth: proxiedAuth });
 
     try {
       conn = await createConnection({ auth, createSocket: socketFactory });
@@ -226,9 +225,7 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
     }
 
     conn.addEventListener("disconnected", () => post({ k: "conn", state: "disconnected" }));
-    conn.addEventListener("reconnect-error", (_c, err) =>
-      post({ k: "conn", state: "reconnecting", ...invalidAuthReason(err) }),
-    );
+    conn.addEventListener("reconnect-error", (_c, err) => post(reconnectErrorMessage(err)));
     let everReady = false;
     conn.addEventListener("ready", () => {
       post({ k: "conn", state: "connected" });

@@ -36,13 +36,6 @@ export { registerEntity } from "./connection/subscription-manager";
 export type { SyncLayerConnection } from "./connection/types";
 
 // ============================================
-// AUTHENTICATION
-// ============================================
-
-// Nothing: the bridge holds no HA token, and the OAuth helpers have no consumer
-// outside this package.
-
-// ============================================
 // QUERY API
 // ============================================
 

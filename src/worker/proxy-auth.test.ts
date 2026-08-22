@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { ERR_CANNOT_CONNECT, ERR_INVALID_AUTH } from "home-assistant-js-websocket";
-import { invalidAuthReason, proxyAuth } from "./proxy-auth";
+import { invalidAuthReason, proxyAuth, reconnectErrorMessage } from "./proxy-auth";
 
 describe("proxyAuth", () => {
   it("carries no token and never expires", () => {
@@ -18,4 +18,15 @@ describe("invalidAuthReason", () => {
     expect(invalidAuthReason(ERR_CANNOT_CONNECT)).toEqual({});
     expect(invalidAuthReason(new Error("x"))).toEqual({});
   });
+});
+
+describe("reconnectErrorMessage", () => {
+  it("reports a refused reconnect as disconnected", () =>
+    expect(reconnectErrorMessage(ERR_INVALID_AUTH)).toEqual({
+      k: "conn",
+      state: "disconnected",
+      reason: "invalid_auth",
+    }));
+  it("stays reconnecting for any other error", () =>
+    expect(reconnectErrorMessage(ERR_CANNOT_CONNECT)).toEqual({ k: "conn", state: "reconnecting" }));
 });

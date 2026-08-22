@@ -30,14 +30,33 @@ describe("bridge client", () => {
     w.onmessage?.({ data: { k: "connect_result", ok: false, error: "boom" } } as MessageEvent);
     await expect(p).rejects.toThrow("boom");
   });
-  it("fires onInvalidAuth when a reconnect is refused", () => {
+  it("fires onInvalidAuth on the reason, whatever state carries it", () => {
     const w = fakeWorker();
     let fired = 0;
     createHaBridge(w as unknown as Worker, { onInvalidAuth: () => fired++ });
     w.onmessage?.({
       data: { k: "conn", state: "reconnecting", reason: "invalid_auth" },
     } as MessageEvent);
+    w.onmessage?.({
+      data: { k: "conn", state: "disconnected", reason: "invalid_auth" },
+    } as MessageEvent);
     w.onmessage?.({ data: { k: "conn", state: "reconnecting" } } as MessageEvent);
-    expect(fired).toBe(1);
+    expect(fired).toBe(2);
+  });
+
+  it("reads disconnected after a refused reconnect", () => {
+    const w = fakeWorker();
+    const states: string[] = [];
+    const bridge = createHaBridge(w as unknown as Worker, {
+      onConnState: (s) => states.push(s),
+    });
+    w.onmessage?.({ data: { k: "conn", state: "connected" } } as MessageEvent);
+    expect(bridge.conn.connected$).toBe(true);
+    w.onmessage?.({
+      data: { k: "conn", state: "disconnected", reason: "invalid_auth" },
+    } as MessageEvent);
+    expect(bridge.conn.connected$).toBe(false);
+    expect(bridge.conn.authState).toBe("pending");
+    expect(states).toEqual(["connected", "disconnected"]);
   });
 });
