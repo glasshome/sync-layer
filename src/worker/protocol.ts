@@ -33,10 +33,11 @@ export type MainToWorker =
   | { k: "unregister_widget"; widgetId: string };
 
 export type ConnState = "connected" | "disconnected" | "reconnecting";
+export type ConnReason = "invalid_auth" | "ping_timeout";
 
 export type WorkerToMain =
   | { k: "connect_result"; ok: boolean; error?: string; reason?: "invalid_auth" }
-  | { k: "conn"; state: ConnState; reason?: "invalid_auth" }
+  | { k: "conn"; state: ConnState; reason?: ConnReason }
   /** Fired after a reconnect completes; main thread reloads data + resubscribes. */
   | { k: "ready_after_reconnect" }
   | { k: "result"; id: number; ok: boolean; result?: unknown; error?: string }

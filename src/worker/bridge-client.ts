@@ -1,7 +1,7 @@
 import type { CapabilityGrant } from "@glasshome/widget-contract";
 import type { HAEvent } from "@glasshome/ha-types";
 import type { SyncLayerConnection } from "../connection/types";
-import type { ConnState, MainToWorker, WorkerToMain } from "./protocol";
+import type { ConnReason, ConnState, MainToWorker, WorkerToMain } from "./protocol";
 
 /**
  * Main-thread side of the HA bridge. Wraps the Worker and exposes:
@@ -21,7 +21,7 @@ export interface BridgeConnectOptions {
 }
 
 export interface BridgeEvents {
-  onConnState?: (state: ConnState) => void;
+  onConnState?: (state: ConnState, reason?: ConnReason) => void;
   onReadyAfterReconnect?: () => void;
   onInvalidAuth?: () => void;
   onDenial?: (denial: {
@@ -92,7 +92,7 @@ export function createHaBridge(worker: Worker, events: BridgeEvents = {}): HaBri
         break;
       case "conn":
         connState = msg.state;
-        events.onConnState?.(msg.state);
+        events.onConnState?.(msg.state, msg.reason);
         if (msg.reason === "invalid_auth") events.onInvalidAuth?.();
         break;
       case "ready_after_reconnect":

@@ -36,7 +36,9 @@ export async function attachBridgeToStore(
 }
 
 /** Map worker connection-state messages onto the store. */
-export function applyBridgeConnState(state: "connected" | "disconnected" | "reconnecting"): void {
+export function applyBridgeConnState(
+  state: "connecting" | "connected" | "disconnected" | "reconnecting",
+): void {
   setState(
     produce((s) => {
       s.connectionState = state;
