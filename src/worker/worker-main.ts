@@ -175,7 +175,10 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
       const timer = new Promise<never>((_, reject) =>
         setTimeout(() => reject(new Error("ping timeout")), HEARTBEAT_TIMEOUT_MS),
       );
-      Promise.race([c.ping(), timer]).catch(() => c.reconnect());
+      Promise.race([c.ping(), timer]).catch(() => {
+        post({ k: "conn", state: "reconnecting", reason: "ping_timeout" });
+        c.reconnect();
+      });
     }, HEARTBEAT_INTERVAL_MS);
   }
 
