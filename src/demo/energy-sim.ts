@@ -145,8 +145,12 @@ function solarPower(lt: LocalTime): number {
 /** Coarse solar elevation in degrees for sun.sun attributes. */
 export function sunElevation(lt: LocalTime): number {
   if (lt.hourFrac <= SUNRISE_HOUR || lt.hourFrac >= SUNSET_HOUR) {
-    // Below horizon: small negative dip.
-    return -12;
+    const hoursFromHorizon = Math.min(
+      Math.abs(lt.hourFrac - SUNRISE_HOUR),
+      Math.abs(lt.hourFrac - SUNSET_HOUR),
+      Math.abs(lt.hourFrac + 24 - SUNSET_HOUR),
+    );
+    return -12 * Math.min(1, hoursFromHorizon / 1.5);
   }
   const frac = (lt.hourFrac - SUNRISE_HOUR) / (SUNSET_HOUR - SUNRISE_HOUR);
   return 60 * Math.sin(frac * Math.PI);
@@ -421,6 +425,7 @@ export function sunEvents(timestampMs: number): {
   nextRising: string;
   nextSetting: string;
   elevation: number;
+  rising: boolean;
 } {
   const lt = localTime(timestampMs);
   const midnightMs = localMidnightMs(timestampMs, lt);
@@ -432,6 +437,7 @@ export function sunEvents(timestampMs: number): {
     nextRising: new Date(nextRising).toISOString(),
     nextSetting: new Date(nextSetting).toISOString(),
     elevation: Math.round(sunElevation(lt) * 100) / 100,
+    rising: lt.hourFrac < (SUNRISE_HOUR + SUNSET_HOUR) / 2 || lt.hourFrac >= SUNSET_HOUR + (24 - SUNSET_HOUR + SUNRISE_HOUR) / 2,
   };
 }
 

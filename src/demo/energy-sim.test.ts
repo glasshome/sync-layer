@@ -3,6 +3,7 @@ import {
   type EnergySample,
   energyEntityValue,
   simulateEnergy,
+  sunEvents,
   synthesizeEnergyStatistics,
 } from "./energy-sim";
 
@@ -111,5 +112,24 @@ describe("entity value mapping", () => {
     expect(energyEntityValue("sensor.solar_power", s)).toBe(s.solarW);
     expect(energyEntityValue("sensor.battery_soc", s)).toBe(s.batterySocPct);
     expect(energyEntityValue("sensor.unknown", s)).toBeUndefined();
+  });
+});
+
+describe("sunEvents twilight", () => {
+  const atLocal = (h: number, m = 0) => new Date(2026, 5, 15, h, m).getTime();
+  test("morning is rising, afternoon is setting", () => {
+    expect(sunEvents(atLocal(9)).rising).toBe(true);
+    expect(sunEvents(atLocal(16)).rising).toBe(false);
+  });
+  test("just after sunset sits in civil twilight, deep night does not", () => {
+    const dusk = sunEvents(atLocal(20, 50)).elevation;
+    expect(dusk).toBeLessThan(0);
+    expect(dusk).toBeGreaterThan(-6);
+    expect(sunEvents(atLocal(1)).elevation).toBe(-12);
+  });
+  test("just before sunrise is rising and in twilight", () => {
+    const dawn = sunEvents(atLocal(6, 10));
+    expect(dawn.rising).toBe(true);
+    expect(dawn.elevation).toBeGreaterThan(-6);
   });
 });

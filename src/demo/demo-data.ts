@@ -772,6 +772,7 @@ export function createDemoFixtures(): DemoFixtures {
       elevation: sun.elevation,
       next_rising: sun.nextRising,
       next_setting: sun.nextSetting,
+      rising: sun.rising,
     }),
     {},
   );

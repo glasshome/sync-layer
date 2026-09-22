@@ -111,6 +111,7 @@ function tickEnergy(): void {
         sunEntity.attributes.elevation = sun.elevation;
         sunEntity.attributes.next_rising = sun.nextRising;
         sunEntity.attributes.next_setting = sun.nextSetting;
+        sunEntity.attributes.rising = sun.rising;
       }
     }),
   );
