@@ -8,6 +8,7 @@
  */
 
 import type { EntityRegistryEntry } from "@glasshome/ha-types";
+import { DEMO_ALBUM_COVER } from "./demo-album-cover";
 import type { AreaRegistryEntry, DeviceRegistryEntry, HassEntity } from "../core/types";
 import {
   energyEntityValue,
@@ -676,11 +677,12 @@ export function createDemoFixtures(): DemoFixtures {
       media_title: "Lo-fi Beats",
       media_artist: "Chill Station",
       media_content_type: "music",
+      entity_picture: DEMO_ALBUM_COVER,
       volume_level: 0.4,
       is_volume_muted: false,
-      supported_features: 152461,
+      supported_features: 152509,
     }),
-    { device_id: "speaker_lr", area_id: "living_room", supported_features: 152461 },
+    { device_id: "speaker_lr", area_id: "living_room", supported_features: 152509 },
   );
 
   // ----- Weather (one entity per scene for demo previews) -----
