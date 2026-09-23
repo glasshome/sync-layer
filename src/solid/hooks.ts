@@ -25,6 +25,7 @@ import type {
   HassEntity,
   StatisticsQueryOptions,
   StatisticValue,
+  ForecastType,
   WeatherForecastsData,
 } from "@glasshome/sync-layer";
 // Relative, not the package's own entry. Importing values from
@@ -39,6 +40,7 @@ import { entityViewEquals, getEntityView } from "../entities/views";
 import { callService, toggle, turnOff, turnOn } from "../commands/service";
 import { registerEntity } from "../connection/subscription-manager";
 import { trackCalendarEvents } from "../calendar/track";
+import { trackForecast } from "../weather/track";
 import type { CalendarEventsData, CalendarWindowOptions } from "../calendar/types";
 import { isDemoMode } from "../demo/demo-provider";
 import { fetchStatisticsDuringPeriod } from "../history/statistics";
@@ -372,12 +374,19 @@ export function useCalendarEvents(
 }
 
 /**
- * Get reactive weather forecast data.
+ * Get reactive weather forecast data. With `types`, the forecast stays live
+ * while the caller is mounted: Home Assistant pushes each new one, no polling.
  */
 export function useForecast(
   entityId: Accessor<string> | string,
+  types?: ForecastType[],
 ): Accessor<WeatherForecastsData | undefined> {
   const getId = typeof entityId === "function" ? entityId : () => entityId;
+  createEffect(() => {
+    const id = getId();
+    if (!id || !types) return;
+    for (const type of types) onCleanup(trackForecast(id, type));
+  });
   return createMemo(() => state.forecasts[getId()]);
 }
 

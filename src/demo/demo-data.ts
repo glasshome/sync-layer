@@ -117,6 +117,8 @@ function makeWeatherEntity(w: WeatherFixture): HassEntity {
       { datetime: day(2), condition: "cloudy",       temperature: w.temp + 1, templow: w.low - 1 },
       { datetime: day(3), condition: "sunny",        temperature: w.temp + 4, templow: w.low + 1 },
       { datetime: day(4), condition: "rainy",        temperature: w.temp - 2, templow: w.low - 2 },
+      { datetime: day(5), condition: "cloudy",       temperature: w.temp - 1, templow: w.low - 2 },
+      { datetime: day(6), condition: "partlycloudy", temperature: w.temp + 1, templow: w.low },
     ],
   });
 }
