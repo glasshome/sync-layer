@@ -18,6 +18,11 @@ import {
   sunEvents,
 } from "./energy-sim";
 
+// Absolute on the dashboard's own origin, so media helpers never prefix the demo's fake HA host.
+export function demoAssetUrl(path: string): string {
+  return globalThis.location ? new URL(path, globalThis.location.origin).href : path;
+}
+
 // ============================================
 // TYPES
 // ============================================
@@ -459,6 +464,27 @@ export function createDemoFixtures(): DemoFixtures {
     { unit_of_measurement: "%" },
   );
 
+  // Neighbouring grid zones, so every grid verdict has a demo source.
+  for (const [zone, co2, fossil] of [
+    ["de", "384", "52"],
+    ["pl", "692", "81"],
+  ] as const) {
+    add(
+      makeEntity(`sensor.electricity_maps_co2_intensity_${zone}`, co2, {
+        unit_of_measurement: "gCO2eq/kWh",
+        state_class: "measurement",
+      }),
+      { unit_of_measurement: "gCO2eq/kWh" },
+    );
+    add(
+      makeEntity(`sensor.electricity_maps_fossil_fuel_percentage_${zone}`, fossil, {
+        unit_of_measurement: "%",
+        state_class: "measurement",
+      }),
+      { unit_of_measurement: "%" },
+    );
+  }
+
   add(
     makeEntity("sensor.nordpool_current_price", "0.18", {
       unit_of_measurement: "EUR/kWh",
@@ -658,6 +684,15 @@ export function createDemoFixtures(): DemoFixtures {
     supported_features: 1,
   });
 
+  // Outside every area, so area tiles keep their counts; widget previews show the other state.
+  add(makeEntity("lock.side_gate", "unlocked", {}), { supported_features: 1 });
+  add(makeEntity("binary_sensor.patio_door", "on", { device_class: "door" }), {
+    device_class: "door",
+  });
+  add(makeEntity("binary_sensor.motion_kitchen", "on", { device_class: "motion" }), {
+    device_class: "motion",
+  });
+
   // ----- Switches (2) -----
   add(
     makeEntity("switch.coffee_machine", "off", {
@@ -695,7 +730,7 @@ export function createDemoFixtures(): DemoFixtures {
   // ----- Camera (1) -----
   add(
     makeEntity("camera.front_door_camera", "streaming", {
-      entity_picture: "/api/camera_proxy/camera.front_door_camera",
+      entity_picture: demoAssetUrl("/demo/camera/front-door.webp"),
       frontend_stream_type: "hls",
       access_token: "demo-token",
     }),
