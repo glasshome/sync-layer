@@ -151,7 +151,8 @@ function toCategory(c: EntitySeed["category"]): EntityCategory | null {
 }
 
 function entityEntry(p: Placed, seed: EntitySeed, name: string | null, createdIso: string): EntityRegistryEntry {
-  const platform = String(p.spec.params.integration ?? "demo");
+  const integration = p.spec.params.integration;
+  const platform = typeof integration === "string" ? integration : "demo";
   return {
     aliases: [],
     area_id: null,
@@ -187,7 +188,8 @@ function entityEntry(p: Placed, seed: EntitySeed, name: string | null, createdIs
 }
 
 function deviceEntry(owner: DeviceSpec, id: string, createdIso: string): DeviceRegistryEntry {
-  const platform = String(owner.params.integration ?? "demo");
+  const integration = owner.params.integration;
+  const platform = typeof integration === "string" ? integration : "demo";
   const entry = `${platform}_entry`;
   return {
     id,

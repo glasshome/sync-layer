@@ -46,7 +46,7 @@ export async function fetchHistory(
       entityIds.filter((id) => !isEnergyEntity(id)),
       startMs,
       endMs,
-      timeMap.toWall,
+      (ms) => timeMap.toWall(ms),
     );
     const result: Record<EntityId, EntityHistoryState[]> = {};
     for (const id of entityIds) {

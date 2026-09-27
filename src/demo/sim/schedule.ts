@@ -11,7 +11,7 @@ import type { DemoModel, Driver } from "./model";
 
 export type { Driver } from "./model";
 
-export type Activity = "sleep" | "wake" | "cook" | "eat" | "work" | "away" | "relax" | "bath";
+type Activity = "sleep" | "wake" | "cook" | "eat" | "work" | "away" | "relax" | "bath";
 
 export interface Slot {
   startMin: number;
