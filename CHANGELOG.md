@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.9.1](https://github.com/glasshome/sync-layer/compare/v0.9.0...v0.9.1) (2026-09-27)
+
+
+### Bug Fixes
+
+* **deps:** ha-types 0.2.0 ([9e49de5](https://github.com/glasshome/sync-layer/commit/9e49de50a33a1fab230fc4cc5d4b8274a0773674))
+* handle the promises the connection and camera code left floating ([00d67bf](https://github.com/glasshome/sync-layer/commit/00d67bf800ec15f34db8b7c03b74876eb0f64635))
+* log WebRTC unsubscribe failures, deprecate ConnectionOptions, drop initConnection from docs and errors ([0907ee7](https://github.com/glasshome/sync-layer/commit/0907ee7489dc837c41e77d2e7abe3efce9fd10e2))
+
 ## [0.9.0](https://github.com/glasshome/sync-layer/compare/v0.8.2...v0.9.0) (2026-09-27)
 
 
