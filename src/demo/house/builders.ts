@@ -28,6 +28,9 @@ export interface BuildOpts {
   batteryId?: string;
   manufacturer?: string;
   model?: string;
+  supportedFeatures?: number;
+  entityName?: string;
+  deviceId?: string;
 }
 
 const PRIMARY_ROLE: Record<KindName, string> = {
@@ -79,9 +82,17 @@ const DEFAULT_TRACKS = [
   { title: "Night Drive", artist: "Neon Avenue" },
 ];
 
-/** Builders bound to one room (`null` for whole-house devices); keys are `slug(room + name)`. */
+function titleCase(text: string): string {
+  return text.replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+/** Builders bound to one room (`null` for whole-house devices); keys are the name's slug, room-prefixed unless it already is. */
 export function inRoom(roomId: string | null) {
-  const keyOf = (name: string, opts: BuildOpts) => opts.key ?? slug(roomId ? `${roomId} ${name}` : name);
+  const keyOf = (name: string, opts: BuildOpts) => {
+    if (opts.key) return opts.key;
+    const own = slug(name);
+    return !roomId || own.startsWith(`${roomId}_`) ? own : `${roomId}_${own}`;
+  };
 
   function make(
     kind: KindName,
@@ -100,8 +111,16 @@ export function inRoom(roomId: string | null) {
       areaId: roomId,
       manufacturer: opts.manufacturer ?? hw.manufacturer,
       model: opts.model ?? hw.model,
-      params: definedOnly({ ...params, integration: hw.integration, transport: hw.transport, battery: hw.battery }),
+      params: definedOnly({
+        ...params,
+        supportedFeatures: opts.supportedFeatures,
+        integration: hw.integration,
+        transport: hw.transport,
+        battery: hw.battery,
+      }),
       ...(Object.keys(ids).length > 0 ? { ids } : {}),
+      ...(opts.entityName ? { entityName: opts.entityName } : {}),
+      ...(opts.deviceId ? { deviceId: opts.deviceId } : {}),
     };
   }
 
@@ -114,8 +133,8 @@ export function inRoom(roomId: string | null) {
       const { dimmable = true, color, colorTemp, watts = 9 } = opts;
       return make("light", name, { dimmable, color, colorTemp, watts }, { ...HUE, model }, opts);
     },
-    switchDevice: (name: string, opts: BuildOpts & { watts?: number } = {}) =>
-      make("switch", name, { watts: opts.watts ?? 0 }, SHELLY_RELAY, opts),
+    switchDevice: (name: string, opts: BuildOpts & { watts?: number; deviceClass?: string } = {}) =>
+      make("switch", name, { watts: opts.watts ?? 0, deviceClass: opts.deviceClass }, SHELLY_RELAY, opts),
     plug: (name: string, watts: number, opts: BuildOpts & { legacyPowerId?: string } = {}) =>
       make("switch", name, { watts, power: true, energy: true, legacyPowerId: opts.legacyPowerId }, SHELLY_PLUG, opts),
     appliance: (name: string, watts: number, opts: BuildOpts & { legacyPowerId?: string } = {}) =>
@@ -179,27 +198,33 @@ export function inRoom(roomId: string | null) {
         { manufacturer: "Sonos", model: "One", integration: "demo", transport: "wifi" },
         opts,
       ),
-    button: (name: string, opts: BuildOpts = {}) =>
-      make("button", name, {}, { manufacturer: "Home Assistant", model: "Core", integration: "demo" }, opts),
+    button: (name: string, opts: BuildOpts & { category?: "config" | "diagnostic"; deviceClass?: string } = {}) =>
+      make(
+        "button",
+        name,
+        { category: opts.category, deviceClass: opts.deviceClass },
+        { manufacturer: "Home Assistant", model: "Core", integration: "demo" },
+        opts,
+      ),
     scene: (name: string, targets: SceneTarget[], opts: BuildOpts = {}) =>
       make("scene", name, { targets }, { manufacturer: "Home Assistant", model: "Scene", integration: "demo" }, opts),
     climateSensor: (
       name: string,
-      opts: BuildOpts & { temperatureId?: string; humidityId?: string } = {},
+      opts: BuildOpts & { temperatureId?: string; humidityId?: string; outdoor?: boolean } = {},
     ): DeviceSpec[] => {
       const base = keyOf(name, opts);
       const hw: Hardware = { manufacturer: "Aqara", model: "Temperature and Humidity Sensor", ...ZIGBEE_BATTERY };
-      const reading = (role: "temperature" | "humidity", entityName: string, id: string | undefined): DeviceSpec => ({
-        ...make("sensor", name, { reading: role }, hw, { ...opts, key: `${base}_${role}`, id }),
-        deviceId: base,
-        entityName,
-      });
+      const reading = (role: "temperature" | "humidity", entityName: string, id: string | undefined): DeviceSpec => {
+        const value = role === "temperature" && opts.outdoor ? "outdoor_temperature" : role;
+        const own = { ...opts, key: `${base}_${role}`, id, deviceId: base, entityName };
+        return make("sensor", name, { reading: value }, hw, own);
+      };
       return [
         reading("temperature", "Temperature", opts.temperatureId),
         reading("humidity", "Humidity", opts.humidityId),
       ];
     },
-    motion: (name = "Motion", opts: BuildOpts = {}) =>
+    motion: (name: string, opts: BuildOpts = {}) =>
       make(
         "binary_sensor",
         name,
@@ -209,7 +234,7 @@ export function inRoom(roomId: string | null) {
       ),
     contact: (
       deviceClass: "door" | "window",
-      name: string = deviceClass === "door" ? "Door" : "Window",
+      name: string,
       opts: BuildOpts = {},
     ) =>
       make(
@@ -219,7 +244,7 @@ export function inRoom(roomId: string | null) {
         { manufacturer: "Aqara", model: "Door and Window Sensor", ...ZIGBEE_BATTERY },
         opts,
       ),
-    smoke: (name = "Smoke", opts: BuildOpts = {}) =>
+    smoke: (name: string, opts: BuildOpts = {}) =>
       make(
         "binary_sensor",
         name,
@@ -227,7 +252,7 @@ export function inRoom(roomId: string | null) {
         { manufacturer: "Heiman", model: "Smoke Sensor", ...ZIGBEE_BATTERY },
         opts,
       ),
-    leak: (name = "Leak", opts: BuildOpts = {}) =>
+    leak: (name: string, opts: BuildOpts = {}) =>
       make(
         "binary_sensor",
         name,
@@ -245,39 +270,34 @@ export function inRoom(roomId: string | null) {
       ),
     fixedSensor: (
       name: string,
-      opts: BuildOpts & { value: number; unit?: string; deviceClass?: string; entityName?: string; deviceId?: string },
-    ) => ({
-      ...make(
+      opts: BuildOpts & { value: number; unit?: string; deviceClass?: string },
+    ) =>
+      make(
         "sensor",
         name,
         { reading: "fixed", value: opts.value, unit: opts.unit, deviceClass: opts.deviceClass },
         { manufacturer: "Home Assistant", model: "Sensor", integration: "demo" },
         opts,
       ),
-      ...(opts.entityName ? { entityName: opts.entityName } : {}),
-      ...(opts.deviceId ? { deviceId: opts.deviceId } : {}),
-    }),
     sun: () => make("sun", "Sun", {}, { manufacturer: "Home Assistant", model: "Sun", integration: "sun" }),
     weather: (name: string, opts: BuildOpts = {}) =>
       make("weather", name, {}, { manufacturer: "Met.no", model: "Forecast", integration: "met" }, opts),
     weatherShowcase: (fixture: (typeof WEATHER_FIXTURES)[number]) =>
       make(
         "weather_showcase",
-        `Demo ${fixture.slug.replace(/_/g, " ")}`,
+        titleCase(`Demo ${fixture.slug.replace(/_/g, " ")}`),
         { ...fixture },
         { manufacturer: "Met.no", model: "Forecast", integration: "met" },
         { key: `demo_${fixture.slug}` },
       ),
-    energyMeter: (name: string, opts: BuildOpts & { entityName?: string } = {}) => ({
-      ...make(
+    energyMeter: (name: string, opts: BuildOpts = {}) =>
+      make(
         "energy_meter",
         name,
         {},
         { manufacturer: "Shelly", model: "Pro 3EM", integration: "shelly", transport: "wifi" },
         opts,
       ),
-      ...(opts.entityName ? { entityName: opts.entityName } : {}),
-    }),
     person: (name: string, opts: BuildOpts & { template: string }) =>
       make(
         "person",
@@ -286,16 +306,14 @@ export function inRoom(roomId: string | null) {
         { manufacturer: "Home Assistant", model: "Person", integration: "person" },
         opts,
       ),
-    phone: (name: string, opts: BuildOpts = {}) => ({
-      ...make(
+    phone: (name: string, opts: BuildOpts = {}) =>
+      make(
         "sensor",
         name,
         { reading: "battery" },
         { manufacturer: "Apple", model: "iPhone", integration: "demo" },
-        opts,
+        { ...opts, entityName: "Battery" },
       ),
-      entityName: "Battery",
-    }),
   };
 }
 

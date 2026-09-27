@@ -28,6 +28,7 @@ interface Placed {
   deviceId: string;
   side: boolean;
   seeds: EntitySeed[];
+  category?: EntitySeed["category"];
 }
 
 const registryIdOf = (d: DeviceSpec) => d.deviceId ?? d.key;
@@ -85,7 +86,7 @@ function peopleSpecs(house: House): DeviceSpec[] {
   const b = inRoom(null);
   return house.people.flatMap((p) => [
     b.person(p.name, { key: `person_${p.id}`, id: `person.${p.id}`, template: p.template }),
-    b.phone(`${p.name}'s phone`, { key: `phone_${p.id}`, id: `sensor.phone_${p.id}_battery` }),
+    b.phone(`${p.name}'s Phone`, { key: `phone_${p.id}`, id: `sensor.phone_${p.id}_battery` }),
   ]);
 }
 
@@ -102,7 +103,9 @@ function place(declared: DeviceSpec[]): Placed[] {
     for (const spec of specs) placed.push({ spec, deviceId, side: false, seeds: KINDS[spec.kind].entities(spec) });
     for (const role of sideRoles(owner)) {
       const spec = sideSpec(owner, role);
-      placed.push({ spec, deviceId, side: true, seeds: KINDS[spec.kind].entities(spec) });
+      // A battery with a declared id is a user-facing entity, so it stays uncategorised.
+      const category = role === "battery" && owner.ids?.battery ? undefined : "diagnostic";
+      placed.push({ spec, deviceId, side: true, seeds: KINDS[spec.kind].entities(spec), category });
     }
   }
   return placed;
@@ -150,7 +153,7 @@ function entityEntry(p: Placed, seed: EntitySeed, name: string | null, createdIs
     device_class: seed.deviceClass ?? null,
     device_id: p.deviceId,
     disabled_by: null,
-    entity_category: toCategory(p.side ? "diagnostic" : seed.category),
+    entity_category: toCategory(p.side ? p.category : seed.category),
     entity_id: seed.entityId,
     has_entity_name: true,
     hidden_by: null,

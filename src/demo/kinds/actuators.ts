@@ -18,6 +18,7 @@ interface LightParams {
   color?: boolean;
   colorTemp?: boolean;
   watts?: number;
+  supportedFeatures?: number;
 }
 
 interface LightState {
@@ -37,7 +38,7 @@ function lightColorModes(p: LightParams): string[] {
 }
 
 function lightSupportedFeatures(p: LightParams): number {
-  return p.color || p.colorTemp ? 44 : p.dimmable ? 1 : 0;
+  return p.supportedFeatures ?? (p.color || p.colorTemp ? 44 : p.dimmable ? 1 : 0);
 }
 
 function applyLightOn(s: LightState, data: Record<string, unknown>): LightState {
@@ -124,6 +125,7 @@ interface SwitchParams {
   power?: boolean;
   energy?: boolean;
   legacyPowerId?: string;
+  deviceClass?: string;
 }
 
 interface SwitchState {
@@ -150,7 +152,9 @@ function switchWatts(s: SwitchState, p: SwitchParams, nowMs: number): number {
 const switchKind: DeviceKind = {
   entities(device) {
     const p = device.params as SwitchParams;
-    const seeds: EntitySeed[] = [{ entityId: entityIdFor("switch", device, "switch"), name: device.name, primary: true }];
+    const seeds: EntitySeed[] = [
+      { entityId: entityIdFor("switch", device, "switch"), name: device.name, deviceClass: p.deviceClass, primary: true },
+    ];
     if (p.power || p.legacyPowerId) {
       seeds.push({ entityId: switchPowerId(device, p), name: "Power", deviceClass: "power", unit: "W" });
     }
@@ -193,7 +197,10 @@ const switchKind: DeviceKind = {
     const watts = switchWatts(s, p, ctx.nowMs);
     const on = p.legacyPowerId ? watts > 5 : s.on;
     const out: Record<string, Projection> = {
-      [entityIdFor("switch", device, "switch")]: { state: on ? "on" : "off", attributes: {} },
+      [entityIdFor("switch", device, "switch")]: {
+        state: on ? "on" : "off",
+        attributes: p.deviceClass ? { device_class: p.deviceClass } : {},
+      },
     };
     if (p.power || p.legacyPowerId) {
       out[switchPowerId(device, p)] = {
@@ -324,6 +331,7 @@ interface CoverParams {
   tilt?: boolean;
   deviceClass?: string;
   travelMs?: number;
+  supportedFeatures?: number;
 }
 
 interface CoverState {
@@ -334,6 +342,7 @@ interface CoverState {
 }
 
 function coverSupportedFeatures(p: CoverParams): number {
+  if (p.supportedFeatures != null) return p.supportedFeatures;
   let sf = 1 | 2 | 8;
   if (p.position) sf |= 4;
   if (p.tilt) sf |= 16 | 32 | 64 | 128;
@@ -438,13 +447,25 @@ const cover: DeviceKind = {
 // lock
 // ============================================
 
+interface LockParams {
+  supportedFeatures?: number;
+}
+
 interface LockState {
   locked: boolean;
 }
 
 const lock: DeviceKind = {
   entities(device) {
-    return [{ entityId: entityIdFor("lock", device, "lock"), name: device.name, primary: true }];
+    const p = device.params as LockParams;
+    return [
+      {
+        entityId: entityIdFor("lock", device, "lock"),
+        name: device.name,
+        supportedFeatures: p.supportedFeatures,
+        primary: true,
+      },
+    ];
   },
   apply(state, event) {
     const s = (state as LockState | undefined) ?? { locked: true };
@@ -460,8 +481,10 @@ const lock: DeviceKind = {
   },
   project(state, device) {
     const s = state as LockState;
+    const p = device.params as LockParams;
     const id = entityIdFor("lock", device, "lock");
-    return { [id]: { state: s.locked ? "locked" : "unlocked", attributes: {} } };
+    const attributes = p.supportedFeatures != null ? { supported_features: p.supportedFeatures } : {};
+    return { [id]: { state: s.locked ? "locked" : "unlocked", attributes } };
   },
   handles: ["lock", "unlock"],
 };
@@ -476,6 +499,7 @@ interface ClimateParams {
   fanModes?: string[];
   presets?: string[];
   watts?: number;
+  supportedFeatures?: number;
 }
 
 interface ClimateState {
@@ -501,6 +525,7 @@ function climateHvacAction(s: ClimateState): "off" | "heating" | "cooling" | "id
 }
 
 function climateSupportedFeatures(p: ClimateParams): number {
+  if (p.supportedFeatures != null) return p.supportedFeatures;
   let sf = 1;
   if (p.fanModes) sf |= 8;
   if (p.presets) sf |= 16;
@@ -596,6 +621,7 @@ interface WaterHeaterParams {
   modes: string[];
   min: number;
   max: number;
+  supportedFeatures?: number;
 }
 
 interface WaterHeaterState {
@@ -607,7 +633,15 @@ interface WaterHeaterState {
 
 const waterHeater: DeviceKind = {
   entities(device) {
-    return [{ entityId: entityIdFor("water_heater", device, "water_heater"), name: device.name, primary: true }];
+    const p = device.params as unknown as WaterHeaterParams;
+    return [
+      {
+        entityId: entityIdFor("water_heater", device, "water_heater"),
+        name: device.name,
+        supportedFeatures: p.supportedFeatures,
+        primary: true,
+      },
+    ];
   },
   apply(state, event, device) {
     const p = device.params as unknown as WaterHeaterParams;
@@ -644,6 +678,7 @@ const waterHeater: DeviceKind = {
           min_temp: p.min,
           max_temp: p.max,
           away_mode: s.awayMode ? "on" : "off",
+          ...(p.supportedFeatures != null ? { supported_features: p.supportedFeatures } : {}),
         },
       },
     };
@@ -724,6 +759,10 @@ const mediaPlayer: DeviceKind = {
     switch (event.service) {
       case "media_play_pause":
         return { ...s, playing: !s.playing };
+      case "media_play":
+        return { ...s, playing: true };
+      case "media_pause":
+        return { ...s, playing: false };
       case "media_next_track":
         return skipMediaTrack(s, ctx.nowMs, p.tracks.length, 1);
       case "media_previous_track":
@@ -758,12 +797,25 @@ const mediaPlayer: DeviceKind = {
     }
     return { [id]: { state: s.playing ? "playing" : "paused", attributes } };
   },
-  handles: ["media_play_pause", "media_next_track", "media_previous_track", "volume_set", "select_source"],
+  handles: [
+    "media_play_pause",
+    "media_play",
+    "media_pause",
+    "media_next_track",
+    "media_previous_track",
+    "volume_set",
+    "select_source",
+  ],
 };
 
 // ============================================
 // button
 // ============================================
+
+interface ButtonParams {
+  category?: "config" | "diagnostic";
+  deviceClass?: string;
+}
 
 interface ButtonState {
   lastPressedMs?: number;
@@ -771,7 +823,16 @@ interface ButtonState {
 
 const button: DeviceKind = {
   entities(device) {
-    return [{ entityId: entityIdFor("button", device, "button"), name: device.name, primary: true }];
+    const p = device.params as ButtonParams;
+    return [
+      {
+        entityId: entityIdFor("button", device, "button"),
+        name: device.name,
+        category: p.category,
+        deviceClass: p.deviceClass,
+        primary: true,
+      },
+    ];
   },
   apply(state, event, device, ctx) {
     const s = (state as ButtonState | undefined) ?? {};
@@ -781,9 +842,10 @@ const button: DeviceKind = {
   },
   project(state, device) {
     const s = state as ButtonState;
+    const p = device.params as ButtonParams;
     const id = entityIdFor("button", device, "button");
     const value = s.lastPressedMs != null ? new Date(s.lastPressedMs).toISOString() : "unknown";
-    return { [id]: { state: value, attributes: {} } };
+    return { [id]: { state: value, attributes: p.deviceClass ? { device_class: p.deviceClass } : {} } };
   },
   handles: ["press"],
 };

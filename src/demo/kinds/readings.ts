@@ -23,7 +23,15 @@ export const APPLIANCE_ENERGY_IDS = [
 // sensor
 // ============================================
 
-type SensorReading = "temperature" | "humidity" | "illuminance" | "battery" | "signal" | "fixed" | "power";
+type SensorReading =
+  | "temperature"
+  | "outdoor_temperature"
+  | "humidity"
+  | "illuminance"
+  | "battery"
+  | "signal"
+  | "fixed"
+  | "power";
 
 interface SensorParams {
   reading: SensorReading;
@@ -34,6 +42,7 @@ interface SensorParams {
 
 const SENSOR_UNIT: Record<SensorReading, string | undefined> = {
   temperature: "°C",
+  outdoor_temperature: "°C",
   humidity: "%",
   illuminance: "lx",
   battery: "%",
@@ -44,6 +53,7 @@ const SENSOR_UNIT: Record<SensorReading, string | undefined> = {
 
 const SENSOR_DEVICE_CLASS: Record<SensorReading, string | undefined> = {
   temperature: "temperature",
+  outdoor_temperature: "temperature",
   humidity: "humidity",
   illuminance: "illuminance",
   battery: "battery",
@@ -71,6 +81,8 @@ function sensorValue(id: string, p: SensorParams, nowMs: number, noiseVal: numbe
   switch (p.reading) {
     case "temperature":
       return round1(20.5 + (outdoorC - 20.5) * 0.1 + (noiseVal - 0.5) * 0.4).toFixed(1);
+    case "outdoor_temperature":
+      return round1(outdoorC).toFixed(1);
     case "humidity":
       return roundInt(45 + (noiseVal - 0.5) * 30).toString();
     case "illuminance":
@@ -516,6 +528,7 @@ const camera: DeviceKind = {
           entity_picture: `/api/camera_proxy/${id}`,
           frontend_stream_type: "hls",
           access_token: "demo-token",
+          supported_features: 2,
         },
       },
     };

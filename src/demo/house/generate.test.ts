@@ -46,6 +46,38 @@ describe("generated house", () => {
       for (const seed of k.entities(d)) expect(out[seed.entityId]).toBeDefined();
     }
   });
+  test("legacy entities keep supported_features, category and device class", () => {
+    const legacy = legacyFixtures();
+    const T = Date.parse("2026-06-21T12:00:00Z");
+    const ctx = { nowMs: T, world: { timeZone: "UTC", seed: 1, latitude: 48, longitude: 0 }, noise: () => 0.5 };
+    const projected: Record<string, { attributes: Record<string, unknown> }> = {};
+    for (const d of g.devices) {
+      const k = KINDS[d.kind];
+      Object.assign(projected, k.project(k.apply(undefined, { type: "init" }, d, ctx), d, ctx));
+    }
+    for (const [id, entity] of Object.entries(legacy.entities)) {
+      const was = legacy.entityRegistry[id];
+      const now = g.registry.entityRegistry[id];
+      const features = entity.attributes.supported_features ?? was?.supported_features ?? 0;
+      const attr = projected[id]?.attributes.supported_features;
+      expect({ id, registry: now?.supported_features }).toEqual({ id, registry: features });
+      if (features !== 0 || attr !== undefined) expect({ id, attr }).toEqual({ id, attr: features });
+      expect({ id, category: now?.entity_category }).toEqual({ id, category: was?.entity_category ?? null });
+      expect({ id, deviceClass: now?.device_class }).toEqual({ id, deviceClass: was?.device_class ?? null });
+    }
+  });
+  test("legacy friendly names read naturally", () => {
+    expect(g.friendlyNames["light.living_room_main"]).toBe("Living Room Main");
+    expect(g.friendlyNames["light.kitchen_counter"]).toBe("Kitchen Counter");
+    expect(g.friendlyNames["light.bedroom_ceiling"]).toBe("Bedroom Ceiling");
+    expect(g.friendlyNames["cover.kitchen_blinds"]).toBe("Kitchen Blinds");
+    expect(g.friendlyNames["sensor.solar_power"]).toBe("Home Solar Production");
+  });
+  test("movie night plays the speaker", () => {
+    const scene = g.devices.find((d) => d.key === "movie_night");
+    const targets = scene?.params.targets as { service: string; entityIds: string[] }[];
+    expect(targets.find((t) => t.entityIds.includes("media_player.living_room_speaker"))?.service).toBe("media_play");
+  });
   test("ids.ts is current", () => {
     const declared: string[] = [...DEMO_ENTITY_IDS];
     expect(declared.sort()).toEqual([...g.entityIds].sort());

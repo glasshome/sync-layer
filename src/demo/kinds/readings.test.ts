@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { KINDS } from "./index";
-import { worldFor } from "../world/world";
+import { outdoorTempC, worldFor } from "../world/world";
 import type { DeviceSpec, KindName } from "./types";
 
 const T = Date.parse("2026-06-21T12:00:00Z");
@@ -50,6 +50,21 @@ describe("readings", () => {
   test("temperature is quantized to 0.1", () => {
     const out = run(spec("sensor", { reading: "temperature", unit: "°C" }, { sensor: "sensor.t" }));
     expect(out["sensor.t"]?.state).toMatch(/^-?\d+\.\d$/);
+  });
+  test("outdoor temperature follows the world, not the indoor baseline", () => {
+    const cold = Date.parse("2026-01-15T06:00:00Z");
+    const coldCtx = { nowMs: cold, world: worldFor("UTC", 1, cold), noise: () => 0.5 };
+    const at = (reading: string) => {
+      const d = spec("sensor", { reading }, { sensor: "sensor.t" });
+      return KINDS.sensor.project(undefined, d, coldCtx)["sensor.t"];
+    };
+    const outdoor = at("outdoor_temperature");
+    expect(outdoor?.state).toBe((Math.round(outdoorTempC(cold, coldCtx.world) * 10) / 10).toFixed(1));
+    expect(outdoor?.state).not.toBe(at("temperature")?.state);
+    expect(outdoor?.attributes).toMatchObject({ unit_of_measurement: "°C", device_class: "temperature" });
+  });
+  test("camera projects its supported features", () => {
+    expect(run(spec("camera", {}))["camera.k"]?.attributes.supported_features).toBe(2);
   });
   test("every kind is registered", () => {
     const names: KindName[] = ["light","switch","fan","cover","lock","climate","water_heater","media_player","button","scene","sensor","binary_sensor","sun","weather","weather_showcase","energy_meter","person","update","camera"];

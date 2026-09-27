@@ -473,3 +473,51 @@ describe("switch with power and energy", () => {
     }
   });
 });
+
+test("media_play and media_pause set playback directly", () => {
+  const d = spec("media_player", { tracks: [{ title: "A", artist: "B" }] }, { media_player: "media_player.m" });
+  const k = ACTUATORS.media_player;
+  const call = (service: string) => ({ type: "call" as const, entityId: "media_player.m", service, data: {} });
+  let s = k.apply(undefined, { type: "init" }, d, ctx);
+  s = k.apply(s, call("media_play"), d, ctx);
+  expect(k.project(s, d, ctx)["media_player.m"]?.state).toBe("playing");
+  s = k.apply(s, call("media_play"), d, ctx);
+  expect(k.project(s, d, ctx)["media_player.m"]?.state).toBe("playing");
+  s = k.apply(s, call("media_pause"), d, ctx);
+  expect(k.project(s, d, ctx)["media_player.m"]?.state).toBe("paused");
+  expect(k.handles).toContain("media_play");
+  expect(k.handles).toContain("media_pause");
+});
+
+describe("declared overrides win over computed features", () => {
+  const cases: [KindName, Record<string, unknown>, string][] = [
+    ["light", { dimmable: true, supportedFeatures: 0 }, "light.k"],
+    ["cover", { position: true, supportedFeatures: 127 }, "cover.k"],
+    ["climate", { supportedFeatures: 385 }, "climate.k"],
+    ["lock", { supportedFeatures: 1 }, "lock.k"],
+    ["water_heater", { modes: ["eco"], min: 40, max: 60, supportedFeatures: 7 }, "water_heater.k"],
+  ];
+  for (const [kind, params, id] of cases) {
+    test(`${kind} seeds and projects supportedFeatures`, () => {
+      const k = ACTUATORS[kind as keyof typeof ACTUATORS];
+      const d = spec(kind, params, {});
+      expect(k.entities(d)[0]?.supportedFeatures).toBe(params.supportedFeatures as number);
+      const out = k.project(k.apply(undefined, { type: "init" }, d, ctx), d, ctx);
+      expect(out[id]?.attributes.supported_features).toBe(params.supportedFeatures);
+    });
+  }
+
+  test("button carries category and device class", () => {
+    const d = spec("button", { category: "config", deviceClass: "restart" }, {});
+    expect(ACTUATORS.button.entities(d)[0]).toMatchObject({ category: "config", deviceClass: "restart" });
+    const out = ACTUATORS.button.project(ACTUATORS.button.apply(undefined, { type: "init" }, d, ctx), d, ctx);
+    expect(out["button.k"]?.attributes.device_class).toBe("restart");
+  });
+
+  test("switch carries a device class", () => {
+    const d = spec("switch", { deviceClass: "outlet" }, {});
+    expect(ACTUATORS.switch.entities(d)[0]?.deviceClass).toBe("outlet");
+    const out = ACTUATORS.switch.project(ACTUATORS.switch.apply(undefined, { type: "init" }, d, ctx), d, ctx);
+    expect(out["switch.k"]?.attributes.device_class).toBe("outlet");
+  });
+});
