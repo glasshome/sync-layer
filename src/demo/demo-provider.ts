@@ -101,6 +101,18 @@ export function demoCallLog(): readonly LoggedCall[] {
   return session?.log ?? [];
 }
 
+/** Internal: a fresh model for history replay, built exactly like the running one but starting at `startMs`. */
+export function demoReplayModel(startMs: number): DemoModel | null {
+  const s = session;
+  if (!s) return null;
+  return buildModel(s.generated, startMs, getWorld());
+}
+
+/** Internal: apply the provider's visitor-hold mapping to a model, for history replay of logged calls. */
+export function applyVisitorHolds(model: DemoModel, entityIds: string[]): void {
+  holdVisitorEntities(model, entityIds);
+}
+
 function catchUp(model: DemoModel, simMs: number): void {
   model.advanceTo(simMs, simMs - model.nowMs <= FINE_GAP_MS ? FINE_STEP_MS : COARSE_STEP_MS);
 }
