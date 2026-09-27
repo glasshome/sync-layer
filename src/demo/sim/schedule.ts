@@ -125,11 +125,23 @@ function lastSlot(plan: Slot[]): Slot {
   return last;
 }
 
-export function activityAt(person: HousePerson, ms: number, world: World): Slot {
+interface Occupancy {
+  slot: Slot;
+  startMs: number;
+}
+
+function occupancyAt(person: HousePerson, ms: number, world: World): Occupancy {
   const today = dayOf(person, ms, world);
   const minute = (ms - today.midnightMs) / MINUTE_MS;
   const current = today.plan.findLast((s) => s.startMin <= minute);
-  return current ?? lastSlot(dayOf(person, today.midnightMs - 1, world).plan);
+  if (current) return { slot: current, startMs: today.midnightMs + current.startMin * MINUTE_MS };
+  const yesterday = dayOf(person, today.midnightMs - 1, world);
+  const last = lastSlot(yesterday.plan);
+  return { slot: last, startMs: yesterday.midnightMs + last.startMin * MINUTE_MS };
+}
+
+export function activityAt(person: HousePerson, ms: number, world: World): Slot {
+  return occupancyAt(person, ms, world).slot;
 }
 
 interface Transition {
@@ -166,7 +178,7 @@ const AWAY: DemoEntityId = "scene.away";
 
 const ACTIONS: Record<Activity, ActivityAction> = {
   sleep: { lights: "none" },
-  wake: { lights: "none", appliance: { id: COFFEE_MACHINE, minutes: 10, templates: ["commuter", "home_office"] } },
+  wake: { lights: "first", appliance: { id: COFFEE_MACHINE, minutes: 10, templates: ["commuter", "home_office"] } },
   cook: { lights: "all", appliance: { id: OVEN, minutes: 40 } },
   eat: { lights: "all" },
   work: { lights: "all" },
@@ -211,6 +223,13 @@ const call = (domain: string, service: string, entityIds: string[], data: Record
 const isAwakeAtHome = (s: Slot) => s.activity !== "sleep" && s.activity !== "away";
 const touchesEvent = (t: Transition) => [t.from.activity, t.to.activity].some((a) => a === "away" || a === "sleep");
 
+interface Due {
+  atMs: number;
+  order: number;
+  key: string;
+  run(model: DemoModel): void;
+}
+
 export function createDriver(house: House, generated: GeneratedHouse, world: World): Driver {
   const people = [...house.people].sort((a, b) => a.id.localeCompare(b.id));
   const rooms = gearByRoom(generated);
@@ -218,6 +237,7 @@ export function createDriver(house: House, generated: GeneratedHouse, world: Wor
   const where = new Map<string, Slot>();
   const pending = new Map<string, Transition[]>();
   const nextDayAnchor = new Map<string, number>();
+  const runEnds = new Map<string, number>();
   const gear = (room: string | null) => (room ? rooms.get(room) : undefined);
 
   function issue(model: DemoModel, c: ServiceCall): void {
@@ -226,7 +246,8 @@ export function createDriver(house: House, generated: GeneratedHouse, world: Wor
   }
 
   function later(model: DemoModel, atMs: number, c: ServiceCall): void {
-    if (c.entityIds.some((id) => known.has(id))) model.schedule(atMs, c);
+    const entityIds = c.entityIds.filter((id) => known.has(id));
+    if (entityIds.length > 0) model.schedule(atMs, { ...c, entityIds });
   }
 
   const occupants = (room: string, except: string) =>
@@ -234,21 +255,24 @@ export function createDriver(house: House, generated: GeneratedHouse, world: Wor
   const nobodyHome = (slots: Iterable<Slot>) => [...slots].every((s) => s.activity === "away");
   const nobodyAwake = (slots: Iterable<Slot>) => ![...slots].some(isAwakeAtHome);
 
+  function runAppliance(model: DemoModel, person: HousePerson, to: Slot, startMs: number, nowMs: number): void {
+    const appliance = ACTIONS[to.activity].appliance;
+    if (!appliance || (appliance.templates && !appliance.templates.includes(person.template))) return;
+    const endMs = startMs + appliance.minutes * MINUTE_MS;
+    if (endMs <= nowMs || !known.has(appliance.id)) return;
+    issue(model, call("switch", "turn_on", [appliance.id]));
+    runEnds.set(appliance.id, Math.max(runEnds.get(appliance.id) ?? 0, endMs));
+  }
+
   function enter(model: DemoModel, person: HousePerson, to: Slot, atMs: number): void {
-    const action = ACTIONS[to.activity];
     const room = gear(to.room);
     if (room) {
       issue(model, call("binary_sensor", "demo_set", room.motion, { on: true }));
       if (solarElevation(atMs, world.latitude, world.longitude) < LIGHTS_BELOW_ELEVATION) {
-        issue(model, call("light", "turn_on", PICK_LIGHTS[action.lights](room.lights)));
+        issue(model, call("light", "turn_on", PICK_LIGHTS[ACTIONS[to.activity].lights](room.lights)));
       }
     }
     issue(model, call("person", "demo_set", [`person.${person.id}`], { home: to.activity !== "away" }));
-    const appliance = action.appliance;
-    if (appliance && (!appliance.templates || appliance.templates.includes(person.template))) {
-      issue(model, call("switch", "turn_on", [appliance.id]));
-      later(model, atMs + appliance.minutes * MINUTE_MS, call("switch", "turn_off", [appliance.id]));
-    }
   }
 
   function household(model: DemoModel, t: Transition, before: Map<string, Slot>): void {
@@ -278,6 +302,7 @@ export function createDriver(house: House, generated: GeneratedHouse, world: Wor
       issue(model, call("light", "turn_off", gear(left)?.lights ?? []));
     }
     enter(model, t.person, t.to, t.atMs);
+    runAppliance(model, t.person, t.to, t.atMs, t.atMs);
     household(model, t, before);
   }
 
@@ -298,31 +323,50 @@ export function createDriver(house: House, generated: GeneratedHouse, world: Wor
     return queue;
   }
 
+  function dueBy(toMs: number): Due[] {
+    const due: Due[] = [];
+    for (const [id, endMs] of runEnds) {
+      if (endMs > toMs) continue;
+      runEnds.delete(id);
+      due.push({ atMs: endMs, order: 0, key: id, run: (m) => issue(m, call("switch", "turn_off", [id])) });
+    }
+    for (const person of people) {
+      const queue = upcoming(person);
+      while ((queue[0]?.atMs ?? Infinity) <= toMs) {
+        const t = queue.shift();
+        if (t) due.push({ atMs: t.atMs, order: 1, key: person.id, run: (m) => apply(m, t) });
+        upcoming(person);
+      }
+    }
+    return due.sort((a, b) => a.atMs - b.atMs || a.order - b.order || a.key.localeCompare(b.key));
+  }
+
   return {
     settle(model) {
+      const now = model.nowMs;
+      const at = new Map(people.map((p) => [p.id, occupancyAt(p, now, world)]));
       for (const person of people) {
-        where.set(person.id, activityAt(person, model.nowMs, world));
-        track(person, model.nowMs);
+        const occ = at.get(person.id);
+        if (occ) where.set(person.id, occ.slot);
+        track(person, now);
       }
       for (const person of people) {
-        const slot = where.get(person.id);
-        if (slot) enter(model, person, slot, model.nowMs);
+        const occ = at.get(person.id);
+        if (!occ) continue;
+        enter(model, person, occ.slot, now);
+        runAppliance(model, person, occ.slot, occ.startMs, now);
       }
       if (nobodyHome(where.values())) issue(model, call("scene", "turn_on", [AWAY]));
       else if (nobodyAwake(where.values())) issue(model, call("scene", "turn_on", [GOOD_NIGHT]));
     },
+    nextAtMs() {
+      let next = Infinity;
+      for (const endMs of runEnds.values()) next = Math.min(next, endMs);
+      for (const person of people) next = Math.min(next, upcoming(person)[0]?.atMs ?? Infinity);
+      return next;
+    },
     step(model, _fromMs, toMs) {
-      const due: Transition[] = [];
-      for (const person of people) {
-        const queue = upcoming(person);
-        while ((queue[0]?.atMs ?? Infinity) <= toMs) {
-          const t = queue.shift();
-          if (t) due.push(t);
-          upcoming(person);
-        }
-      }
-      due.sort((a, b) => a.atMs - b.atMs || a.person.id.localeCompare(b.person.id));
-      for (const t of due) apply(model, t);
+      for (const d of dueBy(toMs)) d.run(model);
     },
   };
 }

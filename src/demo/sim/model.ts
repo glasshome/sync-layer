@@ -20,6 +20,7 @@ export interface DemoModel {
 
 export interface Driver {
   settle(model: DemoModel): void;
+  nextAtMs(): number;
   step(model: DemoModel, fromMs: number, toMs: number): void;
 }
 
@@ -34,7 +35,7 @@ const MAX_EFFECT_DEPTH = 4;
 export function createDemoModel(
   devices: DeviceSpec[],
   kinds: Record<KindName, DeviceKind>,
-  opts: { startMs: number; world: World; stepMs?: number; log?: (msg: string) => void; driver?: Driver },
+  opts: { startMs: number; world: World; stepMs?: number; log?: (msg: string) => void; driver?: () => Driver },
 ): DemoModel {
   const stepMs = opts.stepMs ?? 1000;
   const log = opts.log ?? (() => {});
@@ -46,6 +47,7 @@ export function createDemoModel(
   const holds = new Map<string, HoldUntil>();
   let queue: Queued[] = [];
   let queueSeq = 0;
+  const driver = opts.driver?.();
 
   for (const d of devices) {
     for (const seed of kinds[d.kind].entities(d)) byEntity.set(seed.entityId, d);
@@ -89,11 +91,12 @@ export function createDemoModel(
     dispatch: (call) => dispatchAt(call, 0),
     advanceTo(ms) {
       while (nowMs < ms) {
-        const dtMs = Math.min(stepMs, ms - nowMs);
+        const nextEvent = Math.min(queue[0]?.atMs ?? Infinity, driver?.nextAtMs() ?? Infinity);
+        const dtMs = Math.min(stepMs, ms - nowMs, Math.max(1, nextEvent - nowMs));
         const prev = nowMs;
         nowMs += dtMs;
         flushDue();
-        opts.driver?.step(model, prev, nowMs);
+        driver?.step(model, prev, nowMs);
         flushDue();
         for (const d of devices) applyTo(d, { type: "tick", dtMs }, MAX_EFFECT_DEPTH);
       }
@@ -118,6 +121,6 @@ export function createDemoModel(
       queue.sort((a, b) => a.atMs - b.atMs || a.seq - b.seq);
     },
   };
-  opts.driver?.settle(model);
+  driver?.settle(model);
   return model;
 }
