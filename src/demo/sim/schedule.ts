@@ -133,7 +133,14 @@ interface Occupancy {
 function occupancyAt(person: HousePerson, ms: number, world: World): Occupancy {
   const today = dayOf(person, ms, world);
   const minute = (ms - today.midnightMs) / MINUTE_MS;
-  const current = today.plan.findLast((s) => s.startMin <= minute);
+  let current: Slot | undefined;
+  for (let i = today.plan.length - 1; i >= 0; i--) {
+    const slot = today.plan[i];
+    if (slot && slot.startMin <= minute) {
+      current = slot;
+      break;
+    }
+  }
   if (current) return { slot: current, startMs: today.midnightMs + current.startMin * MINUTE_MS };
   const yesterday = dayOf(person, today.midnightMs - 1, world);
   const last = lastSlot(yesterday.plan);

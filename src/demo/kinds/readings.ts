@@ -339,7 +339,7 @@ export const WEATHER_FIXTURES: WeatherFixture[] = [
   { slug: "exceptional", state: "exceptional", temp: 38, apparent: 44, humidity: 22, pressure: 1005, wind: 30, low: 28 },
 ];
 
-/** Verbatim from demo-data.ts's makeWeatherEntity, `day(n)` anchored to `atMs` instead of `Date.now()`. */
+/** `day(n)` anchored to `atMs` so pinned mode never reads the wall clock. */
 function buildShowcaseForecast(w: WeatherFixture, atMs: number): Record<string, unknown>[] {
   const day = (n: number) => new Date(atMs + n * 86_400_000).toISOString();
   return [
