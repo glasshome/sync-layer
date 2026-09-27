@@ -22,21 +22,6 @@ import type { EntityId } from "../core/types";
 export type HistoryStates = Record<string, EntityHistoryState[]>;
 
 /**
- * History stream message
- * Used for history/stream subscription
- *
- * Based on HA frontend: HistoryStreamMessage
- */
-export interface HistoryStreamMessage {
-  /** History states */
-  states: HistoryStates;
-  /** Start time of this historical chunk (Unix timestamp in seconds) */
-  start_time?: number;
-  /** End time of this historical chunk (Unix timestamp in seconds) */
-  end_time?: number;
-}
-
-/**
  * Entity history state point
  * Represents a single point in entity history from Home Assistant
  *
@@ -46,6 +31,7 @@ export interface EntityHistoryState {
   /** State value (compressed format from HA) */
   s: string;
   /** Attributes */
+  // oxlint-disable-next-line typescript/no-explicit-any -- public signature; tighten in 2.0
   a: Record<string, any>;
   /** Last changed timestamp (Unix timestamp in seconds, optional; if set, also applies to lu) */
   lc?: number;
@@ -63,6 +49,7 @@ export interface TimelineState {
   /** State value */
   state: string;
   /** Attributes */
+  // oxlint-disable-next-line typescript/no-explicit-any -- public signature; tighten in 2.0
   attributes?: Record<string, any>;
   /** Last changed timestamp */
   lastChanged?: number;

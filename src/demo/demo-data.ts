@@ -7,7 +7,7 @@
  * @packageDocumentation
  */
 
-import type { EntityRegistryEntry } from "@glasshome/ha-types";
+import type { EntityCategory, EntityRegistryEntry } from "@glasshome/ha-types";
 import { DEMO_ALBUM_COVER } from "./demo-album-cover";
 import type { AreaRegistryEntry, DeviceRegistryEntry, HassEntity } from "../core/types";
 import {
@@ -48,7 +48,7 @@ function ctx() {
 function makeEntity(
   entity_id: string,
   state: string,
-  attributes: Record<string, any> = {},
+  attributes: Record<string, unknown> = {},
 ): HassEntity {
   return {
     entity_id,
@@ -247,16 +247,17 @@ export function createDemoFixtures(): DemoFixtures {
 
   // ========== AREAS ==========
   const areas: Record<string, AreaRegistryEntry> = {
-    living_room: makeArea("living_room", "Living Room"),
+    living_room: {
+      ...makeArea("living_room", "Living Room"),
+      temperature_entity_id: "sensor.temperature_living",
+      humidity_entity_id: "sensor.humidity_living",
+    },
     bedroom: makeArea("bedroom", "Bedroom"),
     kitchen: makeArea("kitchen", "Kitchen"),
     entry: makeArea("entry", "Entry"),
     utility: makeArea("utility", "Utility"),
     garage: makeArea("garage", "Garage"),
   };
-
-  areas.living_room!.temperature_entity_id = "sensor.temperature_living";
-  areas.living_room!.humidity_entity_id = "sensor.humidity_living";
 
   // ========== DEVICES ==========
   const devices: Record<string, DeviceRegistryEntry> = {
@@ -761,14 +762,14 @@ export function createDemoFixtures(): DemoFixtures {
     makeEntity("button.restart_home_assistant", "unknown", {
       device_class: "restart",
     }),
-    { entity_category: "config" as any, device_class: "restart" },
+    { entity_category: "config" as EntityCategory, device_class: "restart" },
   );
 
   add(
     makeEntity("button.update_firmware", "unknown", {
       device_class: "update",
     }),
-    { entity_category: "config" as any, device_class: "update" },
+    { entity_category: "config" as EntityCategory, device_class: "update" },
   );
 
   // ----- Battery Sensors (2) -----

@@ -6,26 +6,11 @@
  * @packageDocumentation
  */
 
-import type { Domain, ServiceCall, ServiceName, WsCommandType } from "@glasshome/ha-types";
-import type { EntityId } from "../core/types";
+import type { Domain, ServiceCall, ServiceName } from "@glasshome/ha-types";
 
 // ============================================
 // SERVICE CALL TYPES
 // ============================================
-
-/**
- * Service call options
- */
-export interface ServiceCallOptions {
-  /** Entity ID or array of entity IDs to target */
-  entity_id?: EntityId | EntityId[];
-
-  /** Area ID or array of area IDs to target */
-  area_id?: string | string[];
-
-  /** Device ID or array of device IDs to target */
-  device_id?: string | string[];
-}
 
 /**
  * Service call target
@@ -67,7 +52,7 @@ export interface ServiceCallContext {
 /**
  * Command success result
  */
-export interface CommandSuccess<T = unknown> {
+interface CommandSuccess<T = unknown> {
   success: true;
   result: T;
 }
@@ -75,7 +60,7 @@ export interface CommandSuccess<T = unknown> {
 /**
  * Command error result
  */
-export interface CommandError {
+interface CommandError {
   success: false;
   error: {
     code: string;
@@ -112,32 +97,6 @@ export interface EntityUpdateFields {
 
   /** Hidden by (null to unhide) */
   hidden_by?: string | null;
-}
-
-/**
- * Entity registry update request
- */
-export interface EntityUpdateRequest {
-  /** Entity ID to update */
-  entity_id: EntityId;
-
-  /** Fields to update */
-  updates: EntityUpdateFields;
-}
-
-// ============================================
-// GENERIC COMMAND TYPES
-// ============================================
-
-/**
- * Generic WebSocket command
- */
-export interface GenericCommand {
-  /** Command type */
-  type: WsCommandType | string;
-
-  /** Command payload */
-  [key: string]: unknown;
 }
 
 /**

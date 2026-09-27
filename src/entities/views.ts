@@ -131,13 +131,6 @@ export function getAllEntityViews(): EntityView[] {
 }
 
 /**
- * Rebuild entity view
- */
-export function rebuildEntityView(entityId: EntityId): EntityView | undefined {
-  return getEntityView(entityId);
-}
-
-/**
  * Shallow equality check for EntityView.
  * Compares fields that affect rendering; skips lastUpdated (heartbeat noise).
  */

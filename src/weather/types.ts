@@ -50,6 +50,7 @@ export interface WeatherForecast {
   /** UV index */
   uv_index?: number;
   /** Additional forecast data */
+  // oxlint-disable-next-line typescript/no-explicit-any -- public signature; tighten in 2.0
   [key: string]: any;
 }
 

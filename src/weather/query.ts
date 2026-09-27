@@ -18,11 +18,12 @@ export async function getForecast(
   type: ForecastType,
 ): Promise<WeatherForecastData> {
   const cached = state.forecasts[entityId];
-  if (cached?.forecasts[type] && cached.lastFetched[type]) {
+  const cachedForecast = cached?.forecasts[type];
+  if (cached && cachedForecast && cached.lastFetched[type]) {
     return {
       entityId,
       type,
-      forecast: cached.forecasts[type]!,
+      forecast: cachedForecast,
       loading: cached.loading[type] ?? false,
       error: cached.errors[type] ?? null,
       lastFetched: cached.lastFetched[type] ?? null,
@@ -64,11 +65,12 @@ export async function getForecasts(
   const forecastsRecord = state.forecasts[entityId];
 
   for (const type of types) {
-    if (forecastsRecord?.forecasts[type] && forecastsRecord.lastFetched[type]) {
+    const cachedForecast = forecastsRecord?.forecasts[type];
+    if (forecastsRecord && cachedForecast && forecastsRecord.lastFetched[type]) {
       cachedData[type] = {
         entityId,
         type,
-        forecast: forecastsRecord.forecasts[type]!,
+        forecast: cachedForecast,
         loading: forecastsRecord.loading[type] ?? false,
         error: forecastsRecord.errors[type] ?? null,
         lastFetched: forecastsRecord.lastFetched[type] ?? null,
@@ -103,17 +105,19 @@ export async function getForecasts(
     );
 
     for (const type of types) {
-      if (cachedData[type]) {
-        fetchedData.forecasts[type] = cachedData[type]!.forecast;
-        fetchedData.loading[type] = cachedData[type]!.loading;
-        fetchedData.errors[type] = cachedData[type]!.error;
-        fetchedData.lastFetched[type] = cachedData[type]!.lastFetched;
+      const cached = cachedData[type];
+      if (cached) {
+        fetchedData.forecasts[type] = cached.forecast;
+        fetchedData.loading[type] = cached.loading;
+        fetchedData.errors[type] = cached.error;
+        fetchedData.lastFetched[type] = cached.lastFetched;
       }
     }
   } else {
     fetchedData = { entityId, forecasts: {}, loading: {}, errors: {}, lastFetched: {} };
     for (const type of types) {
-      const cached = cachedData[type]!;
+      const cached = cachedData[type];
+      if (!cached) continue;
       fetchedData.forecasts[type] = cached.forecast;
       fetchedData.loading[type] = cached.loading;
       fetchedData.errors[type] = cached.error;

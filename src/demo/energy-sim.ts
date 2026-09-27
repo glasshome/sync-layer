@@ -143,7 +143,7 @@ function solarPower(lt: LocalTime): number {
 }
 
 /** Coarse solar elevation in degrees for sun.sun attributes. */
-export function sunElevation(lt: LocalTime): number {
+function sunElevation(lt: LocalTime): number {
   if (lt.hourFrac <= SUNRISE_HOUR || lt.hourFrac >= SUNSET_HOUR) {
     const hoursFromHorizon = Math.min(
       Math.abs(lt.hourFrac - SUNRISE_HOUR),
@@ -461,8 +461,6 @@ export const ENERGY_ENTITY_IDS = [
   "sensor.ev_charger_power",
   "sensor.always_on_power",
 ] as const;
-
-export type EnergyEntityId = (typeof ENERGY_ENTITY_IDS)[number];
 
 /** Map an energy entity id to its numeric value from a sample (W, or % for SOC). */
 export function energyEntityValue(entityId: string, sample: EnergySample): number | undefined {

@@ -140,6 +140,28 @@ export function stopDemoEnergyTicker(): void {
 // OPTIMISTIC STATE UPDATES
 // ============================================
 
+interface DemoServiceData {
+  position?: number;
+  tilt_position?: number;
+  temperature?: number;
+  target_temp_low?: number;
+  target_temp_high?: number;
+  hvac_mode?: string;
+  fan_mode?: string;
+  preset_mode?: string;
+  percentage?: number;
+  oscillating?: boolean;
+  direction?: string;
+  operation_mode?: string;
+  away_mode?: boolean;
+  volume_level?: number;
+  source?: string;
+  brightness_pct?: number;
+  brightness?: number;
+  color_temp_kelvin?: number;
+  hs_color?: [number, number];
+}
+
 /**
  * Apply an optimistic state update for demo mode.
  *
@@ -149,10 +171,12 @@ export function stopDemoEnergyTicker(): void {
 export function applyDemoServiceCall(
   _domain: string,
   service: string,
-  _serviceData: Record<string, any> = {},
+  // oxlint-disable-next-line typescript/no-explicit-any -- public signature; tighten in 2.0
+  serviceData: Record<string, any> = {},
   target: { entity_id?: string | string[] } = {},
 ): void {
   if (!_isDemoMode) return;
+  const _serviceData: DemoServiceData = serviceData;
 
   const entityIds = Array.isArray(target.entity_id)
     ? target.entity_id
@@ -249,7 +273,7 @@ export function applyDemoServiceCall(
 // HELPERS
 // ============================================
 
-function applyTurnOn(e: HassEntity, domain: string, serviceData: Record<string, any> = {}): void {
+function applyTurnOn(e: HassEntity, domain: string, serviceData: DemoServiceData): void {
   if (domain === "light") {
     e.state = "on";
     if (serviceData.brightness_pct !== undefined) {

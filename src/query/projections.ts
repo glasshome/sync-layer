@@ -51,7 +51,7 @@ export function projectPick<K extends keyof EntityView>(
  * @param key - Field name or dot-path to extract
  * @returns Array of field values
  */
-export function projectPluck(entities: EntityView[], key: string): any[] {
+export function projectPluck(entities: EntityView[], key: string): unknown[] {
   return entities.map((entity) => getNestedValue(entity, key));
 }
 
@@ -83,7 +83,7 @@ export function projectMap<R>(entities: EntityView[], mapper: MapFunc<EntityView
  * getNestedValue(entity, "attributes.brightness"); // 255
  * ```
  */
-export function getNestedValue(obj: any, path: string): any {
+export function getNestedValue(obj: unknown, path: string): unknown {
   const parts = path.split(".");
   let current = obj;
 
@@ -91,45 +91,8 @@ export function getNestedValue(obj: any, path: string): any {
     if (current === null || current === undefined) {
       return undefined;
     }
-    current = current[part];
+    current = (current as Record<string, unknown>)[part];
   }
 
   return current;
-}
-
-/**
- * Set nested value in object using dot-notation
- *
- * @param obj - Object to set value in
- * @param path - Dot-notation path
- * @param value - Value to set
- *
- * @internal
- */
-export function setNestedValue(obj: any, path: string, value: any): void {
-  const parts = path.split(".");
-  const last = parts.pop();
-  if (!last) return;
-
-  let current = obj;
-  for (const part of parts) {
-    if (!(part in current)) {
-      current[part] = {};
-    }
-    current = current[part];
-  }
-
-  current[last] = value;
-}
-
-/**
- * Check if a value is a primitive
- *
- * @param value - Value to check
- * @returns True if primitive
- *
- * @internal
- */
-export function isPrimitive(value: any): boolean {
-  return value !== Object(value);
 }

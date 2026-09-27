@@ -116,27 +116,27 @@ class EntitiesQueryBuilderImpl<T = EntityView> implements EntitiesQueryBuilder<T
   // ========== Projections ==========
 
   ids(): EntitiesQueryBuilder<EntityId> {
-    return this.clone({
+    return this.clone<EntityId>({
       projection: { type: "ids" },
-    }) as any;
+    });
   }
 
   pick<K extends keyof EntityView>(keys: K[]): EntitiesQueryBuilder<Pick<EntityView, K>> {
-    return this.clone({
-      projection: { type: "pick", keys: keys as string[] },
-    }) as any;
+    return this.clone<Pick<EntityView, K>>({
+      projection: { type: "pick", keys },
+    });
   }
 
   pluck<K extends keyof EntityView>(key: K): EntitiesQueryBuilder<EntityView[K]> {
-    return this.clone({
-      projection: { type: "pluck", key: key as string },
-    }) as any;
+    return this.clone<EntityView[K]>({
+      projection: { type: "pluck", key },
+    });
   }
 
   map<R>(mapper: MapFunc<EntityView, R>): EntitiesQueryBuilder<R> {
-    return this.clone({
+    return this.clone<R>({
       projection: { type: "map", mapper },
-    }) as any;
+    });
   }
 
   // ========== Pagination & Limits ==========
@@ -175,8 +175,8 @@ class EntitiesQueryBuilderImpl<T = EntityView> implements EntitiesQueryBuilder<T
 
   // ========== Internal Methods ==========
 
-  private clone(updates: Partial<QueryState>): EntitiesQueryBuilder<T> {
-    return new EntitiesQueryBuilderImpl({
+  private clone<U = T>(updates: Partial<QueryState>): EntitiesQueryBuilder<U> {
+    return new EntitiesQueryBuilderImpl<U>({
       ...this.queryState,
       ...updates,
     });
@@ -274,22 +274,23 @@ class EntitiesQueryBuilderImpl<T = EntityView> implements EntitiesQueryBuilder<T
     return sorted;
   }
 
-  private compareValues(a: any, b: any): number {
+  private compareValues(a: unknown, b: unknown): number {
     if (a === b) return 0;
     if (a === null || a === undefined) return 1;
     if (b === null || b === undefined) return -1;
     if (typeof a === "string" && typeof b === "string") return a.localeCompare(b);
     if (typeof a === "number" && typeof b === "number") return a - b;
+    // oxlint-disable-next-line typescript/no-base-to-string -- mixed-type sort keys keep JS default stringification
     return String(a).localeCompare(String(b));
   }
 
-  private applyProjection(entities: EntityView[]): any[] {
+  private applyProjection(entities: EntityView[]): unknown[] {
     if (!this.queryState.projection) return entities;
     switch (this.queryState.projection.type) {
       case "ids":
         return projectToIds(entities);
       case "pick":
-        return projectPick(entities, this.queryState.projection.keys as any);
+        return projectPick(entities, this.queryState.projection.keys);
       case "pluck":
         return projectPluck(entities, this.queryState.projection.key);
       case "map":
@@ -356,4 +357,3 @@ export function entity(entityId: EntityId): EntityQueryBuilder {
   return new EntityQueryBuilderImpl(entityId);
 }
 
-export type { EntitiesQueryBuilder, EntityQueryBuilder, UnsubscribeFunc } from "./types";

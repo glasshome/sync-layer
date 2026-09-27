@@ -208,7 +208,7 @@ export interface AreaQueryBuilder {
   /**
    * Order results by a key
    */
-  orderBy(key: keyof AreaView | string, direction?: "asc" | "desc"): AreaQueryBuilder;
+  orderBy(key: keyof AreaView | (string & {}), direction?: "asc" | "desc"): AreaQueryBuilder;
 
   /**
    * Execute query and get results
@@ -304,7 +304,7 @@ export interface IndexFilter {
  *
  * @internal
  */
-export interface SortConfig {
+interface SortConfig {
   key: string;
   direction: "asc" | "desc";
 }
@@ -314,8 +314,8 @@ export interface SortConfig {
  *
  * @internal
  */
-export type ProjectionConfig =
+type ProjectionConfig =
   | { type: "ids" }
-  | { type: "pick"; keys: string[] }
-  | { type: "pluck"; key: string }
-  | { type: "map"; mapper: MapFunc<EntityView, any> };
+  | { type: "pick"; keys: (keyof EntityView)[] }
+  | { type: "pluck"; key: keyof EntityView | (string & {}) }
+  | { type: "map"; mapper: MapFunc<EntityView, unknown> };

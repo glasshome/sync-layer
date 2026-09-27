@@ -28,28 +28,30 @@ export async function callService<D extends Domain, S extends ServiceName<D>>(
   const connection = privilegedConn();
 
   if (!connection) {
-    applyDemoServiceCall(domain, service, serviceData as Record<string, any>, target);
+    applyDemoServiceCall(domain, service, serviceData, target);
     return;
   }
 
   try {
-    const mockConnection = connection as any;
-    if (mockConnection && typeof mockConnection.callService === "function") {
-      await mockConnection.callService(domain, service, serviceData, target);
-    } else {
-      // Same wire message wsCallService builds; sending it directly keeps
-      // the call on the HaLink surface (works for sockets and the bridge).
-      await connection.sendMessagePromise({
-        type: "call_service",
-        domain,
-        service,
-        service_data: serviceData,
-        target,
-      });
-    }
-  } catch (error: any) {
-    throw new Error(`Service call failed: ${error.message || String(error)}`);
+    await connection.sendMessagePromise({
+      type: "call_service",
+      domain,
+      service,
+      service_data: serviceData,
+      target,
+    });
+  } catch (error) {
+    throw new Error(`Service call failed: ${messageOf(error)}`);
   }
+}
+
+// HA rejects with plain `{ code, message }` objects, not Error instances.
+function messageOf(error: unknown): string {
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const { message } = error;
+    if (typeof message === "string" && message) return message;
+  }
+  return String(error);
 }
 
 // ============================================
@@ -61,6 +63,7 @@ export async function callService<D extends Domain, S extends ServiceName<D>>(
  */
 export async function turnOn(
   entityId: EntityId | EntityId[],
+  // oxlint-disable-next-line typescript/no-explicit-any -- public signature; tighten in 2.0
   serviceData: Record<string, any> = {},
 ): Promise<void> {
   const firstEntityId = Array.isArray(entityId) ? entityId[0] : entityId;
@@ -80,6 +83,7 @@ export async function turnOn(
  */
 export async function turnOff(
   entityId: EntityId | EntityId[],
+  // oxlint-disable-next-line typescript/no-explicit-any -- public signature; tighten in 2.0
   serviceData: Record<string, any> = {},
 ): Promise<void> {
   const firstEntityId = Array.isArray(entityId) ? entityId[0] : entityId;
@@ -99,6 +103,7 @@ export async function turnOff(
  */
 export async function toggle(
   entityId: EntityId | EntityId[],
+  // oxlint-disable-next-line typescript/no-explicit-any -- public signature; tighten in 2.0
   serviceData: Record<string, any> = {},
 ): Promise<void> {
   const firstEntityId = Array.isArray(entityId) ? entityId[0] : entityId;
@@ -120,6 +125,7 @@ export async function toggle(
 /**
  * Update entity registry entry
  */
+// oxlint-disable-next-line typescript/no-explicit-any -- public signature; tighten in 2.0
 export async function updateEntity(entityId: EntityId, updates: EntityUpdateFields): Promise<any> {
   const connection = privilegedConn();
 
@@ -139,11 +145,12 @@ export async function updateEntity(entityId: EntityId, updates: EntityUpdateFiel
     }
 
     return result;
-  } catch (error: any) {
-    if (error?.message && error.message.includes("Entity registry entry not found")) {
+  } catch (error) {
+    const message = messageOf(error);
+    if (message.includes("Entity registry entry not found")) {
       throw error;
     }
-    throw new Error(`Entity update failed: ${error.message || String(error)}`);
+    throw new Error(`Entity update failed: ${message}`);
   }
 }
 
@@ -155,7 +162,7 @@ export async function updateEntity(entityId: EntityId, updates: EntityUpdateFiel
  * Send a generic WebSocket command
  */
 export async function sendCommand<T = unknown>(command: {
-  type: WsCommandType | string;
+  type: WsCommandType | (string & {});
   [key: string]: unknown;
 }): Promise<T> {
   const connection = privilegedConn();
@@ -165,9 +172,9 @@ export async function sendCommand<T = unknown>(command: {
   }
 
   try {
-    return await connection.sendMessagePromise<T>(command as any);
-  } catch (error: any) {
-    throw new Error(`Command failed: ${error.message || String(error)}`);
+    return await connection.sendMessagePromise<T>(command);
+  } catch (error) {
+    throw new Error(`Command failed: ${messageOf(error)}`);
   }
 }
 
@@ -196,6 +203,7 @@ export async function batchServiceCalls(
  */
 export async function batchEntityUpdates(
   updates: Array<{ entityId: EntityId; updates: EntityUpdateFields }>,
+  // oxlint-disable-next-line typescript/no-explicit-any -- public signature; tighten in 2.0
 ): Promise<any[]> {
   return Promise.all(updates.map((u) => updateEntity(u.entityId, u.updates)));
 }

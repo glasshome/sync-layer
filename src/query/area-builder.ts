@@ -16,20 +16,8 @@ import type {
   UnsubscribeFunc,
 } from "../core/types";
 import { getAreaView, getAreaViews } from "../entities/area-views";
-
-// ============================================
-// AREA QUERY BUILDER INTERFACE
-// ============================================
-
-export interface AreaQueryBuilder {
-  byFloor(floorId: FloorId): AreaQueryBuilder;
-  byLabel(labelId: LabelId): AreaQueryBuilder;
-  where(predicate: PredicateFunc<AreaView>): AreaQueryBuilder;
-  orderBy(key: keyof AreaView | string, direction?: "asc" | "desc"): AreaQueryBuilder;
-  get(): AreaView[];
-  first(): AreaView | undefined;
-  subscribe(callback: Callback<AreaView[]>): UnsubscribeFunc;
-}
+import { getNestedValue } from "./projections";
+import type { AreaQueryBuilder } from "./types";
 
 // ============================================
 // AREA QUERY BUILDER IMPLEMENTATION
@@ -38,10 +26,10 @@ export interface AreaQueryBuilder {
 interface AreaQueryState {
   filters: Array<{
     type: "floor" | "label" | "predicate";
-    value: FloorId | LabelId | PredicateFunc<AreaView>;
+    value: string | PredicateFunc<AreaView>;
   }>;
   sorts: Array<{
-    key: keyof AreaView | string;
+    key: keyof AreaView | (string & {});
     direction: "asc" | "desc";
   }>;
 }
@@ -74,7 +62,7 @@ class AreaQueryBuilderImpl implements AreaQueryBuilder {
     });
   }
 
-  orderBy(key: keyof AreaView | string, direction: "asc" | "desc" = "asc"): AreaQueryBuilder {
+  orderBy(key: keyof AreaView | (string & {}), direction: "asc" | "desc" = "asc"): AreaQueryBuilder {
     return this.clone({
       sorts: [...this.queryState.sorts, { key, direction }],
     });
@@ -125,8 +113,9 @@ class AreaQueryBuilderImpl implements AreaQueryBuilder {
   private sortAreas(areas: AreaView[]): AreaView[] {
     return [...areas].sort((a, b) => {
       for (const sort of this.queryState.sorts) {
-        const aValue = this.getNestedValue(a, sort.key);
-        const bValue = this.getNestedValue(b, sort.key);
+        // Plain JS relational order on whatever the key holds.
+        const aValue = getNestedValue(a, sort.key) as string;
+        const bValue = getNestedValue(b, sort.key) as string;
 
         let comparison = 0;
         if (aValue < bValue) comparison = -1;
@@ -138,18 +127,6 @@ class AreaQueryBuilderImpl implements AreaQueryBuilder {
       }
       return 0;
     });
-  }
-
-  private getNestedValue(obj: AreaView, key: keyof AreaView | string): any {
-    if (key in obj) {
-      return obj[key as keyof AreaView];
-    }
-    const parts = String(key).split(".");
-    let value: any = obj;
-    for (const part of parts) {
-      value = value?.[part];
-    }
-    return value;
   }
 }
 
