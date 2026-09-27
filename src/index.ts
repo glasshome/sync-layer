@@ -235,6 +235,7 @@ export {
   startDemoEnergyTicker,
   stopDemoEnergyTicker,
 } from "./demo/demo-provider";
+export type { DemoClockOption, DemoHouseOptions } from "./demo/demo-provider";
 
 // ============================================
 // VERSION

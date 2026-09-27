@@ -9,6 +9,7 @@
 
 import type { EntityRegistryEntry } from "@glasshome/ha-types";
 import type { AreaRegistryEntry, DeviceRegistryEntry, HassEntity } from "../core/types";
+import type { DemoFixtures } from "./demo-provider";
 import {
   energyEntityValue,
   formatEnergyState,
@@ -16,17 +17,6 @@ import {
   simulateEnergy,
   sunEvents,
 } from "./energy-sim";
-
-// ============================================
-// TYPES
-// ============================================
-
-export interface DemoFixtures {
-  entities: Record<string, HassEntity>;
-  entityRegistry: Record<string, EntityRegistryEntry>;
-  areas: Record<string, AreaRegistryEntry>;
-  devices: Record<string, DeviceRegistryEntry>;
-}
 
 // ============================================
 // HELPERS

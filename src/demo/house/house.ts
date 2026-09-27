@@ -180,6 +180,13 @@ export const HOUSE: House = {
       b.plug("Monitor", 35),
       b.plug("Printer", 15),
       b.climateSensor("Office Climate"),
+      b.climate("Office Heat Pump", {
+        modes: ["off", "heat", "cool", "auto"],
+        fanModes: ["auto", "low", "medium", "high"],
+        presets: ["home", "away", "eco"],
+        manufacturer: "Mitsubishi",
+        model: "Wall Split",
+      }),
       b.contact("window", "Office Window"),
       b.cover("Office Blinds"),
     ]),

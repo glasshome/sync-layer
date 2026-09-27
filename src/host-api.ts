@@ -20,7 +20,7 @@
  *   host's link with one the widget controls — every subsequent service call is
  *   intercepted and every entity the dashboard renders can be fabricated.
  * - disconnect / detachBridgeFromStore: drop the household's connection.
- * - loadDemoData / unloadDemoData: overwrite live state with fixtures.
+ * - loadDemoData / loadDemoHouse / resetDemo / unloadDemoData: overwrite live state with the demo house.
  */
 
 import {
@@ -30,7 +30,7 @@ import {
   reloadAfterBridgeReconnect,
 } from "./connection/bridged";
 import { disconnect } from "./connection/manager";
-import { loadDemoData, unloadDemoData } from "./demo/demo-provider";
+import { loadDemoData, loadDemoHouse, resetDemo, unloadDemoData } from "./demo/demo-provider";
 import { createHaBridge } from "./worker/bridge-client";
 
 export interface HostApi {
@@ -41,6 +41,8 @@ export interface HostApi {
   createHaBridge: typeof createHaBridge;
   disconnect: typeof disconnect;
   loadDemoData: typeof loadDemoData;
+  loadDemoHouse: typeof loadDemoHouse;
+  resetDemo: typeof resetDemo;
   unloadDemoData: typeof unloadDemoData;
 }
 
@@ -52,6 +54,8 @@ let unclaimed: HostApi | null = {
   createHaBridge,
   disconnect,
   loadDemoData,
+  loadDemoHouse,
+  resetDemo,
   unloadDemoData,
 };
 

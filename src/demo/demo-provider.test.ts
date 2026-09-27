@@ -2,9 +2,11 @@ import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { state } from "../core/store";
 import { extractDomain } from "../core/types";
 import {
+  advanceDemoTo,
   applyDemoServiceCall,
-  loadDemoData,
-  stopDemoEnergyTicker,
+  demoModel,
+  loadDemoHouse,
+  parseDemoOverrides,
   unloadDemoData,
 } from "./demo-provider";
 
@@ -19,6 +21,8 @@ interface ServiceCase {
   entityId: string;
   service: string;
   data?: Record<string, unknown>;
+  /** Sim time to run after the call, for devices that travel. */
+  settleMs?: number;
   expected: (e: (typeof state.entities)[string]) => void;
 }
 
@@ -79,6 +83,7 @@ const CASES: ServiceCase[] = [
   {
     entityId: "cover.living_room_blinds",
     service: "close_cover",
+    settleMs: 10_000,
     expected: (e) => {
       expect(e.state).toBe("closed");
       expect(e.attributes.current_position).toBe(0);
@@ -87,6 +92,7 @@ const CASES: ServiceCase[] = [
   {
     entityId: "cover.living_room_blinds",
     service: "open_cover",
+    settleMs: 10_000,
     expected: (e) => {
       expect(e.state).toBe("open");
       expect(e.attributes.current_position).toBe(100);
@@ -95,11 +101,13 @@ const CASES: ServiceCase[] = [
   {
     entityId: "cover.living_room_blinds",
     service: "toggle",
+    settleMs: 10_000,
     expected: (e) => expect(e.state).toBe("closed"),
   },
   {
     entityId: "cover.living_room_blinds",
     service: "set_cover_position",
+    settleMs: 10_000,
     data: { position: 55 },
     expected: (e) => {
       expect(e.attributes.current_position).toBe(55);
@@ -107,18 +115,18 @@ const CASES: ServiceCase[] = [
     },
   },
   {
-    entityId: "cover.living_room_blinds",
+    entityId: "cover.living_room_shutters",
     service: "open_cover_tilt",
     expected: (e) => expect(e.attributes.current_tilt_position).toBe(100),
   },
   {
-    entityId: "cover.living_room_blinds",
+    entityId: "cover.living_room_shutters",
     service: "set_cover_tilt_position",
     data: { tilt_position: 30 },
     expected: (e) => expect(e.attributes.current_tilt_position).toBe(30),
   },
   {
-    entityId: "cover.living_room_blinds",
+    entityId: "cover.living_room_shutters",
     service: "close_cover_tilt",
     expected: (e) => expect(e.attributes.current_tilt_position).toBe(0),
   },
@@ -144,13 +152,13 @@ const CASES: ServiceCase[] = [
     expected: (e) => expect(e.state).toBe("cool"),
   },
   {
-    entityId: "climate.living_room_thermostat",
+    entityId: "climate.office_heat_pump",
     service: "set_fan_mode",
     data: { fan_mode: "high" },
     expected: (e) => expect(e.attributes.fan_mode).toBe("high"),
   },
   {
-    entityId: "climate.living_room_thermostat",
+    entityId: "climate.office_heat_pump",
     service: "set_preset_mode",
     data: { preset_mode: "away" },
     expected: (e) => expect(e.attributes.preset_mode).toBe("away"),
@@ -228,7 +236,7 @@ const CASES: ServiceCase[] = [
   {
     entityId: "media_player.living_room_speaker",
     service: "media_next_track",
-    expected: (e) => expect(e.attributes.media_title).toBe("Golden Hour"),
+    expected: (e) => expect(e.attributes.media_title).toBe("Sunday Morning"),
   },
   {
     entityId: "media_player.living_room_speaker",
@@ -245,8 +253,7 @@ const CASES: ServiceCase[] = [
 
 describe("applyDemoServiceCall covers every widget service", () => {
   beforeAll(async () => {
-    await loadDemoData();
-    stopDemoEnergyTicker();
+    await loadDemoHouse({ clock: { pinned: "2026-06-21T18:00:00Z", seed: 1 } });
   });
   afterAll(() => {
     unloadDemoData();
@@ -257,9 +264,50 @@ describe("applyDemoServiceCall covers every widget service", () => {
       applyDemoServiceCall(extractDomain(c.entityId), c.service, c.data ?? {}, {
         entity_id: c.entityId,
       });
+      const model = demoModel();
+      if (c.settleMs && model) advanceDemoTo(model.nowMs + c.settleMs);
       const entity = state.entities[c.entityId];
       expect(entity).toBeDefined();
       if (entity) c.expected(entity);
     });
   }
+});
+
+describe("demo house provider", () => {
+  test("pinned load is identical across process time zones", async () => {
+    await loadDemoHouse({ clock: { pinned: "2026-06-21T12:00:00Z", seed: 1 } });
+    const snap = JSON.stringify(
+      Object.keys(state.entities)
+        .sort()
+        .map((id) => [id, state.entities[id]?.state]),
+    );
+    expect(snap).toMatchSnapshot();
+    unloadDemoData();
+  });
+
+  test("pinned mode starts no ticker", async () => {
+    await loadDemoHouse({ clock: { pinned: "2026-06-21T12:00:00Z", seed: 1 } });
+    const before = JSON.stringify(state.entities);
+    await new Promise((r) => setTimeout(r, 1200));
+    expect(JSON.stringify(state.entities)).toBe(before);
+    unloadDemoData();
+  });
+
+  test("URL overrides", () => {
+    const now = Date.parse("2026-06-21T08:00:00Z");
+    expect(parseDemoOverrides("?demo-time=19:30&demo-seed=4", "UTC", now)).toEqual({
+      pinnedMs: Date.parse("2026-06-21T19:30:00Z"),
+      seed: 4,
+    });
+    expect(parseDemoOverrides("?demo-speed=60", "UTC", now)).toEqual({ speed: 60 });
+    expect(parseDemoOverrides("?demo-time=nope", "UTC", now)).toEqual({});
+  });
+
+  test("live mode moves a cover over wall time", async () => {
+    await loadDemoHouse({ clock: "live", search: "" });
+    applyDemoServiceCall("cover", "open_cover", {}, { entity_id: "cover.living_room_blinds" });
+    await new Promise((r) => setTimeout(r, 2200));
+    expect(["opening", "open"]).toContain(state.entities["cover.living_room_blinds"]?.state ?? "");
+    unloadDemoData();
+  });
 });
