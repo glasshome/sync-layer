@@ -30,11 +30,6 @@ interface SensorParams {
   value?: number;
   unit?: string;
   deviceClass?: string;
-  source?: string;
-}
-
-interface SensorState {
-  overrideValue?: number;
 }
 
 const SENSOR_UNIT: Record<SensorReading, string | undefined> = {
@@ -72,15 +67,7 @@ function isLegacyEnergyId(id: string): boolean {
   );
 }
 
-function sensorValue(
-  id: string,
-  p: SensorParams,
-  s: SensorState,
-  nowMs: number,
-  noiseVal: number,
-  outdoorC: number,
-): string {
-  if (s.overrideValue != null) return round1(s.overrideValue).toFixed(1);
+function sensorValue(id: string, p: SensorParams, nowMs: number, noiseVal: number, outdoorC: number): string {
   switch (p.reading) {
     case "temperature":
       return round1(20.5 + (outdoorC - 20.5) * 0.1 + (noiseVal - 0.5) * 0.4).toFixed(1);
@@ -119,14 +106,10 @@ const sensor: DeviceKind = {
     if (p.reading === "signal") seed.category = "diagnostic";
     return [seed];
   },
-  apply(state, event) {
-    const s = (state as SensorState | undefined) ?? {};
-    if (event.type !== "call" || event.service !== "demo_set") return s;
-    const value = event.data.value;
-    return value != null ? { overrideValue: Number(value) } : s;
+  apply() {
+    return undefined;
   },
-  project(state, device, ctx) {
-    const s = state as SensorState;
+  project(_state, device, ctx) {
     const p = device.params as unknown as SensorParams;
     const id = entityIdFor("sensor", device, "sensor");
     const lt = localTime(ctx.nowMs, ctx.world.timeZone);
@@ -137,10 +120,9 @@ const sensor: DeviceKind = {
     const deviceClass = sensorDeviceClass(p);
     if (unit) attributes.unit_of_measurement = unit;
     if (deviceClass) attributes.device_class = deviceClass;
-    return { [id]: { state: sensorValue(id, p, s, ctx.nowMs, noiseVal, outdoorC), attributes } };
+    return { [id]: { state: sensorValue(id, p, ctx.nowMs, noiseVal, outdoorC), attributes } };
   },
   publishMs: 30_000,
-  handles: ["demo_set"],
 };
 
 // ============================================
@@ -206,8 +188,19 @@ interface SunState {
   settingMs: number;
 }
 
+function sunCacheValid(state: SunState | undefined, nowMs: number, lat: number, lon: number, dateKey: string): state is SunState {
+  return (
+    state != null &&
+    state.dateKey === dateKey &&
+    state.latKey === lat &&
+    state.lonKey === lon &&
+    nowMs < state.risingMs &&
+    nowMs < state.settingMs
+  );
+}
+
 function sunTimesFor(state: SunState | undefined, nowMs: number, lat: number, lon: number, dateKey: string): SunState {
-  if (state && state.dateKey === dateKey && state.latKey === lat && state.lonKey === lon) return state;
+  if (sunCacheValid(state, nowMs, lat, lon, dateKey)) return state;
   const { risingMs, settingMs } = sunTimes(nowMs, lat, lon);
   return { dateKey, latKey: lat, lonKey: lon, risingMs, settingMs };
 }
@@ -284,7 +277,7 @@ const weather: DeviceKind = {
     const sunUp = elevation > -0.833;
     const dateKey = localTime(ctx.nowMs, ctx.world.timeZone).dateKey;
     const noiseVal = ctx.noise(`weather:condition:${dateKey}`);
-    const forecast = Array.from({ length: 7 }, (_, i) => weatherForecastDay(ctx.nowMs, ctx.world, i + 1, ctx.noise));
+    const forecast = Array.from({ length: 7 }, (_, i) => weatherForecastDay(ctx.nowMs, ctx.world, i, ctx.noise));
     return {
       [id]: {
         state: weatherCondition(cloud, sunUp, noiseVal),
@@ -316,10 +309,7 @@ interface WeatherFixture {
   low: number;
 }
 
-/**
- * One entity per weather scene the widget can render. Entity IDs use the
- * `weather.demo_<slug>` form so a demo dashboard can reference them directly.
- */
+/** One fixed fixture per weather scene the widget can showcase. */
 export const WEATHER_FIXTURES: WeatherFixture[] = [
   { slug: "sunny", state: "sunny", temp: 28, apparent: 31, humidity: 35, pressure: 1018, wind: 8, low: 18 },
   { slug: "clear_night", state: "clear-night", temp: 14, apparent: 12, humidity: 55, pressure: 1016, wind: 5, low: 9 },
@@ -492,7 +482,7 @@ const update: DeviceKind = {
     return undefined;
   },
   project(_state, device, ctx) {
-    const p = device.params as UpdateParams;
+    const p = device.params as unknown as UpdateParams;
     const id = entityIdFor("update", device, "update", "firmware");
     const installed = p.installedVersion ?? "1.0.0";
     const available = ctx.noise(`${device.key}:update`) < 1 / 12;

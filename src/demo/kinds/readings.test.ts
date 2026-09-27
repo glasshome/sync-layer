@@ -13,10 +13,25 @@ describe("readings", () => {
   test("sun is up at June noon UTC", () => {
     expect(run(spec("sun", {}, { sun: "sun.sun" }))["sun.sun"]?.state).toBe("above_horizon");
   });
-  test("household weather carries a 7-day forecast", () => {
+  test("household weather carries a 7-day forecast starting today", () => {
     const w = run(spec("weather", {}, { weather: "weather.home" }))["weather.home"];
     expect(Array.isArray(w?.attributes.forecast)).toBe(true);
-    expect((w?.attributes.forecast as unknown[]).length).toBe(7);
+    const forecast = w?.attributes.forecast as { datetime: string }[];
+    expect(forecast.length).toBe(7);
+    expect(forecast[0]?.datetime.startsWith("2026-06-21")).toBe(true);
+  });
+  test("sun times refresh once the cached crossing is in the past", () => {
+    const d = spec("sun", {}, { sun: "sun.sun" });
+    const t1 = Date.parse("2026-06-21T03:00:00Z");
+    const t2 = Date.parse("2026-06-21T22:00:00Z");
+    const ctx1 = { nowMs: t1, world: worldFor("UTC", 1, t1), noise: () => 0.5 };
+    const ctx2 = { nowMs: t2, world: worldFor("UTC", 1, t2), noise: () => 0.5 };
+    const k = KINDS.sun;
+    let s = k.apply(undefined, { type: "init" }, d, ctx1);
+    s = k.apply(s, { type: "tick", dtMs: t2 - t1 }, d, ctx2);
+    const p = k.project(s, d, ctx2)["sun.sun"];
+    expect(Date.parse(p?.attributes.next_rising as string)).toBeGreaterThan(t2);
+    expect(Date.parse(p?.attributes.next_setting as string)).toBeGreaterThan(t2);
   });
   test("energy meter projects every energy id", () => {
     const out = run(spec("energy_meter", {}));
