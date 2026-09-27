@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/glasshome/sync-layer/compare/v0.10.0...v0.10.1) (2026-09-27)
+
+
+### Bug Fixes
+
+* **demo:** service-call fields are read only when they are strings, and the demo passes dash's lint ([a847df0](https://github.com/glasshome/sync-layer/commit/a847df052ca745519befc09e20c4230c451b054c))
+
 ## [0.10.0](https://github.com/glasshome/sync-layer/compare/v0.9.1...v0.10.0) (2026-09-27)
 
 
