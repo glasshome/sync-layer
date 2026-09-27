@@ -320,6 +320,19 @@ describe("demo house provider", () => {
     expect(parseDemoOverrides("?demo-time=nope", "UTC", now)).toEqual({});
   });
 
+  test("an invalid pinned time rejects without touching the running session", async () => {
+    await loadDemoHouse({ clock: "live", search: "" });
+    const model = demoModel();
+    const before = model?.nowMs;
+
+    await expect(loadDemoHouse({ clock: { pinned: "not-a-date", seed: 1 } })).rejects.toThrow();
+
+    expect(demoModel()).toBe(model);
+    expect(Object.keys(state.entities).length).toBeGreaterThan(0);
+    await new Promise((r) => setTimeout(r, 1300));
+    expect(demoModel()?.nowMs ?? 0).toBeGreaterThan(before ?? 0);
+  });
+
   test("live mode moves a cover over wall time", async () => {
     // demo-speed=20 compresses the cover's 8 s travel into one ticker interval, no real wait needed.
     await loadDemoHouse({ clock: "live", search: "?demo-speed=20" });

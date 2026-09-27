@@ -43,4 +43,11 @@ describe("demo log", () => {
     expect(readLog(undefined, 1, T)).toEqual([]);
     clearLog(undefined, 1);
   });
+
+  test("an entityIds element that isn't a string reads as wrong shape", () => {
+    const s = memoryStorage();
+    const badCall = { ...call, entityIds: ["light.hallway", 42] };
+    s.setItem("glasshome.demo.log.v1", JSON.stringify([{ simMs: T, call: badCall }, { simMs: T, call }]));
+    expect(readLog(s, 1, T)).toEqual([{ simMs: T, call }]);
+  });
 });

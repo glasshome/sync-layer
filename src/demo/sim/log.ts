@@ -20,7 +20,8 @@ function isServiceCall(v: unknown): v is ServiceCall {
     typeof c.service === "string" &&
     typeof c.data === "object" &&
     c.data !== null &&
-    Array.isArray(c.entityIds)
+    Array.isArray(c.entityIds) &&
+    c.entityIds.every((id) => typeof id === "string")
   );
 }
 
@@ -32,10 +33,7 @@ function isLoggedCall(v: unknown): v is LoggedCall {
 
 function prune(entries: LoggedCall[], nowMs: number): LoggedCall[] {
   const cutoff = nowMs - MAX_AGE_MS;
-  return entries
-    .filter((e) => e.simMs >= cutoff)
-    .slice()
-    .sort((a, b) => a.simMs - b.simMs);
+  return entries.filter((e) => e.simMs >= cutoff).sort((a, b) => a.simMs - b.simMs);
 }
 
 // Prior house versions' logs describe entities that no longer exist; drop them on sight.
