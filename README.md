@@ -15,23 +15,10 @@ bun add @glasshome/sync-layer @glasshome/ha-types
 ## Quick Start
 
 ```typescript
-import {
-  initConnection,
-  getConnection,
-  state,
-  entity,
-  entities,
-  callService,
-} from "@glasshome/sync-layer";
+import { entity, entities, callService } from "@glasshome/sync-layer";
 
-// Connect to Home Assistant
-await initConnection({
-  hassUrl: "http://homeassistant.local:8123",
-  token: "YOUR_LONG_LIVED_ACCESS_TOKEN",
-});
-
-// Access reactive state
-console.log(state.connectionState); // "connected"
+// The host app (GlassHome Dash) owns the Home Assistant connection: it runs the
+// worker-backed bridge through claimHostApi(). Widgets only read and call.
 
 // Query a single entity
 const light = entity("light.living_room").get();

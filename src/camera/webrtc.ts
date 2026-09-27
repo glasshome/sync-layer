@@ -65,7 +65,7 @@ export function startWebRtcSession(
 
     const timeout = setTimeout(() => {
       if (!answered) {
-        session.unsubscribe?.().catch(() => {});
+        session.unsubscribe?.().catch(logUnsubscribeError);
         reject(new Error("WebRTC offer timed out"));
       }
     }, 15000);
@@ -94,7 +94,7 @@ export function startWebRtcSession(
 
             case "error":
               clearTimeout(timeout);
-              session.unsubscribe?.().catch(() => {});
+              session.unsubscribe?.().catch(logUnsubscribeError);
               reject(new Error(event.message || event.code || "WebRTC offer failed"));
               break;
           }
@@ -132,4 +132,8 @@ export async function sendWebRtcCandidate(
     session_id: sessionId,
     candidate,
   });
+}
+
+function logUnsubscribeError(error: unknown): void {
+  console.error("[@glasshome/sync-layer] WebRTC unsubscribe failed:", error);
 }

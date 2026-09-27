@@ -130,7 +130,7 @@ export async function updateEntity(entityId: EntityId, updates: EntityUpdateFiel
   const connection = privilegedConn();
 
   if (!connection) {
-    throw new Error("Not connected to Home Assistant. Call initConnection() first.");
+    throw new Error("Not connected to Home Assistant.");
   }
 
   try {

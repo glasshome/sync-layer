@@ -26,7 +26,7 @@ import { setPrivilegedConn } from "../core/privileged-conn";
 // ============================================
 
 /**
- * Options for initializing a connection
+ * @deprecated Nothing reads these options since the worker bridge became the only connection. Removed in 2.0.0.
  */
 export interface ConnectionOptions {
   url: string;
