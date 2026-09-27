@@ -124,7 +124,7 @@ const LEGACY_ENTITY_TABLE: Record<
   "lock.back_door_lock": { features: 1, category: null, deviceClass: null, area: "entry" },
   "switch.coffee_machine": { features: 0, category: null, deviceClass: "outlet", area: "kitchen" },
   "switch.fan_living_room": { features: 0, category: null, deviceClass: "switch", area: "living_room" },
-  "media_player.living_room_speaker": { features: 152461, category: null, deviceClass: null, area: "living_room" },
+  "media_player.living_room_speaker": { features: 152509, category: null, deviceClass: null, area: "living_room" },
   "weather.demo_sunny": { features: 0, category: null, deviceClass: null, area: null },
   "weather.demo_clear_night": { features: 0, category: null, deviceClass: null, area: null },
   "weather.demo_cloudy": { features: 0, category: null, deviceClass: null, area: null },

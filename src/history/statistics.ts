@@ -9,6 +9,7 @@
 import type { SyncLayerConnection } from "../connection/types";
 import { isDemoMode } from "../demo/demo-provider";
 import { isEnergyEntity, synthesizeEnergyStatistics } from "../demo/energy-sim";
+import { numericSensorStatistics } from "../demo/sensor-history";
 
 /**
  * A single statistics bucket for one statistic id.
@@ -101,7 +102,7 @@ export async function fetchStatisticsDuringPeriod(
 
   // Demo mode: integrate the pure energy model across each bucket. Only
   // hour/day periods are synthesized (week/month derive from these on the
-  // widget side); non-energy ids resolve to empty arrays.
+  // widget side); other numeric sensors get buckets of their demo curve.
   if (isDemoMode()) {
     const result: Record<string, StatisticValue[]> = {};
     const statPeriod = period === "hour" || period === "day" ? period : "day";
@@ -109,7 +110,7 @@ export async function fetchStatisticsDuringPeriod(
     for (const id of statisticIds) {
       result[id] = isEnergyEntity(id)
         ? synthesizeEnergyStatistics(id, startTime.getTime(), endMs, statPeriod)
-        : [];
+        : numericSensorStatistics(id, startTime.getTime(), endMs, statPeriod);
     }
     return result;
   }

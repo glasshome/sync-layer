@@ -1,3 +1,4 @@
+import { DEMO_ALBUM_COVER } from "../demo-album-cover";
 import { energyEntityValue, formatEnergyState, simulateEnergy } from "../energy-sim";
 import { outdoorTempC } from "../world/world";
 import { entityIdFor } from "./types";
@@ -456,6 +457,7 @@ const cover: DeviceKind = {
 
 interface LockParams {
   supportedFeatures?: number;
+  unlocked?: boolean;
 }
 
 interface LockState {
@@ -474,8 +476,8 @@ const lock: DeviceKind = {
       },
     ];
   },
-  apply(state, event) {
-    const s = (state as LockState | undefined) ?? { locked: true };
+  apply(state, event, device) {
+    const s = (state as LockState | undefined) ?? { locked: !(device.params as LockParams).unlocked };
     if (event.type !== "call") return s;
     switch (event.service) {
       case "lock":
@@ -713,7 +715,7 @@ interface MediaPlayerState {
 }
 
 const MEDIA_DURATION_SEC = 180;
-const MEDIA_SUPPORTED_FEATURES = 152461;
+const MEDIA_SUPPORTED_FEATURES = 152509;
 
 function skipMediaTrack(
   s: MediaPlayerState,
@@ -789,6 +791,7 @@ const mediaPlayer: DeviceKind = {
       media_title: track?.title,
       media_artist: track?.artist,
       media_content_type: "music",
+      entity_picture: DEMO_ALBUM_COVER,
       volume_level: s.volume,
       is_volume_muted: s.muted,
       media_duration: MEDIA_DURATION_SEC,

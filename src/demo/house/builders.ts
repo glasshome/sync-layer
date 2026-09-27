@@ -170,11 +170,11 @@ export function inRoom(roomId: string | null) {
         { manufacturer: "IKEA", model: "Fyrtur", integration: "zha", transport: "zigbee" },
         opts,
       ),
-    lock: (name: string, opts: BuildOpts & FeatureOpts = {}) =>
+    lock: (name: string, opts: BuildOpts & FeatureOpts & { unlocked?: boolean } = {}) =>
       make(
         "lock",
         name,
-        { supportedFeatures: opts.supportedFeatures },
+        { supportedFeatures: opts.supportedFeatures, unlocked: opts.unlocked },
         { manufacturer: "Yale", model: "Assure Lock 2", ...ZIGBEE_BATTERY },
         opts,
       ),
@@ -241,19 +241,19 @@ export function inRoom(roomId: string | null) {
         reading("humidity", "Humidity", opts.humidityId),
       ];
     },
-    motion: (name: string, opts: BuildOpts = {}) =>
+    motion: (name: string, opts: BuildOpts & { initial?: boolean } = {}) =>
       make(
         "binary_sensor",
         name,
-        { deviceClass: "motion" },
+        { deviceClass: "motion", initial: opts.initial },
         { manufacturer: "Aqara", model: "Motion Sensor P1", ...ZIGBEE_BATTERY },
         opts,
       ),
-    contact: (deviceClass: "door" | "window", name: string, opts: BuildOpts = {}) =>
+    contact: (deviceClass: "door" | "window", name: string, opts: BuildOpts & { initial?: boolean } = {}) =>
       make(
         "binary_sensor",
         name,
-        { deviceClass },
+        { deviceClass, initial: opts.initial },
         { manufacturer: "Aqara", model: "Door and Window Sensor", ...ZIGBEE_BATTERY },
         opts,
       ),

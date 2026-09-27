@@ -13,6 +13,16 @@ describe("readings", () => {
   test("sun is up at June noon UTC", () => {
     expect(run(spec("sun", {}, { sun: "sun.sun" }))["sun.sun"]?.state).toBe("above_horizon");
   });
+  test("the sun is rising in the morning and setting in the afternoon", () => {
+    const d = spec("sun", {}, { sun: "sun.sun" });
+    const rising = (iso: string) => {
+      const ms = Date.parse(iso);
+      const c = { nowMs: ms, world: worldFor("UTC", 1, ms), noise: () => 0.5 };
+      return KINDS.sun.project(KINDS.sun.apply(undefined, { type: "init" }, d, c), d, c)["sun.sun"]?.attributes.rising;
+    };
+    expect(rising("2026-06-21T09:00:00Z")).toBe(true);
+    expect(rising("2026-06-21T16:00:00Z")).toBe(false);
+  });
   test("household weather carries a 7-day forecast starting today", () => {
     const w = run(spec("weather", {}, { weather: "weather.home" }))["weather.home"];
     expect(Array.isArray(w?.attributes.forecast)).toBe(true);

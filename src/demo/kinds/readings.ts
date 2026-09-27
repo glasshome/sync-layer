@@ -1,3 +1,4 @@
+import { demoAssetUrl } from "../assets";
 import { localTime } from "../world/local-time";
 import { solarElevation, sunTimes } from "../world/sun";
 import { cloudCover, outdoorTempC } from "../world/world";
@@ -238,6 +239,7 @@ const sun: DeviceKind = {
           elevation: round1(elevation),
           next_rising: new Date(s.risingMs).toISOString(),
           next_setting: new Date(s.settingMs).toISOString(),
+          rising: solarElevation(ctx.nowMs + 600_000, ctx.world.latitude, ctx.world.longitude) > elevation,
         },
       },
     };
@@ -347,6 +349,8 @@ function buildShowcaseForecast(w: WeatherFixture, midnightMs: number): Record<st
     { datetime: day(2), condition: "cloudy", temperature: w.temp + 1, templow: w.low - 1 },
     { datetime: day(3), condition: "sunny", temperature: w.temp + 4, templow: w.low + 1 },
     { datetime: day(4), condition: "rainy", temperature: w.temp - 2, templow: w.low - 2 },
+    { datetime: day(5), condition: "cloudy", temperature: w.temp - 1, templow: w.low - 2 },
+    { datetime: day(6), condition: "partlycloudy", temperature: w.temp + 1, templow: w.low },
   ];
 }
 
@@ -525,7 +529,7 @@ const camera: DeviceKind = {
       [id]: {
         state: "streaming",
         attributes: {
-          entity_picture: `/api/camera_proxy/${id}`,
+          entity_picture: demoAssetUrl("/demo/camera/front-door.webp"),
           frontend_stream_type: "hls",
           access_token: "demo-token",
           supported_features: 2,

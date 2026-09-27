@@ -15,29 +15,49 @@ import type {
   WeatherForecastsData,
 } from "./types";
 
+const DEMO_RAIN_CHANCE: Record<string, number> = {
+  sunny: 0,
+  "clear-night": 0,
+  partlycloudy: 10,
+  cloudy: 20,
+  windy: 10,
+  fog: 10,
+  rainy: 80,
+  pouring: 95,
+  lightning: 60,
+  "lightning-rainy": 85,
+  snowy: 70,
+  "snowy-rainy": 75,
+  hail: 70,
+  exceptional: 40,
+};
+
 /**
  * In demo mode, derive forecasts from the entity's `forecast` attribute.
  * Hourly and daily are synthesised from the same source (daily entries
- * expanded into 12 hourly steps for the chart).
+ * expanded into 24 hourly steps).
  */
-function buildDemoForecast(entityId: EntityId, type: ForecastType): WeatherForecast[] {
+export function buildDemoForecast(entityId: EntityId, type: ForecastType): WeatherForecast[] {
   const entity = state.entities[entityId];
   const raw = (entity?.attributes?.forecast as WeatherForecast[] | undefined) ?? [];
   if (raw.length === 0) return [];
 
   if (type === "daily" || type === "twice_daily") {
     return raw.map((d) => {
+      const chance = DEMO_RAIN_CHANCE[d.condition ?? ""] ?? 10;
       const templow = (d as { templow?: number }).templow;
       return {
         ...d,
         temp_high: d.temp_high ?? d.temperature,
         temp_low: d.temp_low ?? templow,
+        precipitation_probability: d.precipitation_probability ?? chance,
       };
     });
   }
 
-  // Hourly: walk the next 24 hours interpolating between today/tomorrow's temps.
+  // Hourly: walk the next 24 hours from the top of this hour, blending today into tomorrow.
   const start = new Date();
+  start.setMinutes(0, 0, 0);
   const today = raw[0];
   const tomorrow = raw[1] ?? today;
   const tHi = today?.temperature ?? 18;
@@ -46,18 +66,20 @@ function buildDemoForecast(entityId: EntityId, type: ForecastType): WeatherForec
   const out: WeatherForecast[] = [];
   for (let i = 0; i < 24; i++) {
     const dt = new Date(start.getTime() + i * 60 * 60 * 1000);
-    // Sine curve from low at sunrise → high at midday → low at midnight,
-    // blending across the day boundary into tomorrow's high.
     const hour = dt.getHours();
     const dayMix = i < 12 ? 0 : (i - 12) / 12;
     const baseHi = tHi * (1 - dayMix) + tNext * dayMix;
     const phase = ((hour - 6) / 24) * Math.PI * 2;
     const swing = (baseHi - tLo) / 2;
     const mid = (baseHi + tLo) / 2;
+    const source = i < 8 ? today : tomorrow;
+    const night = hour < 6 || hour >= 21;
+    const condition = source?.condition ?? entity?.state ?? "cloudy";
     out.push({
       datetime: dt.toISOString(),
       temperature: Math.round((mid + Math.sin(phase) * swing) * 10) / 10,
-      condition: today?.condition ?? entity?.state ?? "cloudy",
+      condition: night && condition === "sunny" ? "clear-night" : condition,
+      precipitation_probability: DEMO_RAIN_CHANCE[condition] ?? 10,
     });
   }
   return out;

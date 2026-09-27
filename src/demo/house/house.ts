@@ -274,6 +274,25 @@ export const HOUSE: House = {
       value: 0.18,
       unit: "EUR/kWh",
     }),
+    ...(["de", "pl"] as const).flatMap((zone, i) => [
+      b.fixedSensor("Electricity Maps", {
+        key: `electricity_maps_${zone}`,
+        id: `sensor.electricity_maps_co2_intensity_${zone}`,
+        entityName: "CO2 intensity",
+        value: [384, 692][i] ?? 0,
+        unit: "gCO2eq/kWh",
+      }),
+      b.fixedSensor("Electricity Maps", {
+        key: `electricity_maps_fossil_fuel_percentage_${zone}`,
+        deviceId: `electricity_maps_${zone}`,
+        entityName: "Fossil fuel percentage",
+        value: [52, 81][i] ?? 0,
+        unit: "%",
+      }),
+    ]),
+    b.lock("Side Gate", { id: "lock.side_gate", unlocked: true, supportedFeatures: 1 }),
+    b.contact("door", "Patio Door", { id: "binary_sensor.patio_door", initial: true }),
+    b.motion("Pantry Motion", { id: "binary_sensor.motion_kitchen", initial: true }),
     b.button("Restart Home Assistant", { category: "config", deviceClass: "restart" }),
     b.button("Update Firmware", { category: "config", deviceClass: "update" }),
     b.scene("Good Morning", [

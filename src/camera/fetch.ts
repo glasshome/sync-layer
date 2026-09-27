@@ -6,24 +6,25 @@
 
 import { sendCommand } from "../commands/service";
 import { state } from "../core/store";
+import { demoAssetUrl } from "../demo/assets";
 import { isDemoMode } from "../demo/demo-provider";
 import type { EntityId } from "../core/types";
 import type { CameraStream, CameraStreamData, StreamFormat, StreamQueryOptions } from "./types";
 import { privilegedConn } from "../core/privileged-conn";
 
-/** Public HLS test stream for demo/disconnected mode */
-const DEMO_HLS_STREAM = "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8";
+/** The demo's front door feed, served by the dashboard itself so the demo never reaches a third party. */
+const DEMO_HLS_STREAM = "/demo/camera/front-door.m3u8";
 
 /**
  * Fetch stream for a camera entity.
- * Returns a public demo HLS stream when not connected.
+ * Returns the dashboard's own demo HLS feed in demo mode.
  */
 export async function fetchStream(
   entityId: EntityId,
   format: StreamFormat = "hls",
 ): Promise<string | null> {
   if (isDemoMode()) {
-    return format === "hls" ? DEMO_HLS_STREAM : null;
+    return format === "hls" ? demoAssetUrl(DEMO_HLS_STREAM) : null;
   }
 
   if (!privilegedConn()) return null;

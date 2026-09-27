@@ -19,6 +19,7 @@ import { bulkUpdateEntities, bulkUpdateEntityRegistry } from "../core/reducers";
 import { type HaLink, setState, state } from "../core/store";
 import type { AreaRegistryEntry, HassEntity } from "../core/types";
 import { forceResubscribeCalendars } from "../calendar/track";
+import { forceResubscribeForecasts } from "../weather/track";
 import { wrapHAConnection } from "./adapter";
 import { authenticateWithOAuth, authenticateWithToken, type OAuthOptions } from "./auth";
 import { forceResubscribe } from "./subscription-manager";
@@ -203,6 +204,7 @@ export async function initConnection(options: ConnectionOptions): Promise<Connec
     await loadInitialData(conn);
     await subscribeToUpdates(wrappedConn);
     await forceResubscribeCalendars();
+    await forceResubscribeForecasts();
 
     setupLifecycleListeners(conn);
     startHeartbeat(conn);
@@ -302,6 +304,7 @@ function setupEventHandlers(conn: Connection, options: ConnectionOptions): void 
       await loadInitialData(conn);
       await forceResubscribe();
       await forceResubscribeCalendars();
+      await forceResubscribeForecasts();
       options.onReconnect?.();
     }
   });
