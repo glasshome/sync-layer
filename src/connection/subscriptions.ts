@@ -185,7 +185,7 @@ function flushMessageBuffer(): void {
  * Subscribe to entity state updates with an entity_ids filter.
  * Called by the subscription manager on flush.
  */
-export async function subscribeEntities(
+async function subscribeEntities(
   connection: SyncLayerConnection,
   entityIds: EntityId[],
 ): Promise<() => Promise<void>> {
@@ -222,37 +222,37 @@ export async function subscribeToUpdates(conn: SyncLayerConnection): Promise<voi
 
   // Subscribe to registry_updated events
   const registryUpdatedSub = await conn.subscribeEvents((event) => {
-    handleRegistryUpdate(event as HAEvent<RegistryUpdateData>);
+    void handleRegistryUpdate(event as HAEvent<RegistryUpdateData>);
   }, "entity_registry_updated");
   registrySubscriptions.push(() => registryUpdatedSub());
 
   // Subscribe to device registry updates
   const deviceRegistrySub = await conn.subscribeEvents((event) => {
-    handleDeviceRegistryUpdate(event as HAEvent<DeviceRegistryUpdateData>);
+    void handleDeviceRegistryUpdate(event as HAEvent<DeviceRegistryUpdateData>);
   }, "device_registry_updated");
   registrySubscriptions.push(() => deviceRegistrySub());
 
   // Subscribe to area registry updates
   const areaRegistrySub = await conn.subscribeEvents((event) => {
-    handleAreaRegistryUpdate(event as HAEvent<AreaRegistryUpdateData>);
+    void handleAreaRegistryUpdate(event as HAEvent<AreaRegistryUpdateData>);
   }, "area_registry_updated");
   registrySubscriptions.push(() => areaRegistrySub());
 
   // Subscribe to floor registry updates
   const floorRegistrySub = await conn.subscribeEvents((event) => {
-    handleFloorRegistryUpdate(event as HAEvent<FloorRegistryUpdateData>);
+    void handleFloorRegistryUpdate(event as HAEvent<FloorRegistryUpdateData>);
   }, "floor_registry_updated");
   registrySubscriptions.push(() => floorRegistrySub());
 
   // Subscribe to label registry updates
   const labelRegistrySub = await conn.subscribeEvents((event) => {
-    handleLabelRegistryUpdate(event as HAEvent<LabelRegistryUpdateData>);
+    void handleLabelRegistryUpdate(event as HAEvent<LabelRegistryUpdateData>);
   }, "label_registry_updated");
   registrySubscriptions.push(() => labelRegistrySub());
 
   // Subscribe to statistics updates
   const statisticsSub = await conn.subscribeEvents((event) => {
-    handleStatisticsUpdate(event as HAEvent<StatisticsUpdateData>);
+    void handleStatisticsUpdate(event as HAEvent<StatisticsUpdateData>);
   }, "recorder_5min_statistics_generated");
   registrySubscriptions.push(() => statisticsSub());
 
@@ -266,7 +266,7 @@ export async function subscribeToUpdates(conn: SyncLayerConnection): Promise<voi
 /**
  * Clean up all active subscriptions
  */
-export async function cleanupSubscriptions(): Promise<void> {
+async function cleanupSubscriptions(): Promise<void> {
   const subscriptions = [...registrySubscriptions];
 
   for (const unsub of subscriptions) {
@@ -433,24 +433,6 @@ async function handleStatisticsUpdate(event: HAEvent<StatisticsUpdateData>): Pro
   } catch (error) {
     console.error("Error fetching statistics metadata:", error);
   }
-}
-
-// ============================================
-// SUBSCRIPTION UTILITIES
-// ============================================
-
-/**
- * Check if subscriptions are active
- */
-export function hasActiveSubscriptions(): boolean {
-  return registrySubscriptions.length > 0;
-}
-
-/**
- * Get number of active subscriptions
- */
-export function getSubscriptionCount(): number {
-  return registrySubscriptions.length;
 }
 
 // ============================================

@@ -65,7 +65,7 @@ export function startWebRtcSession(
 
     const timeout = setTimeout(() => {
       if (!answered) {
-        session.unsubscribe?.();
+        session.unsubscribe?.().catch(() => {});
         reject(new Error("WebRTC offer timed out"));
       }
     }, 15000);
@@ -94,7 +94,7 @@ export function startWebRtcSession(
 
             case "error":
               clearTimeout(timeout);
-              session.unsubscribe?.();
+              session.unsubscribe?.().catch(() => {});
               reject(new Error(event.message || event.code || "WebRTC offer failed"));
               break;
           }
