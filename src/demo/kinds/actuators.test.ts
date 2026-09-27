@@ -257,8 +257,8 @@ const SCENARIOS: Scenario[] = [
       },
       {
         service: "select_source",
-        data: { source: "Spotify" },
-        expect: (p) => expect(p.attributes.source).toBe("Spotify"),
+        data: { source: "TV" },
+        expect: (p) => expect(p.attributes.source).toBe("TV"),
       },
     ],
   },
@@ -374,6 +374,29 @@ test("cover travels over time", () => {
   expect(mid?.attributes.current_position).toBeGreaterThan(0);
   s = ACTUATORS.cover.apply(s, { type: "tick", dtMs: 8000 }, d, ctx);
   expect(ACTUATORS.cover.project(s, d, ctx)["cover.blinds"]?.state).toBe("open");
+});
+
+test("position-less cover (garage door) has no travel: open/close apply instantly and hold through ticks", () => {
+  const d = spec("cover", {}, { cover: "cover.garage_door" });
+  let s = ACTUATORS.cover.apply(undefined, { type: "init" }, d, ctx);
+
+  s = ACTUATORS.cover.apply(
+    s,
+    { type: "call", entityId: "cover.garage_door", service: "open_cover", data: {} },
+    d,
+    ctx,
+  );
+  s = ACTUATORS.cover.apply(s, { type: "tick", dtMs: 10_000 }, d, ctx);
+  expect(ACTUATORS.cover.project(s, d, ctx)["cover.garage_door"]?.state).toBe("open");
+
+  s = ACTUATORS.cover.apply(
+    s,
+    { type: "call", entityId: "cover.garage_door", service: "close_cover", data: {} },
+    d,
+    ctx,
+  );
+  s = ACTUATORS.cover.apply(s, { type: "tick", dtMs: 10_000 }, d, ctx);
+  expect(ACTUATORS.cover.project(s, d, ctx)["cover.garage_door"]?.state).toBe("closed");
 });
 
 test("climate reaches a new setpoint within about two minutes", () => {

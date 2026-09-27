@@ -317,7 +317,7 @@ const cover: DeviceKind = {
       target: p.position ? 0 : undefined,
       tiltPosition: p.tilt ? 0 : undefined,
     };
-    if (event.type === "tick") return tickCover(s, event.dtMs, p.travelMs ?? 8000);
+    if (event.type === "tick") return p.position ? tickCover(s, event.dtMs, p.travelMs ?? 8000) : s;
     if (event.type !== "call") return s;
     const data = event.data;
     switch (event.service) {
