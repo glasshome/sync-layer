@@ -23,8 +23,8 @@ describe("model", () => {
   test("dispatch changes only its target and ignores unknowns", () => {
     const logs: string[] = [];
     const m = createDemoModel([dev], kinds, { startMs: T, world: worldFor("UTC", 1, T), log: (l) => logs.push(l) });
-    m.dispatch({ domain: "switch", service: "turn_on", data: {}, entityIds: ["switch.a", "switch.nope"] });
-    m.dispatch({ domain: "switch", service: "flash", data: {}, entityIds: ["switch.a"] });
+    expect(m.dispatch({ domain: "switch", service: "turn_on", data: {}, entityIds: ["switch.a", "switch.nope"] })).toBe(1);
+    expect(m.dispatch({ domain: "switch", service: "flash", data: {}, entityIds: ["switch.a"] })).toBe(0);
     expect(m.project()["switch.a"]?.state).toBe("on");
     expect(logs.length).toBe(2);
   });

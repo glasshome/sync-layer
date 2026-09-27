@@ -7,6 +7,7 @@ export interface LoggedCall {
 
 const PREFIX = "glasshome.demo.log.v";
 const MAX_AGE_MS = 24 * 3_600_000;
+export const MAX_LOG_ENTRIES = 500;
 
 export function logKey(houseVersion: number): string {
   return `${PREFIX}${houseVersion}`;
@@ -33,7 +34,10 @@ function isLoggedCall(v: unknown): v is LoggedCall {
 
 function prune(entries: LoggedCall[], nowMs: number): LoggedCall[] {
   const cutoff = nowMs - MAX_AGE_MS;
-  return entries.filter((e) => e.simMs >= cutoff).sort((a, b) => a.simMs - b.simMs);
+  return entries
+    .filter((e) => e.simMs >= cutoff)
+    .sort((a, b) => a.simMs - b.simMs)
+    .slice(-MAX_LOG_ENTRIES);
 }
 
 // Prior house versions' logs describe entities that no longer exist; drop them on sight.

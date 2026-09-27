@@ -26,6 +26,17 @@ describe("demo log", () => {
     expect(readLog(s, 1, T)).toEqual([{ simMs: T - 60_000, call }]);
   });
 
+  test("keeps only the 500 newest entries", () => {
+    const s = memoryStorage();
+    const entries = Array.from({ length: 510 }, (_, i) => ({ simMs: T - 510_000 + i * 1000, call }));
+    s.setItem("glasshome.demo.log.v1", JSON.stringify(entries));
+    appendLog(s, 1, { simMs: T, call }, T);
+    const kept = readLog(s, 1, T);
+    expect(kept.length).toBe(500);
+    expect(kept.at(-1)?.simMs).toBe(T);
+    expect(kept[0]?.simMs).toBe(entries[11]?.simMs);
+  });
+
   test("garbage, throwing storage and a version bump read as empty", () => {
     const s = memoryStorage();
     s.setItem("glasshome.demo.log.v1", "{not json");

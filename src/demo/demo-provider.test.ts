@@ -4,6 +4,7 @@ import { extractDomain } from "../core/types";
 import {
   advanceDemoTo,
   applyDemoServiceCall,
+  demoCallLog,
   demoModel,
   loadDemoHouse,
   parseDemoOverrides,
@@ -25,13 +26,7 @@ function memoryLocalStorage(): Storage {
   };
 }
 
-/**
- * Every domain.service pair an official widget can send must mutate demo
- * state, or the widget's optimistic UI silently snaps back in demo mode.
- * Adding a service call to a widget means adding a case here AND a handler
- * in applyDemoServiceCall. stop_cover/stop_cover_tilt are deliberate no-ops
- * (stop means hold position) and are not listed.
- */
+// Every service an official widget sends must change demo state, or its optimistic UI snaps back.
 interface ServiceCase {
   entityId: string;
   service: string;
@@ -318,6 +313,36 @@ describe("demo house provider", () => {
     });
     expect(parseDemoOverrides("?demo-speed=60", "UTC", now)).toEqual({ speed: 60 });
     expect(parseDemoOverrides("?demo-time=nope", "UTC", now)).toEqual({});
+    expect(parseDemoOverrides("?demo-speed=1e308", "UTC", now)).toEqual({ speed: 3600 });
+    expect(parseDemoOverrides("?demo-speed=1e6", "UTC", now)).toEqual({ speed: 3600 });
+    expect(parseDemoOverrides("?demo-speed=Infinity", "UTC", now)).toEqual({});
+    expect(parseDemoOverrides("?demo-speed=-2", "UTC", now)).toEqual({});
+  });
+
+  test("a huge sim gap resettles fast", async () => {
+    await loadDemoHouse({ clock: { pinned: "2026-06-21T12:00:00Z", seed: 1 } });
+    const target = Date.parse("2027-06-21T12:00:00Z");
+    const start = performance.now();
+    advanceDemoTo(target);
+    expect(performance.now() - start).toBeLessThan(200);
+    expect(demoModel()?.nowMs).toBe(target);
+    advanceDemoTo(Number.POSITIVE_INFINITY);
+    expect(demoModel()?.nowMs).toBe(target);
+  });
+
+  test("a call no target of which is mocked is not logged", async () => {
+    await loadDemoHouse({ clock: { pinned: "2026-06-21T12:00:00Z", seed: 1 } });
+    applyDemoServiceCall("light", "turn_on", {}, { entity_id: "light.does_not_exist" });
+    applyDemoServiceCall("switch", "flash", {}, { entity_id: "switch.coffee_machine" });
+    expect(demoCallLog()).toEqual([]);
+    applyDemoServiceCall("light", "turn_off", {}, { entity_id: ["light.does_not_exist", "light.hallway"] });
+    expect(demoCallLog().length).toBe(1);
+  });
+
+  test("the in-memory log keeps the 500 newest calls", async () => {
+    await loadDemoHouse({ clock: { pinned: "2026-06-21T12:00:00Z", seed: 1 } });
+    for (let i = 0; i < 505; i++) applyDemoServiceCall("switch", "toggle", {}, { entity_id: "switch.coffee_machine" });
+    expect(demoCallLog().length).toBe(500);
   });
 
   test("an invalid pinned time rejects without touching the running session", async () => {

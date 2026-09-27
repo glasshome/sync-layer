@@ -17,7 +17,7 @@ import { generateHouse, type GeneratedHouse } from "./house/generate";
 import { HOUSE } from "./house/house";
 import { KINDS } from "./kinds";
 import type { Projection, ServiceCall } from "./kinds/types";
-import { appendLog, clearLog, type LoggedCall, readLog } from "./sim/log";
+import { appendLog, clearLog, type LoggedCall, MAX_LOG_ENTRIES, readLog } from "./sim/log";
 import { createDemoModel, type DemoModel, type HoldUntil } from "./sim/model";
 import { createDriver } from "./sim/schedule";
 import { localTime } from "./world/local-time";
@@ -72,6 +72,9 @@ const TICK_MS = 1000;
 const FINE_STEP_MS = 1000;
 const COARSE_STEP_MS = 60_000;
 const FINE_GAP_MS = 120_000;
+const COARSE_GAP_MS = 6 * 3_600_000;
+const LONG_STEP_MS = 300_000;
+const MAX_SPEED = 3600;
 
 const VISITOR_HOLDS: Partial<Record<string, HoldUntil>> = {
   light: "boundary",
@@ -114,7 +117,18 @@ export function applyVisitorHolds(model: DemoModel, entityIds: string[]): void {
 }
 
 function catchUp(model: DemoModel, simMs: number): void {
-  model.advanceTo(simMs, simMs - model.nowMs <= FINE_GAP_MS ? FINE_STEP_MS : COARSE_STEP_MS);
+  const gap = simMs - model.nowMs;
+  model.advanceTo(simMs, gap <= FINE_GAP_MS ? FINE_STEP_MS : gap <= COARSE_GAP_MS ? COARSE_STEP_MS : LONG_STEP_MS);
+}
+
+// Past the coarse bound (a slept laptop, a fast demo-speed) the house resettles at the target instead of stepping.
+function advanceSession(s: DemoSession, simMs: number): void {
+  if (!Number.isFinite(simMs)) return;
+  if (simMs - s.model.nowMs > COARSE_GAP_MS) {
+    s.model = buildModel(s.generated, simMs, getWorld());
+    return;
+  }
+  catchUp(s.model, simMs);
 }
 
 function holdVisitorEntities(model: DemoModel, entityIds: string[]): void {
@@ -161,7 +175,7 @@ export function parseDemoOverrides(
   const seed = params.get("demo-seed");
   if (seed && /^\d+$/.test(seed)) out.seed = Number(seed);
   const speed = Number(params.get("demo-speed") ?? Number.NaN);
-  if (Number.isFinite(speed) && speed > 0) out.speed = speed;
+  if (Number.isFinite(speed) && speed > 0) out.speed = Math.min(speed, MAX_SPEED);
   return out;
 }
 
@@ -290,12 +304,30 @@ function publish(s: DemoSession, force: ReadonlySet<string>): void {
 export function advanceDemoTo(simMs: number): void {
   const s = session;
   if (!s) return;
-  catchUp(s.model, simMs);
+  advanceSession(s, simMs);
   publish(s, new Set());
 }
 
 function liveSimMs(s: DemoSession): number {
   return s.startMs + (Date.now() - s.wallStartMs) * s.speed;
+}
+
+export interface DemoTimeMap {
+  toSim(wallMs: number): number;
+  toWall(simMs: number): number;
+}
+
+/** Internal: maps wall-clock instants to the session's sim clock; a pinned session's wall now is its model's now. */
+export function demoTimeMap(): DemoTimeMap | null {
+  const s = session;
+  if (!s) return null;
+  const anchorWallMs = s.live ? s.wallStartMs : Date.now();
+  const anchorSimMs = s.live ? s.startMs : s.model.nowMs;
+  const speed = s.live ? s.speed : 1;
+  return {
+    toSim: (wallMs) => anchorSimMs + (wallMs - anchorWallMs) * speed,
+    toWall: (simMs) => anchorWallMs + (simMs - anchorSimMs) / speed,
+  };
 }
 
 function tick(): void {
@@ -429,12 +461,13 @@ export function applyDemoServiceCall(
   if (!s) return;
   const entityIds = targetIds(target);
   if (entityIds.length === 0) return;
-  if (s.live) catchUp(s.model, liveSimMs(s));
+  if (s.live) advanceSession(s, liveSimMs(s));
   const call: ServiceCall = { domain, service, data: serviceData, entityIds };
-  s.model.dispatch(call);
+  if (s.model.dispatch(call) === 0) return;
   holdVisitorEntities(s.model, entityIds);
   const entry = { simMs: s.model.nowMs, call };
   s.log.push(entry);
+  if (s.log.length > MAX_LOG_ENTRIES) s.log.splice(0, s.log.length - MAX_LOG_ENTRIES);
   if (s.persist) appendLog(demoStorage(), HOUSE.version, entry, Date.now());
   publish(s, new Set(entityIds));
 }

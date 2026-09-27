@@ -1,6 +1,9 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import * as provider from "../demo-provider";
 import { advanceDemoTo, applyDemoServiceCall, loadDemoHouse, unloadDemoData } from "../demo-provider";
-import { demoEntityHistory } from "./history";
+import { demoHistory } from "./history";
+
+const demoEntityHistory = (id: string, startMs: number, endMs: number) => demoHistory([id], startMs, endMs)[id] ?? [];
 
 const END = Date.parse("2026-12-14T21:00:00Z");
 beforeAll(() => loadDemoHouse({ clock: { pinned: "2026-12-14T21:00:00Z", seed: 3 } }));
@@ -31,23 +34,15 @@ describe("demo history", () => {
     demoEntityHistory("light.living_room_main", END - 24 * 3_600_000, END);
     expect(performance.now() - start).toBeLessThan(150);
   });
-  test("fetch.ts's demo branch reports energy and non-energy points in the same lu unit", async () => {
-    const { fetchHistory } = await import("../../history/fetch");
-    const startTime = new Date(END - 3_600_000);
-    const endTime = new Date(END);
-    const result = await fetchHistory({
-      startTime,
-      endTime,
-      entityIds: ["sensor.solar_power", "light.living_room_main"],
-    });
-    const energyPoints = result["sensor.solar_power"] ?? [];
-    const lightPoints = result["light.living_room_main"] ?? [];
-    expect(energyPoints.length).toBeGreaterThan(0);
-    const startSec = startTime.getTime() / 1000;
-    const endSec = endTime.getTime() / 1000;
-    for (const p of [...energyPoints, ...lightPoints]) {
-      expect(p.lu).toBeGreaterThanOrEqual(startSec - 1);
-      expect(p.lu).toBeLessThanOrEqual(endSec + 1);
+  test("one replay serves every requested id", () => {
+    const replays = spyOn(provider, "demoReplayModel");
+    try {
+      const h = demoHistory(["light.living_room_main", "sensor.temperature_living"], END - 3_600_000, END);
+      expect(replays).toHaveBeenCalledTimes(1);
+      expect(h["light.living_room_main"]?.length ?? 0).toBeGreaterThan(0);
+      expect(h["sensor.temperature_living"]?.length ?? 0).toBeGreaterThan(0);
+    } finally {
+      replays.mockRestore();
     }
   });
 });
@@ -73,5 +68,33 @@ describe("demo history: a hold from before the window", () => {
     const h = demoEntityHistory("light.living_room_main", NIGHT_END - 3_600_000, NIGHT_END);
     expect(h.length).toBeGreaterThan(0);
     expect(h.every((p) => p.s === "off")).toBe(true);
+  });
+});
+
+describe("demo history: wall-clock windows", () => {
+  beforeAll(() => {
+    unloadDemoData();
+    return loadDemoHouse({ clock: { pinned: "2026-06-21T21:00:00Z", seed: 1 } });
+  });
+
+  test("fetch.ts maps a wall-clock window onto the pinned house", async () => {
+    const { fetchHistory } = await import("../../history/fetch");
+    const endTime = new Date();
+    const startTime = new Date(endTime.getTime() - 24 * 3_600_000);
+    const result = await fetchHistory({
+      startTime,
+      endTime,
+      entityIds: ["sensor.solar_power", "light.living_room_main"],
+    });
+    const energyPoints = result["sensor.solar_power"] ?? [];
+    const lightPoints = result["light.living_room_main"] ?? [];
+    expect(energyPoints.length).toBeGreaterThan(0);
+    expect(new Set(lightPoints.map((p) => p.s))).toEqual(new Set(["on", "off"]));
+    const startSec = startTime.getTime() / 1000;
+    const endSec = endTime.getTime() / 1000;
+    for (const p of [...energyPoints, ...lightPoints]) {
+      expect(p.lu).toBeGreaterThanOrEqual(startSec - 1);
+      expect(p.lu).toBeLessThanOrEqual(endSec + 1);
+    }
   });
 });

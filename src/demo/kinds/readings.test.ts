@@ -20,6 +20,15 @@ describe("readings", () => {
     expect(forecast.length).toBe(7);
     expect(forecast[0]?.datetime.startsWith("2026-06-21")).toBe(true);
   });
+  test("showcase weather projections 5 s apart in one day are identical", () => {
+    const d = spec("weather_showcase", { slug: "sunny", state: "sunny", temp: 28, humidity: 35, pressure: 1018, wind: 8, low: 18 });
+    const at = (ms: number) => {
+      const c = { nowMs: ms, world: worldFor("UTC", 1, ms), noise: () => 0.5 };
+      return KINDS.weather_showcase.project(undefined, d, c);
+    };
+    expect(at(T + 5_000)).toEqual(at(T));
+    expect(KINDS.weather_showcase.publishMs).toBe(60_000);
+  });
   test("sun times refresh once the cached crossing is in the past", () => {
     const d = spec("sun", {}, { sun: "sun.sun" });
     const t1 = Date.parse("2026-06-21T03:00:00Z");

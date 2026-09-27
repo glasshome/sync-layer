@@ -11,8 +11,11 @@ export interface DemoEntityHistoryPoint {
 const DAY_MS = 24 * 3_600_000;
 const STEP_MS = 300_000;
 
-function projectedState(model: DemoModel, deviceKey: string, entityId: string) {
-  return model.projectDevice(deviceKey)[entityId];
+interface Track {
+  entityId: string;
+  deviceKey: string;
+  points: DemoEntityHistoryPoint[];
+  lastState: string | undefined;
 }
 
 /** Unix seconds, matching the energy branch's wire format (`synthesizeEnergyHistory`). */
@@ -20,43 +23,55 @@ function toSeconds(ms: number): number {
   return Math.round(ms / 1000);
 }
 
-/** Replays the demo house from `startMs` to `endMs` and reports `entityId`'s state changes. */
-export function demoEntityHistory(entityId: string, startMs: number, endMs: number): DemoEntityHistoryPoint[] {
+// A log dispatch can change state at the same simMs a step already recorded; keep `lu` strictly increasing.
+function pushPoint(track: Track, point: DemoEntityHistoryPoint): void {
+  track.lastState = point.s;
+  const last = track.points.at(-1);
+  if (last && last.lu === point.lu) track.points[track.points.length - 1] = point;
+  else track.points.push(point);
+}
+
+/**
+ * Replays the demo house once from `startMs` to `endMs` (sim time) and reports each entity's state changes.
+ * `toWallMs` stamps `lu` on the caller's clock.
+ */
+export function demoHistory(
+  entityIds: readonly string[],
+  startMs: number,
+  endMs: number,
+  toWallMs: (simMs: number) => number = (ms) => ms,
+): Record<string, DemoEntityHistoryPoint[]> {
+  const result: Record<string, DemoEntityHistoryPoint[]> = {};
+  for (const id of entityIds) result[id] = [];
   const live = demoModel();
-  if (!live) return [];
-  const device = live.deviceOf(entityId);
-  if (!device) return [];
+  if (!live) return result;
+
+  const tracks: Track[] = [];
+  for (const entityId of new Set(entityIds)) {
+    const device = live.deviceOf(entityId);
+    if (device) tracks.push({ entityId, deviceKey: device.key, points: [], lastState: undefined });
+  }
+  if (tracks.length === 0) return result;
 
   const liveNowMs = live.nowMs;
   const endC = Math.min(endMs, liveNowMs);
   const startC = Math.max(startMs, endC - DAY_MS);
-  if (startC >= endC) return [];
+  if (startC >= endC) return result;
 
   const log = demoCallLog();
   // Replay from the oldest pending log entry too, so a pre-window hold still applies.
   const modelStartMs = log.length > 0 ? Math.min(startC, log[0]!.simMs) : startC;
-
   const replayModel = demoReplayModel(modelStartMs);
-  if (!replayModel) return [];
-  const deviceKey = device.key;
+  if (!replayModel) return result;
   const replay: DemoModel = replayModel;
-
-  const points: DemoEntityHistoryPoint[] = [];
-  let lastState: string | undefined;
-
-  // A log dispatch can change state at the same simMs a step already recorded; keep `lu` strictly increasing.
-  function pushPoint(point: DemoEntityHistoryPoint): void {
-    lastState = point.s;
-    const last = points.at(-1);
-    if (last && last.lu === point.lu) points[points.length - 1] = point;
-    else points.push(point);
-  }
 
   function record(simMs: number): void {
     if (simMs < startC) return;
-    const p = projectedState(replay, deviceKey, entityId);
-    if (!p || p.state === lastState) return;
-    pushPoint({ s: p.state, a: p.attributes, lu: toSeconds(simMs) });
+    for (const track of tracks) {
+      const p = replay.projectDevice(track.deviceKey)[track.entityId];
+      if (!p || p.state === track.lastState) continue;
+      pushPoint(track, { s: p.state, a: p.attributes, lu: toSeconds(toWallMs(simMs)) });
+    }
   }
 
   record(replay.nowMs);
@@ -76,12 +91,15 @@ export function demoEntityHistory(entityId: string, startMs: number, endMs: numb
     }
   }
 
-  if (endC === liveNowMs) {
-    const liveProjection = projectedState(live, device.key, entityId);
-    if (liveProjection && liveProjection.state !== lastState) {
-      pushPoint({ s: liveProjection.state, a: liveProjection.attributes, lu: toSeconds(endC) });
+  for (const track of tracks) {
+    if (endC === liveNowMs) {
+      const p = live.projectDevice(track.deviceKey)[track.entityId];
+      if (p && p.state !== track.lastState) {
+        pushPoint(track, { s: p.state, a: p.attributes, lu: toSeconds(toWallMs(endC)) });
+      }
     }
+    result[track.entityId] =
+      track.points.length > MAX_HISTORY_POINTS ? track.points.slice(-MAX_HISTORY_POINTS) : track.points;
   }
-
-  return points.length > MAX_HISTORY_POINTS ? points.slice(-MAX_HISTORY_POINTS) : points;
+  return result;
 }

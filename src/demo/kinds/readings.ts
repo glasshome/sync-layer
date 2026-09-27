@@ -10,7 +10,7 @@ const round1 = (n: number) => Math.round(n * 10) / 10;
 const roundInt = (n: number) => Math.round(n);
 const round10 = (n: number) => Math.round(n / 10) * 10;
 
-/** The appliance power ids Task 6 wires to appliance devices; energy_meter never owns them. */
+/** Appliance power ids owned by appliance devices; energy_meter never owns them. */
 export const APPLIANCE_ENERGY_IDS = [
   "sensor.fridge_power",
   "sensor.dishwasher_power",
@@ -339,9 +339,8 @@ export const WEATHER_FIXTURES: WeatherFixture[] = [
   { slug: "exceptional", state: "exceptional", temp: 38, apparent: 44, humidity: 22, pressure: 1005, wind: 30, low: 28 },
 ];
 
-/** `day(n)` anchored to `atMs` so pinned mode never reads the wall clock. */
-function buildShowcaseForecast(w: WeatherFixture, atMs: number): Record<string, unknown>[] {
-  const day = (n: number) => new Date(atMs + n * 86_400_000).toISOString();
+function buildShowcaseForecast(w: WeatherFixture, midnightMs: number): Record<string, unknown>[] {
+  const day = (n: number) => new Date(midnightMs + n * 86_400_000).toISOString();
   return [
     { datetime: day(0), condition: w.state, temperature: w.temp, templow: w.low },
     { datetime: day(1), condition: "partlycloudy", temperature: w.temp + 2, templow: w.low },
@@ -377,11 +376,12 @@ const weatherShowcase: DeviceKind = {
           visibility: 10,
           visibility_unit: "km",
           uv_index: w.state === "sunny" ? 8 : 2,
-          forecast: buildShowcaseForecast(w, ctx.nowMs),
+          forecast: buildShowcaseForecast(w, localTime(ctx.nowMs, ctx.world.timeZone).midnightMs),
         },
       },
     };
   },
+  publishMs: 60_000,
 };
 
 // ============================================

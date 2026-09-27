@@ -6,7 +6,8 @@ export type HoldUntil = "boundary" | "event";
 
 export interface DemoModel {
   readonly nowMs: number;
-  dispatch(call: ServiceCall): void;
+  /** Returns how many targets the model handled; unmocked targets are skipped. */
+  dispatch(call: ServiceCall): number;
   /** `stepMs` overrides the model's step for this advance only. */
   advanceTo(ms: number, stepMs?: number): void;
   project(): Record<string, Projection>;
@@ -63,7 +64,8 @@ export function createDemoModel(
     for (const call of kind.effects(next, event, d)) dispatchAt(call, depth + 1);
   }
 
-  function dispatchAt(call: ServiceCall, depth: number): void {
+  function dispatchAt(call: ServiceCall, depth: number): number {
+    let handled = 0;
     for (const entityId of call.entityIds) {
       const d = byEntity.get(entityId);
       const kind = d ? kinds[d.kind] : undefined;
@@ -72,7 +74,9 @@ export function createDemoModel(
         continue;
       }
       applyTo(d, { type: "call", entityId, service: call.service, data: call.data }, depth);
+      handled++;
     }
+    return handled;
   }
 
   function flushDue(): void {
