@@ -10,6 +10,7 @@ export interface DemoEntityHistoryPoint {
 
 const DAY_MS = 24 * 3_600_000;
 const STEP_MS = 300_000;
+const TICK_WALL_MS = 1000;
 
 interface Track {
   entityId: string;
@@ -54,7 +55,8 @@ export function demoHistory(
   if (tracks.length === 0) return result;
 
   const liveNowMs = live.nowMs;
-  const endC = Math.min(endMs, liveNowMs);
+  // A caller's "now" lands a few wall ms before the model's now; it still means now.
+  const endC = toWallMs(liveNowMs) - toWallMs(endMs) <= TICK_WALL_MS ? liveNowMs : endMs;
   const startC = Math.max(startMs, endC - DAY_MS);
   if (startC >= endC) return result;
 

@@ -1,4 +1,4 @@
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { state } from "../core/store";
 import { extractDomain } from "../core/types";
 import {
@@ -11,6 +11,7 @@ import {
   resetDemo,
   unloadDemoData,
 } from "./demo-provider";
+import { localTime } from "./world/local-time";
 
 function memoryLocalStorage(): Storage {
   const m = new Map<string, string>();
@@ -371,6 +372,40 @@ describe("demo house provider", () => {
     const after = state.entities["cover.living_room_blinds"];
     expect(["opening", "open"]).toContain(after?.state ?? "");
     expect(typeof after?.attributes.current_position === "number" && after.attributes.current_position > 0).toBe(true);
+  });
+
+  test("a jump past the coarse bound keeps the visitor's holds, like a fresh load at the target", async () => {
+    const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    Object.defineProperty(globalThis, "localStorage", { value: memoryLocalStorage(), configurable: true });
+    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    const tapMs = localTime(Date.parse("2026-12-14T12:00:00Z"), zone).midnightMs + 23.5 * 3_600_000;
+    const targetMs = tapMs + 6.25 * 3_600_000;
+    const lock = "lock.front_door_lock";
+    const wall = spyOn(Date, "now").mockReturnValue(tapMs);
+    try {
+      await loadDemoHouse({ clock: "live", search: "" });
+      expect(state.entities[lock]?.state).toBe("locked");
+      applyDemoServiceCall("lock", "unlock", {}, { entity_id: lock });
+
+      advanceDemoTo(targetMs);
+      expect(demoModel()?.nowMs).toBe(targetMs);
+      expect(demoModel()?.isHeld(lock)).toBe(true);
+      expect(state.entities[lock]?.state).toBe("unlocked");
+      const jumped = JSON.stringify(demoModel()?.project());
+
+      unloadDemoData();
+      wall.mockReturnValue(targetMs);
+      await loadDemoHouse({ clock: "live", search: "" });
+      expect(JSON.stringify(demoModel()?.project())).toBe(jumped);
+      expect(state.entities[lock]?.state).toBe("unlocked");
+
+      advanceDemoTo(targetMs + 3_600_000);
+      expect(demoModel()?.isHeld(lock)).toBe(false);
+    } finally {
+      wall.mockRestore();
+      if (previousStorage) Object.defineProperty(globalThis, "localStorage", previousStorage);
+      else Reflect.deleteProperty(globalThis, "localStorage");
+    }
   });
 
   test("a visitor change survives reload until the next boundary", async () => {

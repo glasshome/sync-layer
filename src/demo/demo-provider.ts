@@ -17,7 +17,7 @@ import { generateHouse, type GeneratedHouse } from "./house/generate";
 import { HOUSE } from "./house/house";
 import { KINDS } from "./kinds";
 import type { Projection, ServiceCall } from "./kinds/types";
-import { appendLog, clearLog, type LoggedCall, MAX_LOG_ENTRIES, readLog } from "./sim/log";
+import { appendLog, clearLog, type LoggedCall, MAX_LOG_ENTRIES, pruneLog, readLog } from "./sim/log";
 import { createDemoModel, type DemoModel, type HoldUntil } from "./sim/model";
 import { createDriver } from "./sim/schedule";
 import { localTime } from "./world/local-time";
@@ -125,10 +125,24 @@ function catchUp(model: DemoModel, simMs: number): void {
 function advanceSession(s: DemoSession, simMs: number): void {
   if (!Number.isFinite(simMs)) return;
   if (simMs - s.model.nowMs > COARSE_GAP_MS) {
-    s.model = buildModel(s.generated, simMs, getWorld());
+    s.log = pruneLog(s.log, simMs);
+    s.model = replayedModel(s.generated, getWorld(), s.log, simMs);
     return;
   }
   catchUp(s.model, simMs);
+}
+
+/** Builds from the oldest logged call, replays each with holds, catches up to `targetMs`. */
+function replayedModel(generated: GeneratedHouse, world: World, log: readonly LoggedCall[], targetMs: number): DemoModel {
+  const oldest = log[0];
+  const model = buildModel(generated, oldest ? Math.min(oldest.simMs, targetMs) : targetMs, world);
+  for (const entry of log) {
+    catchUp(model, entry.simMs);
+    model.dispatch(entry.call);
+    holdVisitorEntities(model, entry.call.entityIds);
+  }
+  catchUp(model, targetMs);
+  return model;
 }
 
 function holdVisitorEntities(model: DemoModel, entityIds: string[]): void {
@@ -260,6 +274,7 @@ function publish(s: DemoSession, force: ReadonlySet<string>): void {
 
   const simMs = s.model.nowMs;
   const iso = new Date(simMs).toISOString();
+  const luSeconds = Math.round(timeMapOf(s).toWall(simMs) / 1000);
   const points: HistoryPoint[] = [];
   setState(
     produce((st) => {
@@ -291,8 +306,8 @@ function publish(s: DemoSession, force: ReadonlySet<string>): void {
           entityId,
           stateValue: p.state,
           attributes: p.attributes,
-          lastUpdated: simMs / 1000,
-          ...(changed ? { lastChanged: simMs / 1000 } : {}),
+          lastUpdated: luSeconds,
+          ...(changed ? { lastChanged: luSeconds } : {}),
         });
       }
     }),
@@ -319,8 +334,10 @@ export interface DemoTimeMap {
 
 /** Internal: maps wall-clock instants to the session's sim clock; a pinned session's wall now is its model's now. */
 export function demoTimeMap(): DemoTimeMap | null {
-  const s = session;
-  if (!s) return null;
+  return session ? timeMapOf(session) : null;
+}
+
+function timeMapOf(s: DemoSession): DemoTimeMap {
   const anchorWallMs = s.live ? s.wallStartMs : Date.now();
   const anchorSimMs = s.live ? s.startMs : s.model.nowMs;
   const speed = s.live ? s.speed : 1;
@@ -348,14 +365,7 @@ export async function loadDemoHouse(opts: DemoHouseOptions): Promise<void> {
   contextCounter = 0;
 
   const log = clock.persist ? readLog(demoStorage(), HOUSE.version, clock.startMs) : [];
-  const oldest = log[0];
-  const model = buildModel(generated, oldest ? Math.min(oldest.simMs, clock.startMs) : clock.startMs, world);
-  for (const entry of log) {
-    catchUp(model, entry.simMs);
-    model.dispatch(entry.call);
-    holdVisitorEntities(model, entry.call.entityIds);
-  }
-  if (log.length > 0) catchUp(model, clock.startMs);
+  const model = replayedModel(generated, world, log, clock.startMs);
 
   const publishMs = new Map<string, number>();
   for (const entityId of generated.entityIds) {

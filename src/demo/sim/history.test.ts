@@ -97,4 +97,36 @@ describe("demo history: wall-clock windows", () => {
       expect(p.lu).toBeLessThanOrEqual(endSec + 1);
     }
   });
+
+  test("a live append is stamped on the wall clock, after the fetched points", async () => {
+    const { state } = await import("../../core/store");
+    const { trackEntityHistory, untrackEntityHistory } = await import("../../history/query");
+    const id = "light.living_room_main";
+    const endTime = new Date();
+    await trackEntityHistory(id, { startTime: new Date(endTime.getTime() - 3_600_000), endTime });
+    try {
+      const fetched = state.history[id]?.entityHistory.length ?? 0;
+      expect(fetched).toBeGreaterThan(0);
+      const lastFetchedLu = state.history[id]?.entityHistory.at(-1)?.lu ?? Number.POSITIVE_INFINITY;
+      applyDemoServiceCall("light", "toggle", {}, { entity_id: id });
+      const points = state.history[id]?.entityHistory ?? [];
+      expect(points.length).toBe(fetched + 1);
+      const appended = points.at(-1)?.lu ?? 0;
+      expect(Math.abs(appended - Date.now() / 1000)).toBeLessThanOrEqual(1);
+      expect(appended).toBeGreaterThanOrEqual(lastFetchedLu);
+    } finally {
+      untrackEntityHistory(id);
+    }
+  });
+
+  test("a tap at the pinned now shows in history ending at the caller's now", async () => {
+    const { state } = await import("../../core/store");
+    const { fetchHistory } = await import("../../history/fetch");
+    const id = "light.kitchen_counter";
+    applyDemoServiceCall("light", "toggle", {}, { entity_id: id });
+    const endTime = new Date();
+    await new Promise((r) => setTimeout(r, 20));
+    const result = await fetchHistory({ startTime: new Date(endTime.getTime() - 3_600_000), endTime, entityIds: [id] });
+    expect(result[id]?.at(-1)?.s).toBe(state.entities[id]?.state);
+  });
 });

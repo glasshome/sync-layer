@@ -32,7 +32,7 @@ function isLoggedCall(v: unknown): v is LoggedCall {
   return typeof c.simMs === "number" && isServiceCall(c.call);
 }
 
-function prune(entries: LoggedCall[], nowMs: number): LoggedCall[] {
+export function pruneLog(entries: readonly LoggedCall[], nowMs: number): LoggedCall[] {
   const cutoff = nowMs - MAX_AGE_MS;
   return entries
     .filter((e) => e.simMs >= cutoff)
@@ -63,7 +63,7 @@ export function readLog(storage: Storage | undefined, houseVersion: number, nowM
     if (!raw) return [];
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
-    return prune(parsed.filter(isLoggedCall), nowMs);
+    return pruneLog(parsed.filter(isLoggedCall), nowMs);
   } catch {
     return [];
   }
@@ -83,7 +83,7 @@ export function appendLog(storage: Storage | undefined, houseVersion: number, en
     existing = [];
   }
   try {
-    storage.setItem(key, JSON.stringify(prune([...existing, entry], nowMs)));
+    storage.setItem(key, JSON.stringify(pruneLog([...existing, entry], nowMs)));
   } catch {
     // quota exceeded: this visitor change just doesn't survive a refresh
   }
