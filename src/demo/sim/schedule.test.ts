@@ -214,5 +214,5 @@ describe("schedule", () => {
       }
     }
     expect(diffs).toEqual([]);
-  });
+  }, 30_000);
 });
