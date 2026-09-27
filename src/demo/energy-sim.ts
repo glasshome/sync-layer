@@ -14,6 +14,10 @@
  * @packageDocumentation
  */
 
+import { solarElevation, sunTimes } from "./world/sun";
+import { getWorld, cloudCover as worldCloudCover } from "./world/world";
+import { localTime as worldLocalTime } from "./world/local-time";
+
 // ============================================
 // TYPES
 // ============================================
@@ -40,8 +44,6 @@ export interface EnergySample {
 // ============================================
 
 const SOLAR_PEAK_W = 5200;
-const SUNRISE_HOUR = 6.5;
-const SUNSET_HOUR = 20.5;
 
 const ALWAYS_ON_W = 285;
 
@@ -92,64 +94,42 @@ interface LocalTime {
   minuteOfDay: number;
   /** 0 = Sunday .. 6 = Saturday. */
   dayOfWeek: number;
-  /** Integer day-of-year-ish key (days since epoch in local time). */
+  /** Integer day index (local midnight instant / 1 day), unique per local day. */
   dayKey: number;
+  /** UTC ms of local midnight for this day. */
+  midnightMs: number;
 }
 
 function localTime(timestampMs: number): LocalTime {
-  const d = new Date(timestampMs);
-  const hours = d.getHours();
-  const minutes = d.getMinutes();
-  const seconds = d.getSeconds();
-  const hourFrac = hours + minutes / 60 + seconds / 3600;
-  const minuteOfDay = hours * 60 + minutes + seconds / 60;
-  // Local-midnight day index: shift by the local tz offset so the integer
-  // changes exactly at local midnight regardless of UTC.
-  const offsetMs = d.getTimezoneOffset() * 60_000;
-  const dayKey = Math.floor((timestampMs - offsetMs) / 86_400_000);
-  return { hourFrac, minuteOfDay, dayOfWeek: d.getDay(), dayKey };
-}
-
-function localMidnightMs(timestampMs: number, lt: LocalTime): number {
-  return timestampMs - lt.minuteOfDay * 60_000;
+  const w = getWorld();
+  const lt = worldLocalTime(timestampMs, w.timeZone);
+  return {
+    hourFrac: lt.hour,
+    minuteOfDay: lt.minuteOfDay,
+    dayOfWeek: lt.weekday,
+    dayKey: Math.round(lt.midnightMs / 86_400_000),
+    midnightMs: lt.midnightMs,
+  };
 }
 
 // ============================================
 // SOLAR
 // ============================================
 
-/** Smooth multiplicative cloud factor in [0.55, 1.0], seeded per day. */
-function cloudFactor(lt: LocalTime): number {
-  const rand = mulberry32(hashInt(lt.dayKey * 2654435761));
-  const phase1 = rand() * Math.PI * 2;
-  const phase2 = rand() * Math.PI * 2;
-  const phase3 = rand() * Math.PI * 2;
-  const m = lt.minuteOfDay;
-  // Slow summed sines: 37min, 73min, 11min periods, small amplitudes.
-  const wave =
-    0.16 * Math.sin((m / 37) * Math.PI * 2 + phase1) +
-    0.14 * Math.sin((m / 73) * Math.PI * 2 + phase2) +
-    0.05 * Math.sin((m / 11) * Math.PI * 2 + phase3);
-  // Center near 0.85, span into [0.55, 1.0].
-  const f = 0.85 + wave;
-  return Math.max(0.55, Math.min(1.0, f));
-}
-
-function solarPower(lt: LocalTime): number {
-  if (lt.hourFrac <= SUNRISE_HOUR || lt.hourFrac >= SUNSET_HOUR) return 0;
-  const frac = (lt.hourFrac - SUNRISE_HOUR) / (SUNSET_HOUR - SUNRISE_HOUR);
-  const shape = Math.sin(frac * Math.PI) ** 1.3;
-  return SOLAR_PEAK_W * shape * cloudFactor(lt);
-}
+const RAD = Math.PI / 180;
 
 /** Coarse solar elevation in degrees for sun.sun attributes. */
-export function sunElevation(lt: LocalTime): number {
-  if (lt.hourFrac <= SUNRISE_HOUR || lt.hourFrac >= SUNSET_HOUR) {
-    // Below horizon: small negative dip.
-    return -12;
-  }
-  const frac = (lt.hourFrac - SUNRISE_HOUR) / (SUNSET_HOUR - SUNRISE_HOUR);
-  return 60 * Math.sin(frac * Math.PI);
+export function sunElevation(timestampMs: number): number {
+  const w = getWorld();
+  return solarElevation(timestampMs, w.latitude, w.longitude);
+}
+
+function solarPower(timestampMs: number): number {
+  const w = getWorld();
+  const elevation = solarElevation(timestampMs, w.latitude, w.longitude);
+  if (elevation <= 0) return 0;
+  const shape = Math.sin(elevation * RAD) ** 1.3;
+  return SOLAR_PEAK_W * shape * (1 - 0.7 * worldCloudCover(timestampMs, w));
 }
 
 // ============================================
@@ -268,7 +248,7 @@ const socCache = new Map<number, Float64Array>();
 /** Net surplus (solar - home) at a given local-time sample, in watts. */
 function netSurplusAt(timestampMs: number): number {
   const lt = localTime(timestampMs);
-  const solar = solarPower(lt);
+  const solar = solarPower(timestampMs);
   const home = homePower(lt);
   return solar - home;
 }
@@ -357,9 +337,9 @@ function homePower(lt: LocalTime): number {
  */
 export function simulateEnergy(timestampMs: number): EnergySample {
   const lt = localTime(timestampMs);
-  const midnightMs = localMidnightMs(timestampMs, lt);
+  const midnightMs = lt.midnightMs;
 
-  const solarW = solarPower(lt);
+  const solarW = solarPower(timestampMs);
 
   const fridgeW = fridgePower(lt);
   const ovenW = ovenPower(lt);
@@ -412,8 +392,7 @@ export function simulateEnergy(timestampMs: number): EnergySample {
 
 /** Whether the sun is above the horizon at a timestamp. */
 export function isSunUp(timestampMs: number): boolean {
-  const lt = localTime(timestampMs);
-  return lt.hourFrac > SUNRISE_HOUR && lt.hourFrac < SUNSET_HOUR;
+  return sunElevation(timestampMs) > -0.833;
 }
 
 /** Next sunrise/sunset ISO strings relative to a timestamp. */
@@ -422,16 +401,12 @@ export function sunEvents(timestampMs: number): {
   nextSetting: string;
   elevation: number;
 } {
-  const lt = localTime(timestampMs);
-  const midnightMs = localMidnightMs(timestampMs, lt);
-  const sunriseMs = midnightMs + SUNRISE_HOUR * 3_600_000;
-  const sunsetMs = midnightMs + SUNSET_HOUR * 3_600_000;
-  const nextRising = timestampMs < sunriseMs ? sunriseMs : sunriseMs + 86_400_000;
-  const nextSetting = timestampMs < sunsetMs ? sunsetMs : sunsetMs + 86_400_000;
+  const w = getWorld();
+  const { risingMs, settingMs } = sunTimes(timestampMs, w.latitude, w.longitude);
   return {
-    nextRising: new Date(nextRising).toISOString(),
-    nextSetting: new Date(nextSetting).toISOString(),
-    elevation: Math.round(sunElevation(lt) * 100) / 100,
+    nextRising: new Date(risingMs).toISOString(),
+    nextSetting: new Date(settingMs).toISOString(),
+    elevation: Math.round(sunElevation(timestampMs) * 100) / 100,
   };
 }
 
