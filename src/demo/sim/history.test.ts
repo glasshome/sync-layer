@@ -17,6 +17,10 @@ describe("demo history", () => {
     const h = demoEntityHistory("sensor.temperature_living", END - 7 * 86_400_000, END);
     expect(h[0]!.lu * 1000).toBeGreaterThanOrEqual(END - 24 * 3_600_000);
   });
+  test("empty window returns no points", () => {
+    expect(demoEntityHistory("light.living_room_main", END, END - 1000)).toEqual([]);
+    expect(demoEntityHistory("light.living_room_main", END + 3_600_000, END + 7_200_000)).toEqual([]);
+  });
   test("history agrees with live state at the end", async () => {
     const { state } = await import("../../core/store");
     const h = demoEntityHistory("light.living_room_main", END - 3_600_000, END);
@@ -55,7 +59,7 @@ describe("demo history: a hold from before the window", () => {
     unloadDemoData();
     return loadDemoHouse({ clock: { pinned: "2026-12-15T00:00:00Z", seed: 3 } }).then(() => {
       // Everyone's asleep 00:00-03:00 local, so no household transition clears the
-      // "boundary" hold this domain gets — the light stays off the whole window.
+      // "boundary" hold this domain gets, and the light stays off the whole window.
       applyDemoServiceCall("light", "turn_off", {}, { entity_id: "light.living_room_main" });
       advanceDemoTo(NIGHT_END);
     });

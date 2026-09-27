@@ -30,10 +30,10 @@ export function demoEntityHistory(entityId: string, startMs: number, endMs: numb
   const liveNowMs = live.nowMs;
   const endC = Math.min(endMs, liveNowMs);
   const startC = Math.max(startMs, endC - DAY_MS);
+  if (startC >= endC) return [];
 
   const log = demoCallLog();
-  // Older log entries carry state (holds, toggles) the window's state at startC depends on;
-  // replay them too, just don't record points from before the window starts.
+  // Replay from the oldest pending log entry too, so a pre-window hold still applies.
   const modelStartMs = log.length > 0 ? Math.min(startC, log[0]!.simMs) : startC;
 
   const replayModel = demoReplayModel(modelStartMs);
@@ -44,12 +44,19 @@ export function demoEntityHistory(entityId: string, startMs: number, endMs: numb
   const points: DemoEntityHistoryPoint[] = [];
   let lastState: string | undefined;
 
+  // A log dispatch can change state at the same simMs a step already recorded; keep `lu` strictly increasing.
+  function pushPoint(point: DemoEntityHistoryPoint): void {
+    lastState = point.s;
+    const last = points.at(-1);
+    if (last && last.lu === point.lu) points[points.length - 1] = point;
+    else points.push(point);
+  }
+
   function record(simMs: number): void {
     if (simMs < startC) return;
     const p = projectedState(replay, deviceKey, entityId);
     if (!p || p.state === lastState) return;
-    lastState = p.state;
-    points.push({ s: p.state, a: p.attributes, lu: toSeconds(simMs) });
+    pushPoint({ s: p.state, a: p.attributes, lu: toSeconds(simMs) });
   }
 
   record(replay.nowMs);
@@ -72,7 +79,7 @@ export function demoEntityHistory(entityId: string, startMs: number, endMs: numb
   if (endC === liveNowMs) {
     const liveProjection = projectedState(live, device.key, entityId);
     if (liveProjection && liveProjection.state !== lastState) {
-      points.push({ s: liveProjection.state, a: liveProjection.attributes, lu: toSeconds(endC) });
+      pushPoint({ s: liveProjection.state, a: liveProjection.attributes, lu: toSeconds(endC) });
     }
   }
 
