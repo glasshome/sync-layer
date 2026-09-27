@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.9.0](https://github.com/glasshome/sync-layer/compare/v0.8.2...v0.9.0) (2026-09-27)
+
+
+### Features
+
+* **demo:** numeric sensors serve a day of history, a gentle curve ending at the current reading ([130637a](https://github.com/glasshome/sync-layer/commit/130637a256aca406f51d3dcd23a79c6a40e9601d))
+* **demo:** numeric sensors serve hour and day statistics from their demo curve ([a44c041](https://github.com/glasshome/sync-layer/commit/a44c04185ad235e03f81f401bd5c8efe210fc4a9))
+* **demo:** the demo speaker carries an album cover and skips tracks ([afaadb3](https://github.com/glasshome/sync-layer/commit/afaadb348ace5f57907e7ae4eb3b2c41db3d44de))
+* **demo:** the demo sun reports whether it is rising and eases through twilight ([49fc1e3](https://github.com/glasshome/sync-layer/commit/49fc1e3ad3d6340ac30ded25419d38f559ae9d03))
+* **weather:** forecasts stay live while a widget reads them ([39961bd](https://github.com/glasshome/sync-layer/commit/39961bdd5ebeb5384635bf122d09be33acea0408))
+
+
+### Bug Fixes
+
+* **demo:** the demo camera streams and shows its still from the dashboard's own origin ([79ca47b](https://github.com/glasshome/sync-layer/commit/79ca47bb202980a0b1081c1cbaf01a6f9e6731fd))
+* **deps:** widget-contract 0.3.0 ([0a19261](https://github.com/glasshome/sync-layer/commit/0a19261b9c111dfcb20b3a3a18ffb10e65e27cde))
+
 ## [0.8.2](https://github.com/glasshome/sync-layer/compare/v0.8.1...v0.8.2) (2026-09-21)
 
 
