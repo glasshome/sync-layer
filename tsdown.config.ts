@@ -5,6 +5,7 @@ export default defineConfig({
     index: "src/index.ts",
     "solid/index": "src/solid/index.ts",
     "worker/worker-main": "src/worker/worker-main.ts",
+    "demo/ids": "src/demo/ids.ts",
   },
   format: ["esm"],
   dts: true,
