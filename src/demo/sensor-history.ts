@@ -1,4 +1,5 @@
-import type { DemoHistoryPoint } from "./energy-sim";
+import { state } from "../core/store";
+import type { DemoHistoryPoint, DemoStatisticBucket } from "./energy-sim";
 
 const DAY_MS = 86_400_000;
 
@@ -34,4 +35,53 @@ export function synthesizeSensorHistory(
 	const last = points.at(-1);
 	if (last) last.s = String(current);
 	return points;
+}
+
+function currentReading(id: string): number | undefined {
+	if (!id.startsWith("sensor.")) return undefined;
+	const current = Number(state.entities[id]?.state);
+	return Number.isFinite(current) ? current : undefined;
+}
+
+/** History for a demo sensor with a numeric reading; undefined for anything else. */
+export function numericSensorHistory(
+	id: string,
+	startMs: number,
+	endMs: number,
+): DemoHistoryPoint[] | undefined {
+	const current = currentReading(id);
+	return current === undefined
+		? undefined
+		: synthesizeSensorHistory(id, current, startMs, endMs);
+}
+
+/** Hour or day buckets of the same curve, shaped like recorder statistics. */
+export function numericSensorStatistics(
+	id: string,
+	startMs: number,
+	endMs: number,
+	period: "hour" | "day",
+): DemoStatisticBucket[] {
+	const points = numericSensorHistory(id, startMs, endMs);
+	if (!points) return [];
+	const span = period === "hour" ? 3_600_000 : DAY_MS;
+	const buckets: DemoStatisticBucket[] = [];
+	for (let start = startMs; start < endMs; start += span) {
+		const end = start + span;
+		const values = points
+			.filter((p) => p.lu * 1000 >= start && p.lu * 1000 < end)
+			.map((p) => Number(p.s));
+		if (values.length === 0) continue;
+		const mean = values.reduce((a, b) => a + b, 0) / values.length;
+		buckets.push({
+			start,
+			end,
+			mean,
+			min: Math.min(...values),
+			max: Math.max(...values),
+			sum: 0,
+			change: 0,
+		});
+	}
+	return buckets;
 }

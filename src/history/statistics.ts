@@ -9,6 +9,7 @@
 import type { SyncLayerConnection } from "../connection/types";
 import { isDemoMode } from "../demo/demo-provider";
 import { isEnergyEntity, synthesizeEnergyStatistics } from "../demo/energy-sim";
+import { numericSensorStatistics } from "../demo/sensor-history";
 
 /**
  * A single statistics bucket for one statistic id.
@@ -18,16 +19,16 @@ import { isEnergyEntity, synthesizeEnergyStatistics } from "../demo/energy-sim";
  * to ms epoch numbers regardless of the version's wire format.
  */
 export interface StatisticValue {
-  /** Bucket start (ms epoch) */
-  start: number;
-  /** Bucket end (ms epoch) */
-  end: number;
-  mean?: number;
-  sum?: number;
-  min?: number;
-  max?: number;
-  state?: number;
-  change?: number;
+	/** Bucket start (ms epoch) */
+	start: number;
+	/** Bucket end (ms epoch) */
+	end: number;
+	mean?: number;
+	sum?: number;
+	min?: number;
+	max?: number;
+	state?: number;
+	change?: number;
 }
 
 /** Aggregation period for statistics buckets. */
@@ -37,53 +38,60 @@ export type StatisticsPeriod = "5minute" | "hour" | "day" | "week" | "month";
  * Options for {@link fetchStatisticsDuringPeriod}.
  */
 export interface StatisticsQueryOptions {
-  /** Start time (required) */
-  startTime: Date;
-  /** End time (optional, defaults to now on the HA side) */
-  endTime?: Date;
-  /** Aggregation period */
-  period: StatisticsPeriod;
+	/** Start time (required) */
+	startTime: Date;
+	/** End time (optional, defaults to now on the HA side) */
+	endTime?: Date;
+	/** Aggregation period */
+	period: StatisticsPeriod;
 }
 
 /** Connection surface used by statistics fetching. */
 type StatisticsConnection = Pick<SyncLayerConnection, "sendMessagePromise">;
 
-const STATISTIC_TYPES = ["mean", "sum", "min", "max", "state", "change"] as const;
+const STATISTIC_TYPES = [
+	"mean",
+	"sum",
+	"min",
+	"max",
+	"state",
+	"change",
+] as const;
 
 /**
  * HA returns start/end as ISO strings or ms numbers depending on version.
  * Normalize both shapes to ms epoch numbers; unparseable values become NaN.
  */
 export function normalizeStatisticTime(value: unknown): number {
-  if (typeof value === "number") return value;
-  if (typeof value === "string") return new Date(value).getTime();
-  return Number.NaN;
+	if (typeof value === "number") return value;
+	if (typeof value === "string") return new Date(value).getTime();
+	return Number.NaN;
 }
 
 function normalizeNumber(value: unknown): number | undefined {
-  return typeof value === "number" ? value : undefined;
+	return typeof value === "number" ? value : undefined;
 }
 
 function normalizeStatisticValue(raw: Record<string, unknown>): StatisticValue {
-  const value: StatisticValue = {
-    start: normalizeStatisticTime(raw.start),
-    end: normalizeStatisticTime(raw.end),
-  };
+	const value: StatisticValue = {
+		start: normalizeStatisticTime(raw.start),
+		end: normalizeStatisticTime(raw.end),
+	};
 
-  const mean = normalizeNumber(raw.mean);
-  if (mean !== undefined) value.mean = mean;
-  const sum = normalizeNumber(raw.sum);
-  if (sum !== undefined) value.sum = sum;
-  const min = normalizeNumber(raw.min);
-  if (min !== undefined) value.min = min;
-  const max = normalizeNumber(raw.max);
-  if (max !== undefined) value.max = max;
-  const stateVal = normalizeNumber(raw.state);
-  if (stateVal !== undefined) value.state = stateVal;
-  const change = normalizeNumber(raw.change);
-  if (change !== undefined) value.change = change;
+	const mean = normalizeNumber(raw.mean);
+	if (mean !== undefined) value.mean = mean;
+	const sum = normalizeNumber(raw.sum);
+	if (sum !== undefined) value.sum = sum;
+	const min = normalizeNumber(raw.min);
+	if (min !== undefined) value.min = min;
+	const max = normalizeNumber(raw.max);
+	if (max !== undefined) value.max = max;
+	const stateVal = normalizeNumber(raw.state);
+	if (stateVal !== undefined) value.state = stateVal;
+	const change = normalizeNumber(raw.change);
+	if (change !== undefined) value.change = change;
 
-  return value;
+	return value;
 }
 
 /**
@@ -93,61 +101,65 @@ function normalizeStatisticValue(raw: Record<string, unknown>): StatisticValue {
  * hit `undefined`.
  */
 export async function fetchStatisticsDuringPeriod(
-  connection: StatisticsConnection,
-  statisticIds: string[],
-  options: StatisticsQueryOptions,
+	connection: StatisticsConnection,
+	statisticIds: string[],
+	options: StatisticsQueryOptions,
 ): Promise<Record<string, StatisticValue[]>> {
-  const { startTime, endTime, period } = options;
+	const { startTime, endTime, period } = options;
 
-  // Demo mode: integrate the pure energy model across each bucket. Only
-  // hour/day periods are synthesized (week/month derive from these on the
-  // widget side); non-energy ids resolve to empty arrays.
-  if (isDemoMode()) {
-    const result: Record<string, StatisticValue[]> = {};
-    const statPeriod = period === "hour" || period === "day" ? period : "day";
-    const endMs = (endTime ?? new Date()).getTime();
-    for (const id of statisticIds) {
-      result[id] = isEnergyEntity(id)
-        ? synthesizeEnergyStatistics(id, startTime.getTime(), endMs, statPeriod)
-        : [];
-    }
-    return result;
-  }
+	// Demo mode: integrate the pure energy model across each bucket. Only
+	// hour/day periods are synthesized (week/month derive from these on the
+	// widget side); other numeric sensors get buckets of their demo curve.
+	if (isDemoMode()) {
+		const result: Record<string, StatisticValue[]> = {};
+		const statPeriod = period === "hour" || period === "day" ? period : "day";
+		const endMs = (endTime ?? new Date()).getTime();
+		for (const id of statisticIds) {
+			result[id] = isEnergyEntity(id)
+				? synthesizeEnergyStatistics(id, startTime.getTime(), endMs, statPeriod)
+				: numericSensorStatistics(id, startTime.getTime(), endMs, statPeriod);
+		}
+		return result;
+	}
 
-  const params: {
-    type: "recorder/statistics_during_period";
-    start_time: string;
-    end_time?: string;
-    statistic_ids: string[];
-    period: StatisticsPeriod;
-    types: readonly string[];
-  } = {
-    type: "recorder/statistics_during_period",
-    start_time: startTime.toISOString(),
-    statistic_ids: statisticIds,
-    period,
-    types: STATISTIC_TYPES,
-  };
+	const params: {
+		type: "recorder/statistics_during_period";
+		start_time: string;
+		end_time?: string;
+		statistic_ids: string[];
+		period: StatisticsPeriod;
+		types: readonly string[];
+	} = {
+		type: "recorder/statistics_during_period",
+		start_time: startTime.toISOString(),
+		statistic_ids: statisticIds,
+		period,
+		types: STATISTIC_TYPES,
+	};
 
-  if (endTime) {
-    params.end_time = endTime.toISOString();
-  }
+	if (endTime) {
+		params.end_time = endTime.toISOString();
+	}
 
-  const response =
-    await connection.sendMessagePromise<Record<string, Array<Record<string, unknown>>>>(params);
+	const response =
+		await connection.sendMessagePromise<
+			Record<string, Array<Record<string, unknown>>>
+		>(params);
 
-  const result: Record<string, StatisticValue[]> = {};
+	const result: Record<string, StatisticValue[]> = {};
 
-  // Seed every requested id so missing ids surface as empty arrays.
-  for (const id of statisticIds) {
-    result[id] = [];
-  }
+	// Seed every requested id so missing ids surface as empty arrays.
+	for (const id of statisticIds) {
+		result[id] = [];
+	}
 
-  if (response && typeof response === "object") {
-    for (const [id, buckets] of Object.entries(response)) {
-      result[id] = Array.isArray(buckets) ? buckets.map(normalizeStatisticValue) : [];
-    }
-  }
+	if (response && typeof response === "object") {
+		for (const [id, buckets] of Object.entries(response)) {
+			result[id] = Array.isArray(buckets)
+				? buckets.map(normalizeStatisticValue)
+				: [];
+		}
+	}
 
-  return result;
+	return result;
 }

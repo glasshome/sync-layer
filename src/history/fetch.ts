@@ -5,11 +5,10 @@
  */
 
 import { sendCommand } from "../commands/service";
-import { state } from "../core/store";
 import type { EntityId } from "../core/types";
 import { isDemoMode } from "../demo/demo-provider";
 import { isEnergyEntity, synthesizeEnergyHistory } from "../demo/energy-sim";
-import { synthesizeSensorHistory } from "../demo/sensor-history";
+import { numericSensorHistory } from "../demo/sensor-history";
 import { entityIdHistoryNeedsAttributes } from "./constants";
 import type {
 	EntityHistoryData,
@@ -18,13 +17,6 @@ import type {
 	HistoryQueryOptions,
 	TimelineState,
 } from "./types";
-
-function numericSensorHistory(id: EntityId, startMs: number, endMs: number) {
-	if (!id.startsWith("sensor.")) return undefined;
-	const current = Number(state.entities[id]?.state);
-	if (!Number.isFinite(current)) return undefined;
-	return synthesizeSensorHistory(id, current, startMs, endMs);
-}
 
 /**
  * Fetch history for entities during a time period
