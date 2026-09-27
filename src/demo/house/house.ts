@@ -69,6 +69,15 @@ export const HOUSE: House = {
       b.motion("Living Room Motion"),
       b.contact("window", "Living Room Left Window"),
       b.contact("window", "Living Room Right Window"),
+      b.scene(
+        "Movie Night",
+        [
+          LIVING_LIGHTS,
+          { domain: "cover", service: "close_cover", entityIds: ["cover.living_room_blinds"] },
+          { domain: "media_player", service: "media_play", entityIds: ["media_player.living_room_speaker"] },
+        ],
+        { key: "movie_night" },
+      ),
     ]),
     room("kitchen", "Kitchen", "ground", (b) => [
       b.light("Kitchen Counter", { id: "light.kitchen_counter" }),
@@ -95,6 +104,14 @@ export const HOUSE: House = {
       b.light("Sideboard", { dimmable: false }),
       b.contact("window", "Dining Room Window"),
       b.climateSensor("Dining Room Climate"),
+      b.scene(
+        "Dinner",
+        [
+          { domain: "light", service: "turn_on", data: { brightness_pct: 60 }, entityIds: ["light.dining_table"] },
+          { domain: "light", service: "turn_on", data: { brightness_pct: 40 }, entityIds: ["light.kitchen_pendant"] },
+        ],
+        { key: "dinner" },
+      ),
     ]),
     room("entry", "Entry", "ground", (b) => [
       b.light("Hallway", { id: "light.hallway" }),
@@ -252,21 +269,12 @@ export const HOUSE: House = {
     }),
     b.button("Restart Home Assistant", { category: "config", deviceClass: "restart" }),
     b.button("Update Firmware", { category: "config", deviceClass: "update" }),
-    b.scene("Movie Night", [
-      LIVING_LIGHTS,
-      { domain: "cover", service: "close_cover", entityIds: ["cover.living_room_blinds"] },
-      { domain: "media_player", service: "media_play", entityIds: ["media_player.living_room_speaker"] },
-    ]),
     b.scene("Good Morning", [
       { domain: "cover", service: "open_cover", entityIds: ["cover.bedroom_curtains"] },
       { domain: "light", service: "turn_on", entityIds: ["light.kitchen_counter"] },
       { domain: "switch", service: "turn_on", entityIds: ["switch.coffee_machine"] },
     ]),
     b.scene("Good Night", [ALL_LIGHTS_OFF, ALL_LOCKS_LOCKED, { domain: "cover", service: "close_cover" }]),
-    b.scene("Dinner", [
-      { domain: "light", service: "turn_on", data: { brightness_pct: 60 }, entityIds: ["light.dining_table"] },
-      { domain: "light", service: "turn_on", data: { brightness_pct: 40 }, entityIds: ["light.kitchen_pendant"] },
-    ]),
     b.scene("Away", [ALL_LIGHTS_OFF, ALL_LOCKS_LOCKED]),
     ...WEATHER_FIXTURES.map((w) => b.weatherShowcase(w)),
   ]),

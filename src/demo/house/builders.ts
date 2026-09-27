@@ -2,8 +2,8 @@ import type { WEATHER_FIXTURES } from "../kinds/readings";
 import type { DeviceSpec, KindName } from "../kinds/types";
 import type { HouseRoom } from "./house";
 
-export type Integration = "hue" | "zha" | "shelly" | "met" | "sun" | "person" | "demo";
-export type Transport = "zigbee" | "wifi";
+type Integration = "hue" | "zha" | "shelly" | "met" | "sun" | "person" | "demo";
+type Transport = "zigbee" | "wifi";
 
 /** A scene step; without `entityIds` it targets every `domain` entity, narrowed to `area` when given. */
 export interface SceneTarget {
@@ -22,13 +22,16 @@ interface Hardware {
   battery?: boolean;
 }
 
-export interface BuildOpts {
+interface FeatureOpts {
+  supportedFeatures?: number;
+}
+
+interface BuildOpts {
   key?: string;
   id?: string;
   batteryId?: string;
   manufacturer?: string;
   model?: string;
-  supportedFeatures?: number;
   entityName?: string;
   deviceId?: string;
 }
@@ -113,7 +116,6 @@ export function inRoom(roomId: string | null) {
       model: opts.model ?? hw.model,
       params: definedOnly({
         ...params,
-        supportedFeatures: opts.supportedFeatures,
         integration: hw.integration,
         transport: hw.transport,
         battery: hw.battery,
@@ -127,11 +129,11 @@ export function inRoom(roomId: string | null) {
   return {
     light: (
       name: string,
-      opts: BuildOpts & { dimmable?: boolean; color?: boolean; colorTemp?: boolean; watts?: number } = {},
+      opts: BuildOpts & FeatureOpts & { dimmable?: boolean; color?: boolean; colorTemp?: boolean; watts?: number } = {},
     ) => {
       const model = opts.color ? "Hue White and Color Ambiance" : HUE.model;
-      const { dimmable = true, color, colorTemp, watts = 9 } = opts;
-      return make("light", name, { dimmable, color, colorTemp, watts }, { ...HUE, model }, opts);
+      const { dimmable = true, color, colorTemp, watts = 9, supportedFeatures } = opts;
+      return make("light", name, { dimmable, color, colorTemp, watts, supportedFeatures }, { ...HUE, model }, opts);
     },
     switchDevice: (name: string, opts: BuildOpts & { watts?: number; deviceClass?: string } = {}) =>
       make("switch", name, { watts: opts.watts ?? 0, deviceClass: opts.deviceClass }, SHELLY_RELAY, opts),
@@ -152,7 +154,8 @@ export function inRoom(roomId: string | null) {
       ),
     cover: (
       name: string,
-      opts: BuildOpts & { position?: boolean; tilt?: boolean; deviceClass?: string; travelMs?: number } = {},
+      opts: BuildOpts &
+        FeatureOpts & { position?: boolean; tilt?: boolean; deviceClass?: string; travelMs?: number } = {},
     ) =>
       make(
         "cover",
@@ -162,28 +165,42 @@ export function inRoom(roomId: string | null) {
           tilt: opts.tilt,
           deviceClass: opts.deviceClass ?? "shade",
           travelMs: opts.travelMs,
+          supportedFeatures: opts.supportedFeatures,
         },
         { manufacturer: "IKEA", model: "Fyrtur", integration: "zha", transport: "zigbee" },
         opts,
       ),
-    lock: (name: string, opts: BuildOpts = {}) =>
-      make("lock", name, {}, { manufacturer: "Yale", model: "Assure Lock 2", ...ZIGBEE_BATTERY }, opts),
+    lock: (name: string, opts: BuildOpts & FeatureOpts = {}) =>
+      make(
+        "lock",
+        name,
+        { supportedFeatures: opts.supportedFeatures },
+        { manufacturer: "Yale", model: "Assure Lock 2", ...ZIGBEE_BATTERY },
+        opts,
+      ),
     climate: (
       name: string,
-      opts: BuildOpts & { modes?: string[]; fanModes?: string[]; presets?: string[]; watts?: number } = {},
+      opts: BuildOpts &
+        FeatureOpts & { modes?: string[]; fanModes?: string[]; presets?: string[]; watts?: number } = {},
     ) =>
       make(
         "climate",
         name,
-        { modes: opts.modes, fanModes: opts.fanModes, presets: opts.presets, watts: opts.watts ?? 1500 },
+        {
+          modes: opts.modes,
+          fanModes: opts.fanModes,
+          presets: opts.presets,
+          watts: opts.watts ?? 1500,
+          supportedFeatures: opts.supportedFeatures,
+        },
         { manufacturer: "Google", model: "Nest Learning Thermostat", integration: "demo", transport: "wifi" },
         opts,
       ),
-    waterHeater: (name: string, opts: BuildOpts & { modes: string[]; min: number; max: number }) =>
+    waterHeater: (name: string, opts: BuildOpts & FeatureOpts & { modes: string[]; min: number; max: number }) =>
       make(
         "water_heater",
         name,
-        { modes: opts.modes, min: opts.min, max: opts.max },
+        { modes: opts.modes, min: opts.min, max: opts.max, supportedFeatures: opts.supportedFeatures },
         { manufacturer: "Vaillant", model: "uniSTOR", integration: "demo", transport: "wifi" },
         opts,
       ),
@@ -232,11 +249,7 @@ export function inRoom(roomId: string | null) {
         { manufacturer: "Aqara", model: "Motion Sensor P1", ...ZIGBEE_BATTERY },
         opts,
       ),
-    contact: (
-      deviceClass: "door" | "window",
-      name: string,
-      opts: BuildOpts = {},
-    ) =>
+    contact: (deviceClass: "door" | "window", name: string, opts: BuildOpts = {}) =>
       make(
         "binary_sensor",
         name,
@@ -268,10 +281,7 @@ export function inRoom(roomId: string | null) {
         { manufacturer: "Ring", model: "Video Doorbell", integration: "demo", transport: "wifi" },
         opts,
       ),
-    fixedSensor: (
-      name: string,
-      opts: BuildOpts & { value: number; unit?: string; deviceClass?: string },
-    ) =>
+    fixedSensor: (name: string, opts: BuildOpts & { value: number; unit?: string; deviceClass?: string }) =>
       make(
         "sensor",
         name,

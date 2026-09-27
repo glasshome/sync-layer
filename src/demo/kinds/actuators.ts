@@ -1,7 +1,7 @@
 import { energyEntityValue, formatEnergyState, simulateEnergy } from "../energy-sim";
 import { outdoorTempC } from "../world/world";
 import { entityIdFor } from "./types";
-import type { DeviceKind, DeviceSpec, EntitySeed, Projection, ServiceCall } from "./types";
+import type { DeviceKind, DeviceSpec, EntitySeed, Projection, ServiceCall, SimEvent } from "./types";
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -132,6 +132,7 @@ interface SwitchState {
   on: boolean;
   watts: number;
   energyKwh: number;
+  lastWatts: number;
 }
 
 const KWH_PER_WATT_MS = 1 / 3_600_000_000;
@@ -147,6 +148,24 @@ function legacyWatts(id: string, nowMs: number): number {
 function switchWatts(s: SwitchState, p: SwitchParams, nowMs: number): number {
   if (p.legacyPowerId) return legacyWatts(p.legacyPowerId, nowMs);
   return s.on ? s.watts : 0;
+}
+
+function nextSwitchState(s: SwitchState, event: SimEvent, p: SwitchParams, nowMs: number): SwitchState {
+  if (event.type === "tick") {
+    if (!p.energy) return s;
+    return { ...s, energyKwh: s.energyKwh + switchWatts(s, p, nowMs) * event.dtMs * KWH_PER_WATT_MS };
+  }
+  if (event.type !== "call") return s;
+  switch (event.service) {
+    case "turn_on":
+      return { ...s, on: true };
+    case "turn_off":
+      return { ...s, on: false };
+    case "toggle":
+      return { ...s, on: !s.on };
+    default:
+      return s;
+  }
 }
 
 const switchKind: DeviceKind = {
@@ -174,22 +193,11 @@ const switchKind: DeviceKind = {
       on: false,
       watts: p.watts ?? 0,
       energyKwh: round2(ctx.noise(`${device.key}:energy`) * 200),
+      lastWatts: 0,
     };
-    if (event.type === "tick") {
-      if (!p.energy) return s;
-      return { ...s, energyKwh: s.energyKwh + switchWatts(s, p, ctx.nowMs) * event.dtMs * KWH_PER_WATT_MS };
-    }
-    if (event.type !== "call") return s;
-    switch (event.service) {
-      case "turn_on":
-        return { ...s, on: true };
-      case "turn_off":
-        return { ...s, on: false };
-      case "toggle":
-        return { ...s, on: !s.on };
-      default:
-        return s;
-    }
+    const next = nextSwitchState(s, event, p, ctx.nowMs);
+    const lastWatts = switchWatts(next, p, ctx.nowMs);
+    return next === s && s.lastWatts === lastWatts ? s : { ...next, lastWatts };
   },
   project(state, device, ctx) {
     const s = state as SwitchState;
@@ -217,8 +225,7 @@ const switchKind: DeviceKind = {
     return out;
   },
   powerW(state) {
-    const s = state as SwitchState;
-    return s.on ? s.watts : 0;
+    return (state as SwitchState).lastWatts;
   },
   handles: ["turn_on", "turn_off", "toggle"],
 };

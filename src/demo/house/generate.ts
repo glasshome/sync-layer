@@ -136,6 +136,16 @@ function assertUnique(label: string, values: string[]): void {
   }
 }
 
+function assertTargetsExist(placed: Placed[], known: Set<string>): void {
+  for (const p of placed) {
+    if (p.spec.kind !== "scene") continue;
+    for (const t of p.spec.params.targets as ServiceCall[]) {
+      const missing = t.entityIds.find((id) => !known.has(id));
+      if (missing) throw new Error(`demo house: scene ${p.spec.key} targets unknown ${missing}`);
+    }
+  }
+}
+
 function toCategory(c: EntitySeed["category"]): EntityCategory | null {
   return (c ?? null) as EntityCategory | null;
 }
@@ -206,9 +216,14 @@ function deviceEntry(owner: DeviceSpec, id: string, createdIso: string): DeviceR
 }
 
 function areaEntry(room: HouseRoom, placed: Placed[], createdIso: string): AreaRegistryEntry {
-  const reading = (r: string) =>
-    placed.find((p) => !p.side && p.spec.areaId === room.id && p.spec.kind === "sensor" && p.spec.params.reading === r)
-      ?.seeds[0]?.entityId ?? null;
+  const reading = (...readings: string[]) =>
+    placed.find(
+      (p) =>
+        !p.side &&
+        p.spec.areaId === room.id &&
+        p.spec.kind === "sensor" &&
+        readings.includes(String(p.spec.params.reading)),
+    )?.seeds[0]?.entityId ?? null;
   return {
     id: room.id,
     name: room.name,
@@ -221,7 +236,7 @@ function areaEntry(room: HouseRoom, placed: Placed[], createdIso: string): AreaR
     icon: null,
     labels: [],
     picture: null,
-    temperature_entity_id: reading("temperature"),
+    temperature_entity_id: reading("temperature", "outdoor_temperature"),
   };
 }
 
@@ -234,6 +249,7 @@ export function generateHouse(house: House, createdIso: string): GeneratedHouse 
   );
   const entityIds = placed.flatMap((p) => p.seeds.map((s) => s.entityId));
   assertUnique("entity id", entityIds);
+  assertTargetsExist(placed, new Set(entityIds));
 
   const devices: Record<string, DeviceRegistryEntry> = {};
   const entityRegistry: Record<string, EntityRegistryEntry> = {};

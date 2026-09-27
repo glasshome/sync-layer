@@ -521,3 +521,19 @@ describe("declared overrides win over computed features", () => {
     expect(out["switch.k"]?.attributes.device_class).toBe("outlet");
   });
 });
+
+test("switch powerW agrees with its displayed power", () => {
+  const at = { ...ctx, nowMs: Date.parse("2026-06-21T19:00:00Z") };
+  const legacy = spec("switch", { watts: 100, power: true, legacyPowerId: "sensor.oven_power" }, {});
+  let s = ACTUATORS.switch.apply(undefined, { type: "init" }, legacy, at);
+  s = ACTUATORS.switch.apply(s, { type: "tick", dtMs: 1000 }, legacy, at);
+  const shown = Number(ACTUATORS.switch.project(s, legacy, at)["sensor.oven_power"]?.state);
+  expect(shown).toBeGreaterThan(5);
+  expect(ACTUATORS.switch.powerW?.(s)).toBe(shown);
+
+  const plain = spec("switch", { watts: 1200, power: true }, {});
+  let p = ACTUATORS.switch.apply(undefined, { type: "init" }, plain, at);
+  expect(ACTUATORS.switch.powerW?.(p)).toBe(0);
+  p = ACTUATORS.switch.apply(p, { type: "call", entityId: "switch.k", service: "turn_on", data: {} }, plain, at);
+  expect(ACTUATORS.switch.powerW?.(p)).toBe(1200);
+});
