@@ -424,7 +424,7 @@ export async function resetDemo(): Promise<void> {
   await loadDemoHouse({ clock: "live" });
 }
 
-/** @deprecated since 0.9.0, use loadDemoHouse({ clock: "live" }) */
+/** @deprecated since 0.10.0, use loadDemoHouse({ clock: "live" }) */
 export async function loadDemoData(): Promise<void> {
   await loadDemoHouse({ clock: "live" });
 }
@@ -438,12 +438,12 @@ function startTicker(): void {
   ticker = setInterval(tick, TICK_MS);
 }
 
-/** @deprecated since 0.9.0, the demo ticker starts with loadDemoHouse */
+/** @deprecated since 0.10.0, the demo ticker starts with loadDemoHouse */
 export function startDemoEnergyTicker(): void {
   if (session?.live) startTicker();
 }
 
-/** @deprecated since 0.9.0, the demo ticker stops with unloadDemoData */
+/** @deprecated since 0.10.0, the demo ticker stops with unloadDemoData */
 export function stopDemoEnergyTicker(): void {
   if (ticker !== null) {
     clearInterval(ticker);
@@ -460,7 +460,7 @@ function targetIds(target: { entity_id?: string | string[] }): string[] {
   return target.entity_id ? [target.entity_id] : [];
 }
 
-/** @deprecated since 0.9.0, service calls reach the demo through callService */
+/** @deprecated since 0.10.0, service calls reach the demo through callService */
 export function applyDemoServiceCall(
   domain: string,
   service: string,
@@ -486,7 +486,7 @@ export function applyDemoServiceCall(
 // FIXTURES
 // ============================================
 
-/** @deprecated since 0.9.0, use loadDemoHouse */
+/** @deprecated since 0.10.0, use loadDemoHouse */
 export function createDemoFixtures(): DemoFixtures {
   const nowMs = Date.now();
   const iso = new Date(nowMs).toISOString();
