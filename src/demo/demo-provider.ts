@@ -17,6 +17,7 @@ import { generateHouse, type GeneratedHouse } from "./house/generate";
 import { HOUSE } from "./house/house";
 import { KINDS } from "./kinds";
 import type { Projection, ServiceCall } from "./kinds/types";
+import { appendLog, clearLog, type LoggedCall, readLog } from "./sim/log";
 import { createDemoModel, type DemoModel, type HoldUntil } from "./sim/model";
 import { createDriver } from "./sim/schedule";
 import { localTime } from "./world/local-time";
@@ -36,10 +37,7 @@ export interface DemoFixtures {
   devices: Record<string, DeviceRegistryEntry>;
 }
 
-export interface LoggedCall {
-  simMs: number;
-  call: ServiceCall;
-}
+export type { LoggedCall };
 
 interface Published {
   projection: Projection;
@@ -56,6 +54,7 @@ interface DemoSession {
   published: Map<string, Published>;
   publishMs: Map<string, number>;
   log: LoggedCall[];
+  persist: boolean;
 }
 
 interface ResolvedClock {
@@ -64,6 +63,8 @@ interface ResolvedClock {
   seed: number;
   live: boolean;
   speed: number;
+  /** Live with no `?demo-*` override: the only mode that reads or writes the visitor log. */
+  persist: boolean;
 }
 
 const DEMO_HASS_URL = "https://demo.home-assistant.local";
@@ -104,6 +105,13 @@ function catchUp(model: DemoModel, simMs: number): void {
   model.advanceTo(simMs, simMs - model.nowMs <= FINE_GAP_MS ? FINE_STEP_MS : COARSE_STEP_MS);
 }
 
+function holdVisitorEntities(model: DemoModel, entityIds: string[]): void {
+  for (const entityId of entityIds) {
+    const until = VISITOR_HOLDS[extractDomain(entityId)];
+    if (until) model.hold(entityId, until);
+  }
+}
+
 // ============================================
 // CLOCK
 // ============================================
@@ -113,6 +121,14 @@ function visitorTimeZone(): string {
     return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
   } catch {
     return "UTC";
+  }
+}
+
+function demoStorage(): Storage | undefined {
+  try {
+    return globalThis.localStorage;
+  } catch {
+    return undefined;
   }
 }
 
@@ -140,16 +156,19 @@ export function parseDemoOverrides(
 function resolveClock(opts: DemoHouseOptions): ResolvedClock {
   const clock = opts.clock;
   if (clock !== "live") {
-    return { startMs: Date.parse(clock.pinned), timeZone: clock.timeZone ?? "UTC", seed: clock.seed, live: false, speed: 0 };
+    const startMs = Date.parse(clock.pinned);
+    if (Number.isNaN(startMs)) throw new Error(`invalid demo pinned time: ${clock.pinned}`);
+    return { startMs, timeZone: clock.timeZone ?? "UTC", seed: clock.seed, live: false, speed: 0, persist: false };
   }
   const timeZone = visitorTimeZone();
   const nowMs = Date.now();
   const o = parseDemoOverrides(opts.search ?? globalThis.location?.search ?? "", timeZone, nowMs);
   const seed = o.seed ?? 1;
+  const hasOverride = o.pinnedMs !== undefined || o.seed !== undefined || o.speed !== undefined;
   if (o.pinnedMs !== undefined && o.speed === undefined) {
-    return { startMs: o.pinnedMs, timeZone, seed, live: false, speed: 0 };
+    return { startMs: o.pinnedMs, timeZone, seed, live: false, speed: 0, persist: false };
   }
-  return { startMs: o.pinnedMs ?? nowMs, timeZone, seed, live: true, speed: o.speed ?? 1 };
+  return { startMs: o.pinnedMs ?? nowMs, timeZone, seed, live: true, speed: o.speed ?? 1, persist: !hasOverride };
 }
 
 // ============================================
@@ -207,7 +226,7 @@ function publish(s: DemoSession, force: ReadonlySet<string>): void {
   for (const [entityId, p] of Object.entries(s.model.project())) {
     const last = s.published.get(entityId);
     if (last && sameProjection(last.projection, p)) continue;
-    const throttled = last && wallMs - last.wallMs < (s.publishMs.get(entityId) ?? 0);
+    const throttled = s.live && last && wallMs - last.wallMs < (s.publishMs.get(entityId) ?? 0);
     if (throttled && !force.has(entityId)) continue;
     due.push([entityId, p]);
   }
@@ -277,13 +296,22 @@ function tick(): void {
 // ============================================
 
 export async function loadDemoHouse(opts: DemoHouseOptions): Promise<void> {
-  stopDemoEnergyTicker();
   const clock = resolveClock(opts);
+  stopDemoEnergyTicker();
   const world = worldFor(clock.timeZone, clock.seed, clock.startMs);
   setWorld(world);
   const generated = generateHouse(HOUSE, new Date(clock.startMs).toISOString());
-  const model = buildModel(generated, clock.startMs, world);
   contextCounter = 0;
+
+  const log = clock.persist ? readLog(demoStorage(), HOUSE.version, clock.startMs) : [];
+  const oldest = log[0];
+  const model = buildModel(generated, oldest ? Math.min(oldest.simMs, clock.startMs) : clock.startMs, world);
+  for (const entry of log) {
+    catchUp(model, entry.simMs);
+    model.dispatch(entry.call);
+    holdVisitorEntities(model, entry.call.entityIds);
+  }
+  if (log.length > 0) catchUp(model, clock.startMs);
 
   const publishMs = new Map<string, number>();
   for (const entityId of generated.entityIds) {
@@ -316,7 +344,8 @@ export async function loadDemoHouse(opts: DemoHouseOptions): Promise<void> {
     speed: clock.speed,
     published,
     publishMs,
-    log: [],
+    log: [...log],
+    persist: clock.persist,
   };
   if (clock.live) startTicker();
 }
@@ -336,6 +365,7 @@ export function unloadDemoData(): void {
 }
 
 export async function resetDemo(): Promise<void> {
+  clearLog(demoStorage(), HOUSE.version);
   unloadDemoData();
   await loadDemoHouse({ clock: "live" });
 }
@@ -390,11 +420,10 @@ export function applyDemoServiceCall(
   if (s.live) catchUp(s.model, liveSimMs(s));
   const call: ServiceCall = { domain, service, data: serviceData, entityIds };
   s.model.dispatch(call);
-  for (const entityId of entityIds) {
-    const until = VISITOR_HOLDS[extractDomain(entityId)];
-    if (until) s.model.hold(entityId, until);
-  }
-  s.log.push({ simMs: s.model.nowMs, call });
+  holdVisitorEntities(s.model, entityIds);
+  const entry = { simMs: s.model.nowMs, call };
+  s.log.push(entry);
+  if (s.persist) appendLog(demoStorage(), HOUSE.version, entry, Date.now());
   publish(s, new Set(entityIds));
 }
 

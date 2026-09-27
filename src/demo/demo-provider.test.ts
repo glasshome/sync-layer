@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { state } from "../core/store";
 import { extractDomain } from "../core/types";
 import {
@@ -7,8 +7,23 @@ import {
   demoModel,
   loadDemoHouse,
   parseDemoOverrides,
+  resetDemo,
   unloadDemoData,
 } from "./demo-provider";
+
+function memoryLocalStorage(): Storage {
+  const m = new Map<string, string>();
+  return {
+    get length() {
+      return m.size;
+    },
+    clear: () => m.clear(),
+    getItem: (k) => m.get(k) ?? null,
+    key: (i) => [...m.keys()][i] ?? null,
+    removeItem: (k) => void m.delete(k),
+    setItem: (k, v) => void m.set(k, v),
+  };
+}
 
 /**
  * Every domain.service pair an official widget can send must mutate demo
@@ -274,6 +289,8 @@ describe("applyDemoServiceCall covers every widget service", () => {
 });
 
 describe("demo house provider", () => {
+  afterEach(unloadDemoData);
+
   test("pinned load is identical across process time zones", async () => {
     await loadDemoHouse({ clock: { pinned: "2026-06-21T12:00:00Z", seed: 1 } });
     const snap = JSON.stringify(
@@ -304,10 +321,35 @@ describe("demo house provider", () => {
   });
 
   test("live mode moves a cover over wall time", async () => {
-    await loadDemoHouse({ clock: "live", search: "" });
+    // demo-speed=20 compresses the cover's 8 s travel into one ticker interval, no real wait needed.
+    await loadDemoHouse({ clock: "live", search: "?demo-speed=20" });
+    applyDemoServiceCall("cover", "close_cover", {}, { entity_id: "cover.living_room_blinds" });
+    await new Promise((r) => setTimeout(r, 1300));
+    expect(state.entities["cover.living_room_blinds"]?.attributes.current_position).toBe(0);
+    expect(state.entities["cover.living_room_blinds"]?.state).toBe("closed");
+
     applyDemoServiceCall("cover", "open_cover", {}, { entity_id: "cover.living_room_blinds" });
-    await new Promise((r) => setTimeout(r, 2200));
-    expect(["opening", "open"]).toContain(state.entities["cover.living_room_blinds"]?.state ?? "");
-    unloadDemoData();
+    await new Promise((r) => setTimeout(r, 1300));
+    const after = state.entities["cover.living_room_blinds"];
+    expect(["opening", "open"]).toContain(after?.state ?? "");
+    expect(typeof after?.attributes.current_position === "number" && after.attributes.current_position > 0).toBe(true);
+  });
+
+  test("a visitor change survives reload until the next boundary", async () => {
+    const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+    Object.defineProperty(globalThis, "localStorage", { value: memoryLocalStorage(), configurable: true });
+    try {
+      await loadDemoHouse({ clock: "live", search: "" });
+      applyDemoServiceCall("light", "turn_off", {}, { entity_id: "light.hallway" });
+      unloadDemoData();
+      await loadDemoHouse({ clock: "live", search: "" });
+      expect(state.entities["light.hallway"]?.state).toBe("off");
+
+      await resetDemo();
+      expect(globalThis.localStorage.getItem("glasshome.demo.log.v1")).toBeNull();
+    } finally {
+      if (previousStorage) Object.defineProperty(globalThis, "localStorage", previousStorage);
+      else Reflect.deleteProperty(globalThis, "localStorage");
+    }
   });
 });
