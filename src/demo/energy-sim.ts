@@ -14,7 +14,7 @@
  * @packageDocumentation
  */
 
-import { solarElevation, sunTimes } from "./world/sun";
+import { solarElevation } from "./world/sun";
 import { getWorld, cloudCover as worldCloudCover } from "./world/world";
 import { localTime as worldLocalTime } from "./world/local-time";
 
@@ -119,7 +119,7 @@ function localTime(timestampMs: number): LocalTime {
 const RAD = Math.PI / 180;
 
 /** Coarse solar elevation in degrees for sun.sun attributes. */
-export function sunElevation(timestampMs: number): number {
+function sunElevation(timestampMs: number): number {
   const w = getWorld();
   return solarElevation(timestampMs, w.latitude, w.longitude);
 }
@@ -395,43 +395,9 @@ export function isSunUp(timestampMs: number): boolean {
   return sunElevation(timestampMs) > -0.833;
 }
 
-/** Next sunrise/sunset ISO strings relative to a timestamp. */
-export function sunEvents(timestampMs: number): {
-  nextRising: string;
-  nextSetting: string;
-  elevation: number;
-} {
-  const w = getWorld();
-  const { risingMs, settingMs } = sunTimes(timestampMs, w.latitude, w.longitude);
-  return {
-    nextRising: new Date(risingMs).toISOString(),
-    nextSetting: new Date(settingMs).toISOString(),
-    elevation: Math.round(sunElevation(timestampMs) * 100) / 100,
-  };
-}
-
 // ============================================
 // ENTITY MAPPING
 // ============================================
-
-/** The energy sensor entity ids the simulation drives. */
-export const ENERGY_ENTITY_IDS = [
-  "sensor.solar_power",
-  "sensor.grid_import_power",
-  "sensor.grid_export_power",
-  "sensor.battery_charge_power",
-  "sensor.battery_discharge_power",
-  "sensor.battery_soc",
-  "sensor.home_power",
-  "sensor.fridge_power",
-  "sensor.dishwasher_power",
-  "sensor.washing_machine_power",
-  "sensor.oven_power",
-  "sensor.ev_charger_power",
-  "sensor.always_on_power",
-] as const;
-
-export type EnergyEntityId = (typeof ENERGY_ENTITY_IDS)[number];
 
 /** Map an energy entity id to its numeric value from a sample (W, or % for SOC). */
 export function energyEntityValue(entityId: string, sample: EnergySample): number | undefined {

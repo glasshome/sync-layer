@@ -20,7 +20,6 @@ import type {
   FloorRegistryEntry,
   HassEntity,
   LabelRegistryEntry,
-  StatisticData,
   StatisticMetadata,
 } from "./types";
 
@@ -57,7 +56,7 @@ export function bulkUpdateEntities(entities: HassEntity[]): void {
 export function updateEntityRegistry(entry: EntityRegistryEntry): void {
   setState(
     produce((s) => {
-      s.entityRegistry[entry.entity_id] = entry as any;
+      s.entityRegistry[entry.entity_id] = entry;
     }),
   );
 }
@@ -84,7 +83,7 @@ export function bulkUpdateEntityRegistry(entries: EntityRegistryEntry[]): void {
   setState(
     produce((s) => {
       for (const entry of entries) {
-        s.entityRegistry[entry.entity_id] = entry as any;
+        s.entityRegistry[entry.entity_id] = entry;
       }
     }),
   );
@@ -224,24 +223,6 @@ export function updateStatisticsMetadata(metadata: StatisticMetadata[]): void {
     produce((s) => {
       for (const meta of metadata) {
         s.statisticsMetadata[meta.statistic_id] = meta;
-      }
-    }),
-  );
-}
-
-/**
- * Update statistics data
- *
- * @param data - Statistics data points
- */
-export function updateStatisticsData(data: StatisticData[]): void {
-  setState(
-    produce((s) => {
-      for (const point of data) {
-        if (!s.statistics[point.statistic_id]) {
-          s.statistics[point.statistic_id] = [];
-        }
-        s.statistics[point.statistic_id]!.push(point);
       }
     }),
   );

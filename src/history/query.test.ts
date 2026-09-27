@@ -1,14 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { produce } from "solid-js/store";
 import { resetStore, setState, state } from "../core/store";
-import {
-  bulkAppendHistoryPoints,
-  type HistoryPoint,
-  isHistoryTracked,
-  MAX_HISTORY_POINTS,
-  trackEntityHistory,
-  untrackEntityHistory,
-} from "./query";
+import { bulkAppendHistoryPoints, type HistoryPoint, MAX_HISTORY_POINTS } from "./points";
+import { isHistoryTracked, trackEntityHistory, untrackEntityHistory } from "./query";
 import { normalizeStatisticTime } from "./statistics";
 import type { EntityHistoryData } from "./types";
 

@@ -9,7 +9,7 @@ const PREFIX = "glasshome.demo.log.v";
 const MAX_AGE_MS = 24 * 3_600_000;
 export const MAX_LOG_ENTRIES = 500;
 
-export function logKey(houseVersion: number): string {
+function logKey(houseVersion: number): string {
   return `${PREFIX}${houseVersion}`;
 }
 

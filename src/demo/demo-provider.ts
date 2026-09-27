@@ -12,7 +12,7 @@ import { produce, reconcile } from "solid-js/store";
 import { setState } from "../core/store";
 import type { AreaRegistryEntry, DeviceRegistryEntry, HassEntity } from "../core/types";
 import { extractDomain } from "../core/types";
-import { bulkAppendHistoryPoints, type HistoryPoint } from "../history/query";
+import { bulkAppendHistoryPoints, type HistoryPoint } from "../history/points";
 import { generateHouse, type GeneratedHouse } from "./house/generate";
 import { HOUSE } from "./house/house";
 import { KINDS } from "./kinds";

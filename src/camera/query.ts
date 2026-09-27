@@ -33,7 +33,7 @@ export async function getStream(
   const cached = state.streams[entityId];
   if (cached && cached.stream.format === format) {
     if (autoRefresh && needsStreamRefresh(cached, refreshInterval)) {
-      fetchStreamData(entityId, { format, autoRefresh, refreshInterval }).then((streamData) => {
+      void fetchStreamData(entityId, { format, autoRefresh, refreshInterval }).then((streamData) => {
         setState(
           produce((s) => {
             s.streams[entityId] = streamData;

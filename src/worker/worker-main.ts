@@ -106,9 +106,10 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
         // Transient; the next registry event or reconnect retries.
       });
     };
-    c.subscribeEvents(refresh, "entity_registry_updated");
-    c.subscribeEvents(refresh, "device_registry_updated");
-    c.subscribeEvents(refresh, "area_registry_updated");
+    const watchFailed = (err: unknown) => console.error("registry mirror watch failed:", err);
+    c.subscribeEvents(refresh, "entity_registry_updated").catch(watchFailed);
+    c.subscribeEvents(refresh, "device_registry_updated").catch(watchFailed);
+    c.subscribeEvents(refresh, "area_registry_updated").catch(watchFailed);
   }
 
   // ---- widget channel ----

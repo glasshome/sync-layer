@@ -35,7 +35,7 @@ export function getEntitiesByDomain(domain: EntityDomain): EntityId[] {
  *
  * Only includes entities that inherit area from device (entity.area_id is null).
  */
-export function getEntitiesViaDevices(areaId: AreaId): EntityId[] {
+function getEntitiesViaDevices(areaId: AreaId): EntityId[] {
   const devicesInArea = Object.values(state.devices).filter((device) => device.area_id === areaId);
   const entityIds: EntityId[] = [];
 
@@ -111,38 +111,4 @@ export function getEntitiesByLabel(labelId: LabelId): EntityId[] {
     }
   }
   return entityIds;
-}
-
-// ============================================
-// INDEX STATISTICS
-// ============================================
-
-/**
- * Get domain statistics
- */
-export function getDomainStats(): Record<EntityDomain, number> {
-  const stats: Record<EntityDomain, number> = {};
-  for (const entityId of Object.keys(state.entities)) {
-    const domain = extractDomain(entityId);
-    stats[domain] = (stats[domain] ?? 0) + 1;
-  }
-  return stats;
-}
-
-/**
- * Get area statistics
- */
-export function getAreaStats(): Record<AreaId, number> {
-  const stats: Record<AreaId, number> = {};
-  for (const areaId of Object.keys(state.areas)) {
-    stats[areaId] = getEntitiesByArea(areaId).length;
-  }
-  return stats;
-}
-
-/**
- * Get total entity count
- */
-export function getEntityCount(): number {
-  return Object.keys(state.entities).length;
 }

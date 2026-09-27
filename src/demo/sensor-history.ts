@@ -44,7 +44,7 @@ function currentReading(id: string): number | undefined {
 }
 
 /** History for a demo sensor with a numeric reading; undefined for anything else. */
-export function numericSensorHistory(
+function numericSensorHistory(
 	id: string,
 	startMs: number,
 	endMs: number,

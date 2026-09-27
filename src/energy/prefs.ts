@@ -18,7 +18,7 @@ import { isDemoMode } from "../demo/demo-provider";
  * - battery: `stat_energy_from`, `stat_energy_to`
  */
 export interface EnergySource {
-  type: "grid" | "solar" | "battery" | "gas" | "water" | string;
+  type: "grid" | "solar" | "battery" | "gas" | "water" | (string & {});
   stat_energy_from?: string;
   stat_energy_to?: string;
   flow_from?: Array<{ stat_energy_from: string; [key: string]: unknown }>;

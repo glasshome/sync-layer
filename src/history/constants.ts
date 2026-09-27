@@ -49,8 +49,8 @@ export function entityIdHistoryNeedsAttributes(entityId: EntityId): boolean {
   const domain = extractDomain(entityId);
 
   if (!state.entities[entityId]) {
-    return NEED_ATTRIBUTE_DOMAINS.includes(domain as any);
+    return (NEED_ATTRIBUTE_DOMAINS as readonly string[]).includes(domain);
   }
 
-  return NEED_ATTRIBUTE_DOMAINS.includes(domain as any);
+  return (NEED_ATTRIBUTE_DOMAINS as readonly string[]).includes(domain);
 }

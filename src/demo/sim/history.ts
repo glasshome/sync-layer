@@ -1,4 +1,4 @@
-import { MAX_HISTORY_POINTS } from "../../history/query";
+import { MAX_HISTORY_POINTS } from "../../history/points";
 import { applyVisitorHolds, demoCallLog, demoModel, demoReplayModel } from "../demo-provider";
 import type { DemoModel } from "./model";
 

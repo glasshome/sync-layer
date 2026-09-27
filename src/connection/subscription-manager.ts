@@ -79,13 +79,6 @@ export function registerEntity(entityId: EntityId): () => void {
 }
 
 /**
- * Get the current set of actively subscribed entity IDs.
- */
-export function getActiveEntityIds(): Set<EntityId> {
-  return new Set(refCounts.keys());
-}
-
-/**
  * Set the connection reference used for resubscribing.
  */
 export function setManagerConnection(connection: SyncLayerConnection): void {
@@ -107,35 +100,11 @@ export function setResubscribeHandler(
 }
 
 /**
- * Store the current entity subscription's unsub function.
- * Called after initial subscribe_entities.
- */
-export function setCurrentEntityUnsub(unsub: UnsubscribeFn): void {
-  currentEntityUnsub = unsub;
-}
-
-/**
  * Force a resubscribe with the current active set.
  * Used on reconnect.
  */
 export async function forceResubscribe(): Promise<void> {
   await flush();
-}
-
-/**
- * Reset manager state. Used on disconnect or for testing.
- */
-export function resetManager(): void {
-  refCounts.clear();
-  subscribedIds = new Set();
-  currentEntityUnsub = null;
-  conn = null;
-  flushScheduled = false;
-  flushInFlight = false;
-  if (unregisterTimeout) {
-    clearTimeout(unregisterTimeout);
-    unregisterTimeout = null;
-  }
 }
 
 // ============================================
@@ -157,7 +126,7 @@ function scheduleFlush(): void {
   flushScheduled = true;
   queueMicrotask(() => {
     flushScheduled = false;
-    flush();
+    flush().catch(logFlushError);
   });
 }
 
@@ -165,8 +134,12 @@ function scheduleDelayedFlush(): void {
   if (unregisterTimeout) return;
   unregisterTimeout = setTimeout(() => {
     unregisterTimeout = null;
-    flush();
+    flush().catch(logFlushError);
   }, UNREGISTER_DELAY_MS);
+}
+
+function logFlushError(error: unknown): void {
+  console.error("[@glasshome/sync-layer] entity resubscribe failed:", error);
 }
 
 async function flush(): Promise<void> {

@@ -147,10 +147,6 @@ function occupancyAt(person: HousePerson, ms: number, world: World): Occupancy {
   return { slot: last, startMs: yesterday.midnightMs + last.startMin * MINUTE_MS };
 }
 
-export function activityAt(person: HousePerson, ms: number, world: World): Slot {
-  return occupancyAt(person, ms, world).slot;
-}
-
 interface Transition {
   atMs: number;
   person: HousePerson;

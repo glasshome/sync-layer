@@ -15,7 +15,6 @@ import type {
   AreaEntry,
   DeviceEntry,
   EntityCategory,
-  EntityRegistryEntry,
 } from "@glasshome/ha-types";
 
 // ============================================
@@ -70,6 +69,7 @@ export interface HassEntity {
   /** Current state value (e.g., "on", "off", "23.5") */
   state: string;
   /** Entity attributes (brightness, temperature, etc.) */
+  // oxlint-disable-next-line typescript/no-explicit-any -- public signature; tighten in 2.0
   attributes: Record<string, any>;
   /** ISO 8601 timestamp of last state change */
   last_changed: string;
@@ -227,6 +227,7 @@ export interface EntityView {
    * Use those fields instead of reaching into `attributes`.
    */
   attributes: Omit<
+    // oxlint-disable-next-line typescript/no-explicit-any -- public signature; tighten in 2.0
     Record<string, any>,
     "device_class" | "unit_of_measurement" | "friendly_name" | "icon"
   >;
@@ -392,45 +393,13 @@ export type Callback<T> = (data: T) => void;
 export type PredicateFunc<T> = (item: T) => boolean;
 
 /**
- * Comparison function for sorting
- */
-export type CompareFunc<T> = (a: T, b: T) => number;
-
-/**
  * Mapping function for transformations
  */
 export type MapFunc<T, R> = (item: T) => R;
 
 // ============================================
-// EVENT TYPES (Extended from ha-types)
-// ============================================
-
-/**
- * Registry update event data
- */
-export interface RegistryUpdateEvent {
-  action: "create" | "update" | "remove";
-  entity_id: EntityId;
-  entity?: EntityRegistryEntry;
-}
-
-/**
- * Statistics update event data
- */
-export interface StatisticsUpdateEvent {
-  statistic_ids: string[];
-}
-
-// ============================================
 // TYPE GUARDS
 // ============================================
-
-/**
- * Check if a value is a valid EntityId
- */
-export function isEntityId(value: unknown): value is EntityId {
-  return typeof value === "string" && value.includes(".");
-}
 
 /**
  * Extract domain from entity ID
@@ -439,9 +408,3 @@ export function extractDomain(entityId: EntityId): EntityDomain {
   return entityId.split(".")[0] ?? "";
 }
 
-/**
- * Check if entity is in a specific domain
- */
-export function isDomain(entityId: EntityId, domain: EntityDomain): boolean {
-  return extractDomain(entityId) === domain;
-}

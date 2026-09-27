@@ -21,16 +21,7 @@
 // CONNECTION MANAGEMENT
 // ============================================
 
-// The debug message listeners are NOT exported: they tap every HA frame in and
-// out, so from a widget bundle they are a live read of whole-home traffic.
-// No consumer outside this package (swept 2026-08-09).
 export type { ConnectionOptions } from "./connection/manager";
-// getConnection and initConnection are NOT exported: this entry is served to
-// every widget bundle through the host import map, and getConnection returns
-// the live HA link, which the worker forwards to unvalidated (finding 46).
-// Neither had a consumer outside this package (swept 2026-08-09).
-// `disconnect` stays because dash uses it (user-flow, connection-section); a
-// widget calling it drops the connection, which is a nuisance, not control.
 export { getConnectionState, isConnected } from "./connection/manager";
 export { registerEntity } from "./connection/subscription-manager";
 export type { SyncLayerConnection } from "./connection/types";
@@ -183,12 +174,10 @@ export { fetchEntityHistory, fetchHistory, historyStateToTimeline } from "./hist
 export {
   appendHistoryPoint,
   bulkAppendHistoryPoints,
-  isHistoryTracked,
   MAX_HISTORY_POINTS,
-  trackEntityHistory,
-  untrackEntityHistory,
-} from "./history/query";
-export type { HistoryPoint } from "./history/query";
+} from "./history/points";
+export type { HistoryPoint } from "./history/points";
+export { isHistoryTracked, trackEntityHistory, untrackEntityHistory } from "./history/query";
 export {
   fetchStatisticsDuringPeriod,
   normalizeStatisticTime,

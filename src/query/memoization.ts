@@ -34,10 +34,3 @@ export function buildQuerySignature(query: QueryState): string {
 export function memoizedExecute<T>(_signature: string, compute: () => T): T {
   return compute();
 }
-
-/**
- * Check if cache should be invalidated
- */
-export function isCacheStale(lastCheck: number, maxAge: number): boolean {
-  return Date.now() - lastCheck > maxAge;
-}

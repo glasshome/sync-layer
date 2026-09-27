@@ -200,12 +200,3 @@ export function resetStore(): void {
   setState(reconcile(initialState));
 }
 
-/**
- * Factory for testing isolation
- *
- * Creates a new, independent store instance for test isolation.
- */
-export function createStoreInstance(): [GlassHomeState, SetStoreFunction<GlassHomeState>] {
-  return createStore<GlassHomeState>({ ...initialState });
-}
-
