@@ -6,9 +6,9 @@
 
 import { sendCommand } from "../commands/service";
 import type { EntityId } from "../core/types";
-import { isDemoMode } from "../demo/demo-provider";
+import { demoTimeMap } from "../demo/demo-provider";
 import { isEnergyEntity, synthesizeEnergyHistory } from "../demo/energy-sim";
-import { numericSensorHistory } from "../demo/sensor-history";
+import { demoHistory } from "../demo/sim/history";
 import { entityIdHistoryNeedsAttributes } from "./constants";
 import type {
   EntityHistoryData,
@@ -34,17 +34,29 @@ export async function fetchHistory(
     noAttributes: noAttributesOverride,
   } = options;
 
-  // Demo mode: energy sensors come from the pure model, other numeric sensors from a
-  // synthesized curve ending at today's reading; anything else has no history.
-  if (isDemoMode()) {
-    const endMs = (endTime ?? new Date()).getTime();
+  // Demo windows arrive in wall time; the house runs on its own sim clock.
+  const timeMap = demoTimeMap();
+  if (timeMap) {
+    const startMs = timeMap.toSim(startTime.getTime());
+    const endMs = timeMap.toSim((endTime ?? new Date()).getTime());
+    // One energy sample per wall minute, however fast the demo clock runs.
+    const energyStepMs = timeMap.toSim(60_000) - timeMap.toSim(0);
+    const toWallSeconds = (simSeconds: number) => Math.round(timeMap.toWall(simSeconds * 1000) / 1000);
+    const replayed = demoHistory(
+      entityIds.filter((id) => !isEnergyEntity(id)),
+      startMs,
+      endMs,
+      timeMap.toWall,
+    );
     const result: Record<EntityId, EntityHistoryState[]> = {};
     for (const id of entityIds) {
-      const points = isEnergyEntity(id)
-        ? synthesizeEnergyHistory(id, startTime.getTime(), endMs)
-        : numericSensorHistory(id, startTime.getTime(), endMs);
-      if (!points) continue;
-      result[id] = points.map((p) => ({ s: p.s, a: {}, lu: p.lu }));
+      result[id] = isEnergyEntity(id)
+        ? synthesizeEnergyHistory(id, startMs, endMs, energyStepMs).map((p) => ({
+            s: p.s,
+            a: {},
+            lu: toWallSeconds(p.lu),
+          }))
+        : (replayed[id] ?? []);
     }
     return result;
   }

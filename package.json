@@ -26,6 +26,11 @@
       "types": "./dist/worker/worker-main.d.ts",
       "import": "./dist/worker/worker-main.js"
     },
+    "./demo-ids": {
+      "@glasshome/source": "./src/demo/ids.ts",
+      "types": "./dist/demo/ids.d.ts",
+      "import": "./dist/demo/ids.js"
+    },
     "./package.json": "./package.json"
   },
   "peerDependencies": {
@@ -48,6 +53,7 @@
     "dev": "tsdown --watch",
     "test": "bun test",
     "lint": "tsc --noEmit",
+    "gen:demo-ids": "bun scripts/gen-demo-ids.ts",
     "check:dead": "fallow dead-code --fail-on-issues"
   },
   "dependencies": {

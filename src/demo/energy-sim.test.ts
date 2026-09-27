@@ -1,16 +1,16 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import {
   type EnergySample,
   energyEntityValue,
+  isSunUp,
   simulateEnergy,
-  sunEvents,
   synthesizeEnergyStatistics,
 } from "./energy-sim";
+import { getWorld, setWorld, worldFor } from "./world/world";
 
-/** Build a local-time timestamp for a given day offset, hour, minute. */
+/** Build a UTC timestamp for a given day offset, hour, minute (world defaults to UTC). */
 function localTs(dayOffset: number, hour: number, minute = 0): number {
-  const d = new Date(2026, 5, 1 + dayOffset, hour, minute, 0, 0);
-  return d.getTime();
+  return Date.UTC(2026, 5, 1 + dayOffset, hour, minute, 0, 0);
 }
 
 /** Seeded integer hash for picking pseudo-random-but-fixed timestamps. */
@@ -115,21 +115,21 @@ describe("entity value mapping", () => {
   });
 });
 
-describe("sunEvents twilight", () => {
-  const atLocal = (h: number, m = 0) => new Date(2026, 5, 15, h, m).getTime();
-  test("morning is rising, afternoon is setting", () => {
-    expect(sunEvents(atLocal(9)).rising).toBe(true);
-    expect(sunEvents(atLocal(16)).rising).toBe(false);
+describe("world time", () => {
+  const defaultWorld = getWorld();
+  afterEach(() => setWorld(defaultWorld));
+
+  const T = Date.parse("2026-06-21T12:00:00Z");
+  test("pinned UTC sample is the same regardless of process TZ", () => {
+    setWorld(worldFor("UTC", 1, T));
+    const s = simulateEnergy(T);
+    expect(Math.round(s.solarW)).toMatchSnapshot();
+    expect(isSunUp(T)).toBe(true);
+    expect(isSunUp(Date.parse("2026-06-21T23:30:00Z"))).toBe(false);
   });
-  test("just after sunset sits in civil twilight, deep night does not", () => {
-    const dusk = sunEvents(atLocal(20, 50)).elevation;
-    expect(dusk).toBeLessThan(0);
-    expect(dusk).toBeGreaterThan(-6);
-    expect(sunEvents(atLocal(1)).elevation).toBe(-12);
-  });
-  test("just before sunrise is rising and in twilight", () => {
-    const dawn = sunEvents(atLocal(6, 10));
-    expect(dawn.rising).toBe(true);
-    expect(dawn.elevation).toBeGreaterThan(-6);
+  test("a December 17:30 in Berlin has the sun down", () => {
+    const t = Date.parse("2026-12-15T16:30:00Z");
+    setWorld(worldFor("Europe/Berlin", 1, t));
+    expect(isSunUp(t)).toBe(false);
   });
 });

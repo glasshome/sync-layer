@@ -30,8 +30,8 @@ import type {
   LabelRegistryEntry,
   StatisticMetadata,
 } from "../core/types";
-import { bulkAppendHistoryPoints, isHistoryTracked } from "../history/query";
-import type { HistoryPoint } from "../history/query";
+import { bulkAppendHistoryPoints, type HistoryPoint } from "../history/points";
+import { isHistoryTracked } from "../history/query";
 import {
   setManagerConnection,
   setResubscribeHandler,

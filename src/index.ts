@@ -174,12 +174,10 @@ export { fetchEntityHistory, fetchHistory, historyStateToTimeline } from "./hist
 export {
   appendHistoryPoint,
   bulkAppendHistoryPoints,
-  isHistoryTracked,
   MAX_HISTORY_POINTS,
-  trackEntityHistory,
-  untrackEntityHistory,
-} from "./history/query";
-export type { HistoryPoint } from "./history/query";
+} from "./history/points";
+export type { HistoryPoint } from "./history/points";
+export { isHistoryTracked, trackEntityHistory, untrackEntityHistory } from "./history/query";
 export {
   fetchStatisticsDuringPeriod,
   normalizeStatisticTime,
@@ -226,6 +224,7 @@ export {
   startDemoEnergyTicker,
   stopDemoEnergyTicker,
 } from "./demo/demo-provider";
+export type { DemoClockOption, DemoHouseOptions } from "./demo/demo-provider";
 
 // ============================================
 // VERSION

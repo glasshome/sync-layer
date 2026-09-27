@@ -6,7 +6,7 @@
 
 import { sendCommand } from "../commands/service";
 import { state } from "../core/store";
-import { demoAssetUrl } from "../demo/demo-data";
+import { demoAssetUrl } from "../demo/assets";
 import { isDemoMode } from "../demo/demo-provider";
 import type { EntityId } from "../core/types";
 import type { CameraStream, CameraStreamData, StreamFormat, StreamQueryOptions } from "./types";
