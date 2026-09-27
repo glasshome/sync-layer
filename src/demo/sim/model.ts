@@ -2,6 +2,8 @@ import { noise } from "../world/noise";
 import type { World } from "../world/world";
 import type { DeviceKind, DeviceSpec, KindName, Projection, ServiceCall, SimContext, SimEvent } from "../kinds/types";
 
+export type HoldUntil = "boundary" | "event";
+
 export interface DemoModel {
   readonly nowMs: number;
   dispatch(call: ServiceCall): void;
@@ -9,6 +11,22 @@ export interface DemoModel {
   project(): Record<string, Projection>;
   projectDevice(key: string): Record<string, Projection>;
   deviceOf(entityId: string): DeviceSpec | undefined;
+  hold(entityId: string, until: HoldUntil): void;
+  isHeld(entityId: string): boolean;
+  clearHolds(kind: HoldUntil): void;
+  /** Queues a call; when it comes due, entities held by then are skipped. */
+  schedule(atMs: number, call: ServiceCall): void;
+}
+
+export interface Driver {
+  settle(model: DemoModel): void;
+  step(model: DemoModel, fromMs: number, toMs: number): void;
+}
+
+interface Queued {
+  atMs: number;
+  seq: number;
+  call: ServiceCall;
 }
 
 const MAX_EFFECT_DEPTH = 4;
@@ -16,7 +34,7 @@ const MAX_EFFECT_DEPTH = 4;
 export function createDemoModel(
   devices: DeviceSpec[],
   kinds: Record<KindName, DeviceKind>,
-  opts: { startMs: number; world: World; stepMs?: number; log?: (msg: string) => void },
+  opts: { startMs: number; world: World; stepMs?: number; log?: (msg: string) => void; driver?: Driver },
 ): DemoModel {
   const stepMs = opts.stepMs ?? 1000;
   const log = opts.log ?? (() => {});
@@ -25,6 +43,9 @@ export function createDemoModel(
   const byKey = new Map(devices.map((d) => [d.key, d]));
   const byEntity = new Map<string, DeviceSpec>();
   const states = new Map<string, unknown>();
+  const holds = new Map<string, HoldUntil>();
+  let queue: Queued[] = [];
+  let queueSeq = 0;
 
   for (const d of devices) {
     for (const seed of kinds[d.kind].entities(d)) byEntity.set(seed.entityId, d);
@@ -51,7 +72,17 @@ export function createDemoModel(
     }
   }
 
-  return {
+  function flushDue(): void {
+    if (queue.length === 0 || (queue[0]?.atMs ?? Infinity) > nowMs) return;
+    const due = queue.filter((q) => q.atMs <= nowMs);
+    queue = queue.filter((q) => q.atMs > nowMs);
+    for (const { call } of due) {
+      const entityIds = call.entityIds.filter((id) => !holds.has(id));
+      if (entityIds.length > 0) dispatchAt({ ...call, entityIds }, 0);
+    }
+  }
+
+  const model: DemoModel = {
     get nowMs() {
       return nowMs;
     },
@@ -59,7 +90,11 @@ export function createDemoModel(
     advanceTo(ms) {
       while (nowMs < ms) {
         const dtMs = Math.min(stepMs, ms - nowMs);
+        const prev = nowMs;
         nowMs += dtMs;
+        flushDue();
+        opts.driver?.step(model, prev, nowMs);
+        flushDue();
         for (const d of devices) applyTo(d, { type: "tick", dtMs }, MAX_EFFECT_DEPTH);
       }
     },
@@ -73,5 +108,16 @@ export function createDemoModel(
       return d ? kinds[d.kind].project(states.get(d.key), d, ctx()) : {};
     },
     deviceOf: (entityId) => byEntity.get(entityId),
+    hold: (entityId, until) => void holds.set(entityId, until),
+    isHeld: (entityId) => holds.has(entityId),
+    clearHolds(kind) {
+      for (const [id, until] of holds) if (until === kind) holds.delete(id);
+    },
+    schedule(atMs, call) {
+      queue.push({ atMs, seq: queueSeq++, call });
+      queue.sort((a, b) => a.atMs - b.atMs || a.seq - b.seq);
+    },
   };
+  opts.driver?.settle(model);
+  return model;
 }
