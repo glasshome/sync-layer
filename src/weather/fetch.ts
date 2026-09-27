@@ -7,7 +7,9 @@
 import { privilegedConn } from "../core/privileged-conn";
 import { state } from "../core/store";
 import type { EntityId } from "../core/types";
-import { isDemoMode } from "../demo/demo-provider";
+import { demoModel, isDemoMode } from "../demo/demo-provider";
+import { weatherForecastHourly } from "../demo/kinds/readings";
+import { getWorld } from "../demo/world/world";
 import type {
   ForecastType,
   WeatherForecast,
@@ -53,6 +55,14 @@ export function buildDemoForecast(entityId: EntityId, type: ForecastType): Weath
         precipitation_probability: d.precipitation_probability ?? chance,
       };
     });
+  }
+
+  const model = demoModel();
+  if (model?.deviceOf(entityId)?.kind === "weather") {
+    return weatherForecastHourly(model.nowMs, getWorld()).map((h) => ({
+      ...(h as unknown as WeatherForecast),
+      precipitation_probability: DEMO_RAIN_CHANCE[String(h.condition)] ?? 10,
+    }));
   }
 
   // Hourly: walk the next 24 hours from the top of this hour, blending today into tomorrow.

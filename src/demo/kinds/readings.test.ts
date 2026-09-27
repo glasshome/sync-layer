@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { KINDS } from "./index";
+import { weatherForecastHourly } from "./readings";
 import { outdoorTempC, worldFor } from "../world/world";
 import type { DeviceSpec, KindName } from "./types";
 
@@ -22,6 +23,13 @@ describe("readings", () => {
     };
     expect(rising("2026-06-21T09:00:00Z")).toBe(true);
     expect(rising("2026-06-21T16:00:00Z")).toBe(false);
+  });
+  test("the hourly forecast starts at the demo's hour with the reading the tile shows", () => {
+    const w = run(spec("weather", {}, { weather: "weather.home" }))["weather.home"];
+    const hourly = weatherForecastHourly(T + 20 * 60_000, ctx.world);
+    expect(hourly).toHaveLength(24);
+    expect(hourly[0]?.datetime).toBe(new Date(T).toISOString());
+    expect(hourly[0]?.temperature).toBe(w?.attributes.temperature);
   });
   test("household weather carries a 7-day forecast starting today", () => {
     const w = run(spec("weather", {}, { weather: "weather.home" }))["weather.home"];

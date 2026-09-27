@@ -1,5 +1,6 @@
 import { demoAssetUrl } from "../assets";
 import { localTime } from "../world/local-time";
+import { noise } from "../world/noise";
 import { solarElevation, sunTimes } from "../world/sun";
 import { cloudCover, outdoorTempC } from "../world/world";
 import { energyEntityValue, formatEnergyState, simulateEnergy } from "../energy-sim";
@@ -275,6 +276,20 @@ function weatherForecastDay(
     temperature: round1(outdoorTempC(noonMs, world)),
     templow: round1(outdoorTempC(noonMs - 8 * 3_600_000, world)),
   };
+}
+
+export function weatherForecastHourly(nowMs: number, world: World, hours = 24): Record<string, unknown>[] {
+  const firstHourMs = Math.floor(nowMs / 3_600_000) * 3_600_000;
+  return Array.from({ length: hours }, (_, i) => {
+    const t = firstHourMs + i * 3_600_000;
+    const sunUp = solarElevation(t, world.latitude, world.longitude) > -0.833;
+    const noiseVal = noise(world.seed, `weather:condition:${localTime(t, world.timeZone).dateKey}`);
+    return {
+      datetime: new Date(t).toISOString(),
+      condition: weatherCondition(cloudCover(t, world), sunUp, noiseVal),
+      temperature: round1(outdoorTempC(t, world)),
+    };
+  });
 }
 
 const weather: DeviceKind = {
