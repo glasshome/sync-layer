@@ -37,6 +37,10 @@ export interface DeviceSpec<P = Record<string, unknown>> {
   model: string;
   params: P;
   ids?: Partial<Record<string, string>>;
+  /** Registry device this spec belongs to; defaults to `key`. */
+  deviceId?: string;
+  /** Name of this spec's primary entity inside its registry device; unset means the device's main entity. */
+  entityName?: string;
 }
 
 export interface Projection {

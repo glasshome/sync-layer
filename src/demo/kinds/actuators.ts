@@ -1,8 +1,11 @@
+import { energyEntityValue, formatEnergyState, simulateEnergy } from "../energy-sim";
 import { outdoorTempC } from "../world/world";
 import { entityIdFor } from "./types";
-import type { DeviceKind, ServiceCall } from "./types";
+import type { DeviceKind, DeviceSpec, EntitySeed, Projection, ServiceCall } from "./types";
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const round10 = (n: number) => Math.round(n / 10) * 10;
 const roundInt = (n: number) => Math.round(n);
 const clamp = (n: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, n));
 
@@ -118,20 +121,60 @@ const light: DeviceKind = {
 
 interface SwitchParams {
   watts?: number;
+  power?: boolean;
+  energy?: boolean;
+  legacyPowerId?: string;
 }
 
 interface SwitchState {
   on: boolean;
   watts: number;
+  energyKwh: number;
+}
+
+const KWH_PER_WATT_MS = 1 / 3_600_000_000;
+
+function switchPowerId(device: DeviceSpec, p: SwitchParams): string {
+  return p.legacyPowerId ?? entityIdFor("sensor", device, "power", "power");
+}
+
+function legacyWatts(id: string, nowMs: number): number {
+  return Number(formatEnergyState(id, energyEntityValue(id, simulateEnergy(nowMs)) ?? 0));
+}
+
+function switchWatts(s: SwitchState, p: SwitchParams, nowMs: number): number {
+  if (p.legacyPowerId) return legacyWatts(p.legacyPowerId, nowMs);
+  return s.on ? s.watts : 0;
 }
 
 const switchKind: DeviceKind = {
   entities(device) {
-    return [{ entityId: entityIdFor("switch", device, "switch"), name: device.name, primary: true }];
-  },
-  apply(state, event, device) {
     const p = device.params as SwitchParams;
-    const s = (state as SwitchState | undefined) ?? { on: false, watts: p.watts ?? 0 };
+    const seeds: EntitySeed[] = [{ entityId: entityIdFor("switch", device, "switch"), name: device.name, primary: true }];
+    if (p.power || p.legacyPowerId) {
+      seeds.push({ entityId: switchPowerId(device, p), name: "Power", deviceClass: "power", unit: "W" });
+    }
+    if (p.energy) {
+      seeds.push({
+        entityId: entityIdFor("sensor", device, "energy", "energy"),
+        name: "Energy",
+        deviceClass: "energy",
+        unit: "kWh",
+      });
+    }
+    return seeds;
+  },
+  apply(state, event, device, ctx) {
+    const p = device.params as SwitchParams;
+    const s = (state as SwitchState | undefined) ?? {
+      on: false,
+      watts: p.watts ?? 0,
+      energyKwh: round2(ctx.noise(`${device.key}:energy`) * 200),
+    };
+    if (event.type === "tick") {
+      if (!p.energy) return s;
+      return { ...s, energyKwh: s.energyKwh + switchWatts(s, p, ctx.nowMs) * event.dtMs * KWH_PER_WATT_MS };
+    }
     if (event.type !== "call") return s;
     switch (event.service) {
       case "turn_on":
@@ -144,10 +187,27 @@ const switchKind: DeviceKind = {
         return s;
     }
   },
-  project(state, device) {
+  project(state, device, ctx) {
     const s = state as SwitchState;
-    const id = entityIdFor("switch", device, "switch");
-    return { [id]: { state: s.on ? "on" : "off", attributes: {} } };
+    const p = device.params as SwitchParams;
+    const watts = switchWatts(s, p, ctx.nowMs);
+    const on = p.legacyPowerId ? watts > 5 : s.on;
+    const out: Record<string, Projection> = {
+      [entityIdFor("switch", device, "switch")]: { state: on ? "on" : "off", attributes: {} },
+    };
+    if (p.power || p.legacyPowerId) {
+      out[switchPowerId(device, p)] = {
+        state: String(p.legacyPowerId ? watts : round10(watts)),
+        attributes: { unit_of_measurement: "W", device_class: "power", state_class: "measurement" },
+      };
+    }
+    if (p.energy) {
+      out[entityIdFor("sensor", device, "energy", "energy")] = {
+        state: s.energyKwh.toFixed(2),
+        attributes: { unit_of_measurement: "kWh", device_class: "energy", state_class: "total_increasing" },
+      };
+    }
+    return out;
   },
   powerW(state) {
     const s = state as SwitchState;

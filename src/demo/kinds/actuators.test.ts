@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { energyEntityValue, formatEnergyState, simulateEnergy } from "../energy-sim";
 import { worldFor } from "../world/world";
 import { ACTUATORS } from "./actuators";
+import { APPLIANCE_ENERGY_IDS } from "./readings";
 import type { DeviceSpec, KindName, Projection } from "./types";
 
 const T = Date.parse("2026-06-21T18:00:00Z");
@@ -424,4 +426,50 @@ test("scene effects are its targets", () => {
   const call = { type: "call" as const, entityId: "scene.movie_night", service: "turn_on", data: {} };
   const s = ACTUATORS.scene.apply(undefined, call, d, ctx);
   expect(ACTUATORS.scene.effects?.(s, call, d)).toEqual(targets);
+});
+
+describe("switch with power and energy", () => {
+  const call = (entityId: string, service: string) => ({ type: "call" as const, entityId, service, data: {} });
+
+  test("power sensor reads the switch's watts, quantized to 10 W", () => {
+    const d = spec("switch", { watts: 1234, power: true }, {});
+    const seeds = ACTUATORS.switch.entities(d);
+    expect(seeds.find((s) => s.entityId === "sensor.k_power")).toMatchObject({ name: "Power", deviceClass: "power", unit: "W" });
+    let s = ACTUATORS.switch.apply(undefined, { type: "init" }, d, ctx);
+    expect(ACTUATORS.switch.project(s, d, ctx)["sensor.k_power"]?.state).toBe("0");
+    s = ACTUATORS.switch.apply(s, call("switch.k", "turn_on"), d, ctx);
+    const power = ACTUATORS.switch.project(s, d, ctx)["sensor.k_power"];
+    expect(power?.state).toBe("1230");
+    expect(power?.attributes).toMatchObject({ unit_of_measurement: "W", device_class: "power" });
+  });
+
+  test("energy sensor accumulates kWh while on", () => {
+    const d = spec("switch", { watts: 2000, power: true, energy: true }, {});
+    expect(ACTUATORS.switch.entities(d).find((s) => s.entityId === "sensor.k_energy")).toMatchObject({ name: "Energy", unit: "kWh" });
+    let s = ACTUATORS.switch.apply(undefined, { type: "init" }, d, ctx);
+    const before = Number(ACTUATORS.switch.project(s, d, ctx)["sensor.k_energy"]?.state);
+    s = ACTUATORS.switch.apply(s, { type: "tick", dtMs: 3_600_000 }, d, ctx);
+    expect(Number(ACTUATORS.switch.project(s, d, ctx)["sensor.k_energy"]?.state)).toBeCloseTo(before, 2);
+    s = ACTUATORS.switch.apply(s, call("switch.k", "turn_on"), d, ctx);
+    s = ACTUATORS.switch.apply(s, { type: "tick", dtMs: 3_600_000 }, d, ctx);
+    const energy = ACTUATORS.switch.project(s, d, ctx)["sensor.k_energy"];
+    expect(Number(energy?.state)).toBeCloseTo(before + 2, 2);
+    expect(energy?.attributes).toMatchObject({ unit_of_measurement: "kWh", state_class: "total_increasing" });
+  });
+
+  test("legacy power id follows the energy curve and drives the switch", () => {
+    for (const id of APPLIANCE_ENERGY_IDS) {
+      const d = spec("switch", { watts: 100, power: true, legacyPowerId: id }, {});
+      expect(ACTUATORS.switch.entities(d).map((s) => s.entityId)).toEqual(["switch.k", id]);
+      for (const hour of [3, 8, 13, 19]) {
+        const at = { ...ctx, nowMs: Date.parse(`2026-06-21T${String(hour).padStart(2, "0")}:00:00Z`) };
+        const expected = formatEnergyState(id, energyEntityValue(id, simulateEnergy(at.nowMs)) ?? 0);
+        let s = ACTUATORS.switch.apply(undefined, { type: "init" }, d, at);
+        s = ACTUATORS.switch.apply(s, call("switch.k", "turn_off"), d, at);
+        const out = ACTUATORS.switch.project(s, d, at);
+        expect(out[id]?.state).toBe(expected);
+        expect(out["switch.k"]?.state).toBe(Number(expected) > 5 ? "on" : "off");
+      }
+    }
+  });
 });

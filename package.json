@@ -47,7 +47,8 @@
     "build": "tsdown && tsc --noEmit && bun scripts/check-widget-reachable-surface.ts",
     "dev": "tsdown --watch",
     "test": "bun test",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "gen:demo-ids": "bun scripts/gen-demo-ids.ts"
   },
   "dependencies": {
     "home-assistant-js-websocket": "^9.6.0",
