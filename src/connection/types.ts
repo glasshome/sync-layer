@@ -1,32 +1,7 @@
-/**
- * Connection Interface Types
- *
- * Defines the unified interface for both mock and real Home Assistant connections.
- * This allows seamless swapping between test and production connections.
- *
- * @packageDocumentation
- */
-
 import type { HAEvent } from "@glasshome/ha-types";
 
 /**
- * Unified connection interface for Home Assistant connections
- *
- * This interface is implemented by both:
- * - MockConnection (for testing)
- * - Wrapped HA Connection (for production)
- *
- * @example
- * ```typescript
- * // In tests
- * const mockConn: SyncLayerConnection = new MockConnection(fixtures);
- * await syncLayer.connect({ connection: mockConn });
- *
- * // In production
- * const haConn = await createConnection({ auth });
- * const wrappedConn: SyncLayerConnection = wrapHAConnection(haConn);
- * await syncLayer.connect({ connection: wrappedConn });
- * ```
+ * Connection interface the store talks to; implemented by the worker bridge.
  */
 export interface SyncLayerConnection {
   /**
@@ -92,6 +67,7 @@ export interface SyncLayerConnection {
    * await unsubscribe();
    * ```
    */
+  // oxlint-disable-next-line typescript/no-explicit-any -- public signature; tighten in 2.0
   subscribeEvents(callback: (event: HAEvent<any>) => void, eventType?: string): Promise<() => void>;
 
   /**
@@ -118,7 +94,7 @@ export interface SyncLayerConnection {
    * await unsubscribe();
    * ```
    */
-  subscribeMessage<T>(callback: (message: T) => void, message: any): Promise<() => Promise<void>>;
+  subscribeMessage<T>(callback: (message: T) => void, message: unknown): Promise<() => Promise<void>>;
 
   /**
    * Send a message and wait for response
@@ -136,7 +112,7 @@ export interface SyncLayerConnection {
    * });
    * ```
    */
-  sendMessagePromise<T>(message: any): Promise<T>;
+  sendMessagePromise<T>(message: unknown): Promise<T>;
 
   /**
    * Add event listener for WebSocket messages
@@ -157,5 +133,6 @@ export interface SyncLayerConnection {
    * unsubscribe();
    * ```
    */
+  // oxlint-disable-next-line typescript/no-explicit-any -- public signature; tighten in 2.0
   addEventListener(handler: (message: any) => void): () => void;
 }
