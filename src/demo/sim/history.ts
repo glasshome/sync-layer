@@ -62,7 +62,8 @@ export function demoHistory(
 
   const log = demoCallLog();
   // Replay from the oldest pending log entry too, so a pre-window hold still applies.
-  const modelStartMs = log.length > 0 ? Math.min(startC, log[0]!.simMs) : startC;
+  const first = log[0];
+  const modelStartMs = first ? Math.min(startC, first.simMs) : startC;
   const replayModel = demoReplayModel(modelStartMs);
   if (!replayModel) return result;
   const replay: DemoModel = replayModel;
@@ -79,15 +80,15 @@ export function demoHistory(
   record(replay.nowMs);
   let logIdx = 0;
   while (replay.nowMs < endC) {
-    const nextLogMs = logIdx < log.length ? log[logIdx]!.simMs : Number.POSITIVE_INFINITY;
+    const next = log[logIdx];
+    const nextLogMs = next ? next.simMs : Number.POSITIVE_INFINITY;
     const windowBoundary = replay.nowMs < startC ? startC : Number.POSITIVE_INFINITY;
     const targetMs = Math.min(replay.nowMs + STEP_MS, endC, nextLogMs, windowBoundary);
     replay.advanceTo(targetMs, STEP_MS);
     record(replay.nowMs);
-    if (logIdx < log.length && log[logIdx]!.simMs === replay.nowMs) {
-      const entry = log[logIdx]!;
-      replay.dispatch(entry.call);
-      applyVisitorHolds(replay, entry.call.entityIds);
+    if (next && next.simMs === replay.nowMs) {
+      replay.dispatch(next.call);
+      applyVisitorHolds(replay, next.call.entityIds);
       logIdx++;
       record(replay.nowMs);
     }

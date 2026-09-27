@@ -298,11 +298,11 @@ const fan: DeviceKind = {
         return { ...s, percentage, on: percentage > 0 };
       }
       case "set_preset_mode":
-        return data.preset_mode != null ? { ...s, presetMode: String(data.preset_mode), on: true } : s;
+        return typeof data.preset_mode === "string" ? { ...s, presetMode: data.preset_mode, on: true } : s;
       case "oscillate":
         return data.oscillating != null ? { ...s, oscillating: Boolean(data.oscillating) } : s;
       case "set_direction":
-        return data.direction != null ? { ...s, direction: String(data.direction) } : s;
+        return typeof data.direction === "string" ? { ...s, direction: data.direction } : s;
       default:
         return s;
     }
@@ -580,11 +580,11 @@ const climate: DeviceKind = {
         return next;
       }
       case "set_hvac_mode":
-        return data.hvac_mode != null ? { ...s, hvacMode: String(data.hvac_mode) } : s;
+        return typeof data.hvac_mode === "string" ? { ...s, hvacMode: data.hvac_mode } : s;
       case "set_fan_mode":
-        return data.fan_mode != null ? { ...s, fanMode: String(data.fan_mode) } : s;
+        return typeof data.fan_mode === "string" ? { ...s, fanMode: data.fan_mode } : s;
       case "set_preset_mode":
-        return data.preset_mode != null ? { ...s, presetMode: String(data.preset_mode) } : s;
+        return typeof data.preset_mode === "string" ? { ...s, presetMode: data.preset_mode } : s;
       default:
         return s;
     }
@@ -666,7 +666,7 @@ const waterHeater: DeviceKind = {
       case "set_temperature":
         return data.temperature != null ? { ...s, targetTemp: Number(data.temperature) } : s;
       case "set_operation_mode":
-        return data.operation_mode != null ? { ...s, mode: String(data.operation_mode) } : s;
+        return typeof data.operation_mode === "string" ? { ...s, mode: data.operation_mode } : s;
       case "set_away_mode":
         return data.away_mode != null ? { ...s, awayMode: Boolean(data.away_mode) } : s;
       default:
@@ -777,7 +777,7 @@ const mediaPlayer: DeviceKind = {
       case "volume_set":
         return data.volume_level != null ? { ...s, volume: Number(data.volume_level) } : s;
       case "select_source":
-        return data.source != null ? { ...s, source: String(data.source) } : s;
+        return typeof data.source === "string" ? { ...s, source: data.source } : s;
       default:
         return s;
     }

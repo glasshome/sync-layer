@@ -9,16 +9,21 @@ const END = Date.parse("2026-12-14T21:00:00Z");
 beforeAll(() => loadDemoHouse({ clock: { pinned: "2026-12-14T21:00:00Z", seed: 3 } }));
 afterAll(() => unloadDemoData());
 
+function must<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error("expected a value");
+  return value;
+}
+
 describe("demo history", () => {
   test("a room light switches during the day", () => {
     const h = demoEntityHistory("light.living_room_main", END - 24 * 3_600_000, END);
     expect(new Set(h.map((p) => p.s))).toEqual(new Set(["on", "off"]));
-    for (let i = 1; i < h.length; i++) expect(h[i]!.lu).toBeGreaterThan(h[i - 1]!.lu);
+    for (let i = 1; i < h.length; i++) expect(must(h[i]).lu).toBeGreaterThan(must(h[i - 1]).lu);
   });
   test("unknown entity and oversize window", () => {
     expect(demoEntityHistory("light.nope", END - 3_600_000, END)).toEqual([]);
     const h = demoEntityHistory("sensor.temperature_living", END - 7 * 86_400_000, END);
-    expect(h[0]!.lu * 1000).toBeGreaterThanOrEqual(END - 24 * 3_600_000);
+    expect(must(h[0]).lu * 1000).toBeGreaterThanOrEqual(END - 24 * 3_600_000);
   });
   test("empty window returns no points", () => {
     expect(demoEntityHistory("light.living_room_main", END, END - 1000)).toEqual([]);

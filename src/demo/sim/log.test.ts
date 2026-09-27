@@ -41,12 +41,10 @@ describe("demo log", () => {
     const s = memoryStorage();
     s.setItem("glasshome.demo.log.v1", "{not json");
     expect(readLog(s, 1, T)).toEqual([]);
-    const throwing = {
-      ...memoryStorage(),
-      getItem: () => {
-        throw new Error("denied");
-      },
-    } as Storage;
+    const throwing = memoryStorage();
+    throwing.getItem = () => {
+      throw new Error("denied");
+    };
     expect(readLog(throwing, 1, T)).toEqual([]);
     appendLog(s, 1, { simMs: T, call }, T);
     expect(readLog(s, 2, T)).toEqual([]);

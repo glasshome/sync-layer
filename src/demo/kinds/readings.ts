@@ -306,7 +306,7 @@ const weather: DeviceKind = {
     const sunUp = elevation > -0.833;
     const dateKey = localTime(ctx.nowMs, ctx.world.timeZone).dateKey;
     const noiseVal = ctx.noise(`weather:condition:${dateKey}`);
-    const forecast = Array.from({ length: 7 }, (_, i) => weatherForecastDay(ctx.nowMs, ctx.world, i, ctx.noise));
+    const forecast = Array.from({ length: 7 }, (_, i) => weatherForecastDay(ctx.nowMs, ctx.world, i, (key) => ctx.noise(key)));
     return {
       [id]: {
         state: weatherCondition(cloud, sunUp, noiseVal),

@@ -25,12 +25,17 @@ function modelAt(iso: string, stepMs?: number) {
   return createDemoModel(g.devices, KINDS, { startMs: t, world, stepMs, driver: () => createDriver(HOUSE, g, world) });
 }
 
+function must<T>(value: T | null | undefined): T {
+  if (value == null) throw new Error("expected a value");
+  return value;
+}
+
 describe("schedule", () => {
   test("plans are deterministic and ordered", () => {
-    const p = HOUSE.people[0]!;
+    const p = must(HOUSE.people[0]);
     const a = dayPlan(p, "2026-06-22", 1, 3);
     expect(dayPlan(p, "2026-06-22", 1, 3)).toEqual(a);
-    for (let i = 1; i < a.length; i++) expect(a[i]!.startMin).toBeGreaterThan(a[i - 1]!.startMin);
+    for (let i = 1; i < a.length; i++) expect(must(a[i]).startMin).toBeGreaterThan(must(a[i - 1]).startMin);
   });
   test("a winter weekday evening has the living room lit and everyone home", () => {
     const s = modelAt("2026-12-14T21:30:00Z").project();
@@ -92,29 +97,29 @@ describe("schedule", () => {
     expect(away).toBeGreaterThan(0);
     expect(fine.projectDevice("away")["scene.away"]?.state).not.toBe("unknown");
     expect(unlockedAt).not.toBeNull();
-    expect(relockedAt! - unlockedAt!).toBe(2 * 60_000);
+    expect(must(relockedAt) - must(unlockedAt)).toBe(2 * 60_000);
 
     const coarse = modelAt(start, 300_000);
-    coarse.advanceTo(unlockedAt!);
+    coarse.advanceTo(must(unlockedAt));
     expect(lockOf(coarse)).toBe("unlocked");
-    coarse.advanceTo(relockedAt!);
+    coarse.advanceTo(must(relockedAt));
     expect(lockOf(coarse)).toBe("locked");
     coarse.advanceTo(end);
     expect(coarse.projectDevice("away")["scene.away"]?.state).toBe(fine.projectDevice("away")["scene.away"]?.state);
   });
   test("two wakes within ten minutes keep the coffee on until the later run ends", () => {
-    const sam = HOUSE.people.find((p) => p.id === "sam")!;
-    const alex = HOUSE.people.find((p) => p.id === "alex")!;
+    const sam = must(HOUSE.people.find((p) => p.id === "sam"));
+    const alex = must(HOUSE.people.find((p) => p.id === "alex"));
     const day = Array.from({ length: 60 }, (_, i) => new Date(Date.UTC(2027, 0, 4 + i)))
       .filter((d) => d.getUTCDay() >= 1 && d.getUTCDay() <= 5)
       .map((d) => {
         const key = d.toISOString().slice(0, 10);
-        const wake = (p: typeof sam) => dayPlan(p, key, d.getUTCDay(), 3).find((s) => s.activity === "wake")!.startMin;
+        const wake = (p: typeof sam) => must(dayPlan(p, key, d.getUTCDay(), 3).find((s) => s.activity === "wake")).startMin;
         return { key, a: wake(alex), s: wake(sam) };
       })
       .find(({ a, s }) => s > a && s - a < 10);
     expect(day).toBeDefined();
-    const { key, a, s } = day!;
+    const { key, a, s } = must(day);
     const m = modelAt(`${key}T05:00:00Z`, 60_000);
     const coffee = () => m.projectDevice("kitchen_coffee_machine")["switch.coffee_machine"]?.state;
     const midnight = Date.parse(`${key}T00:00:00Z`);
@@ -126,8 +131,8 @@ describe("schedule", () => {
     expect(coffee()).toBe("off");
   });
   test("a model created mid-brew stops the coffee when the brew that began at wake ends", () => {
-    const alex = HOUSE.people.find((p) => p.id === "alex")!;
-    const wake = dayPlan(alex, "2026-12-14", 1, 3).find((s) => s.activity === "wake")!.startMin;
+    const alex = must(HOUSE.people.find((p) => p.id === "alex"));
+    const wake = must(dayPlan(alex, "2026-12-14", 1, 3).find((s) => s.activity === "wake")).startMin;
     const createdAt = Date.parse("2026-12-14T00:00:00Z") + (wake + 8) * 60_000;
     const late = modelAt(new Date(createdAt).toISOString(), 60_000);
     const early = modelAt("2026-12-14T05:00:00Z", 60_000);
