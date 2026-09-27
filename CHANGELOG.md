@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/glasshome/sync-layer/compare/v0.9.1...v0.10.0) (2026-09-27)
+
+
+### Features
+
+* **demo:** a simulated demo house replaces the static fixtures ([21f5542](https://github.com/glasshome/sync-layer/commit/21f55422a74afafd4c25b8d79130f00954221c9d))
+
 ## [0.9.1](https://github.com/glasshome/sync-layer/compare/v0.9.0...v0.9.1) (2026-09-27)
 
 
