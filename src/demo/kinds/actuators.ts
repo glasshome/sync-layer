@@ -753,12 +753,10 @@ const mediaPlayer: DeviceKind = {
     };
     if (event.type === "tick") {
       if (!s.playing) return s;
-      let positionSec = s.positionSec + event.dtMs / 1000;
-      let trackIndex = s.trackIndex;
-      if (positionSec >= MEDIA_DURATION_SEC) {
-        trackIndex = (trackIndex + 1) % p.tracks.length;
-        positionSec -= MEDIA_DURATION_SEC;
-      }
+      const elapsedSec = s.positionSec + event.dtMs / 1000;
+      const skipped = Math.floor(elapsedSec / MEDIA_DURATION_SEC);
+      const positionSec = elapsedSec - skipped * MEDIA_DURATION_SEC;
+      const trackIndex = (s.trackIndex + skipped) % p.tracks.length;
       return { ...s, positionSec, trackIndex, positionUpdatedMs: ctx.nowMs };
     }
     if (event.type !== "call") return s;

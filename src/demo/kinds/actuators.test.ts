@@ -537,3 +537,13 @@ test("switch powerW agrees with its displayed power", () => {
   p = ACTUATORS.switch.apply(p, { type: "call", entityId: "switch.k", service: "turn_on", data: {} }, plain, at);
   expect(ACTUATORS.switch.powerW?.(p)).toBe(1200);
 });
+
+test("a long tick skips as many tracks as it spans", () => {
+  const tracks = ["A", "B", "C", "D"].map((title) => ({ title, artist: "x" }));
+  const d = spec("media_player", { tracks }, { media_player: "media_player.m" });
+  const k = ACTUATORS.media_player;
+  let s = k.apply(undefined, { type: "init" }, d, ctx);
+  s = k.apply(s, { type: "call", entityId: "media_player.m", service: "media_play", data: {} }, d, ctx);
+  s = k.apply(s, { type: "tick", dtMs: 400_000 }, d, ctx);
+  expect(k.project(s, d, ctx)["media_player.m"]?.attributes.media_title).toBe("C");
+});

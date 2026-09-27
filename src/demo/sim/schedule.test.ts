@@ -178,4 +178,41 @@ describe("schedule", () => {
     m.advanceTo(Date.parse("2026-12-15T00:00:00Z"));
     expect(performance.now() - t0).toBeLessThan(500);
   });
+  test("two hours at one-second and one-minute steps agree minute by minute", () => {
+    const start = "2026-12-14T16:30:00Z";
+    const end = Date.parse("2026-12-14T18:30:00Z");
+    const fine = modelAt(start, 1000);
+    const coarse = modelAt(start, 60_000);
+    for (const m of [fine, coarse]) {
+      m.dispatch({ domain: "cover", service: "open_cover", data: {}, entityIds: ["cover.office_blinds"] });
+      m.dispatch({
+        domain: "climate",
+        service: "set_temperature",
+        data: { temperature: 24 },
+        entityIds: ["climate.office_heat_pump"],
+      });
+      m.dispatch({ domain: "media_player", service: "media_play", data: {}, entityIds: ["media_player.living_room_speaker"] });
+    }
+    const exact = /^(person|lock|light|cover|climate|switch|binary_sensor|media_player|fan)\./;
+    const diffs: string[] = [];
+    for (let t = fine.nowMs + 60_000; t <= end; t += 60_000) {
+      fine.advanceTo(t);
+      coarse.advanceTo(t);
+      const b = coarse.project();
+      for (const [id, p] of Object.entries(fine.project())) {
+        const q = b[id];
+        const num = Number(p.state);
+        const stateOk =
+          exact.test(id) || Number.isNaN(num)
+            ? q?.state === p.state
+            : Math.abs(Number(q?.state) - num) <= Math.max(0.2, Math.abs(num) * 0.01);
+        const posOk = q?.attributes.current_position === p.attributes.current_position;
+        const temp = p.attributes.current_temperature;
+        const tempOk = typeof temp !== "number" || Math.abs(Number(q?.attributes.current_temperature) - temp) <= 0.2;
+        const titleOk = q?.attributes.media_title === p.attributes.media_title;
+        if (!(stateOk && posOk && tempOk && titleOk)) diffs.push(`${new Date(t).toISOString()} ${id}`);
+      }
+    }
+    expect(diffs).toEqual([]);
+  });
 });

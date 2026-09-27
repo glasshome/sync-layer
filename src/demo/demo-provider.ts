@@ -36,6 +36,11 @@ export interface DemoFixtures {
   devices: Record<string, DeviceRegistryEntry>;
 }
 
+export interface LoggedCall {
+  simMs: number;
+  call: ServiceCall;
+}
+
 interface Published {
   projection: Projection;
   wallMs: number;
@@ -50,7 +55,7 @@ interface DemoSession {
   speed: number;
   published: Map<string, Published>;
   publishMs: Map<string, number>;
-  log: { simMs: number; call: ServiceCall }[];
+  log: LoggedCall[];
 }
 
 interface ResolvedClock {
@@ -63,6 +68,9 @@ interface ResolvedClock {
 
 const DEMO_HASS_URL = "https://demo.home-assistant.local";
 const TICK_MS = 1000;
+const FINE_STEP_MS = 1000;
+const COARSE_STEP_MS = 60_000;
+const FINE_GAP_MS = 120_000;
 
 const VISITOR_HOLDS: Partial<Record<string, HoldUntil>> = {
   light: "boundary",
@@ -85,6 +93,15 @@ export function isDemoMode(): boolean {
 /** Internal: the running demo model, for history replay. */
 export function demoModel(): DemoModel | null {
   return session?.model ?? null;
+}
+
+/** Internal: visitor calls applied this session, for persistence and history replay. */
+export function demoCallLog(): readonly LoggedCall[] {
+  return session?.log ?? [];
+}
+
+function catchUp(model: DemoModel, simMs: number): void {
+  model.advanceTo(simMs, simMs - model.nowMs <= FINE_GAP_MS ? FINE_STEP_MS : COARSE_STEP_MS);
 }
 
 // ============================================
@@ -242,7 +259,7 @@ function publish(s: DemoSession, force: ReadonlySet<string>): void {
 export function advanceDemoTo(simMs: number): void {
   const s = session;
   if (!s) return;
-  s.model.advanceTo(simMs);
+  catchUp(s.model, simMs);
   publish(s, new Set());
 }
 
@@ -370,7 +387,7 @@ export function applyDemoServiceCall(
   if (!s) return;
   const entityIds = targetIds(target);
   if (entityIds.length === 0) return;
-  if (s.live) s.model.advanceTo(liveSimMs(s));
+  if (s.live) catchUp(s.model, liveSimMs(s));
   const call: ServiceCall = { domain, service, data: serviceData, entityIds };
   s.model.dispatch(call);
   for (const entityId of entityIds) {

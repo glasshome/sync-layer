@@ -7,7 +7,8 @@ export type HoldUntil = "boundary" | "event";
 export interface DemoModel {
   readonly nowMs: number;
   dispatch(call: ServiceCall): void;
-  advanceTo(ms: number): void;
+  /** `stepMs` overrides the model's step for this advance only. */
+  advanceTo(ms: number, stepMs?: number): void;
   project(): Record<string, Projection>;
   projectDevice(key: string): Record<string, Projection>;
   deviceOf(entityId: string): DeviceSpec | undefined;
@@ -89,16 +90,17 @@ export function createDemoModel(
       return nowMs;
     },
     dispatch: (call) => dispatchAt(call, 0),
-    advanceTo(ms) {
+    advanceTo(ms, step = stepMs) {
       while (nowMs < ms) {
         const nextEvent = Math.min(queue[0]?.atMs ?? Infinity, driver?.nextAtMs() ?? Infinity);
-        const dtMs = Math.min(stepMs, ms - nowMs, Math.max(1, nextEvent - nowMs));
+        const dtMs = Math.min(step, ms - nowMs, Math.max(1, nextEvent - nowMs));
         const prev = nowMs;
         nowMs += dtMs;
+        // Physics covers (prev, now] before events landing at now, so coarse steps never age a fresh event.
+        for (const d of devices) applyTo(d, { type: "tick", dtMs }, MAX_EFFECT_DEPTH);
         flushDue();
         driver?.step(model, prev, nowMs);
         flushDue();
-        for (const d of devices) applyTo(d, { type: "tick", dtMs }, MAX_EFFECT_DEPTH);
       }
     },
     project() {
