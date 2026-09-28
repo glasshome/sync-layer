@@ -2,14 +2,31 @@
   "name": "@glasshome/sync-layer",
   "version": "0.10.1",
   "description": "Type-safe, reactive state synchronization layer for Home Assistant",
+  "keywords": [
+    "home-assistant",
+    "reactive",
+    "smart-home",
+    "solidjs",
+    "typescript",
+    "websocket"
+  ],
+  "homepage": "https://github.com/glasshome/sync-layer#readme",
+  "bugs": {
+    "url": "https://github.com/glasshome/sync-layer/issues"
+  },
+  "license": "MIT",
+  "author": "GlassHome Labs",
   "repository": {
     "type": "git",
     "url": "https://github.com/glasshome/sync-layer.git"
   },
+  "files": [
+    "dist"
+  ],
   "type": "module",
+  "sideEffects": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "sideEffects": true,
   "exports": {
     ".": {
       "@glasshome/source": "./src/index.ts",
@@ -33,6 +50,32 @@
     },
     "./package.json": "./package.json"
   },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsdown && tsc --noEmit && bun scripts/check-widget-reachable-surface.ts",
+    "dev": "tsdown --watch",
+    "test": "bun test",
+    "lint": "oxlint --type-aware . && oxfmt --check . && tsc --noEmit",
+    "gen:demo-ids": "bun scripts/gen-demo-ids.ts",
+    "check:dead": "fallow dead-code --fail-on-issues"
+  },
+  "dependencies": {
+    "@glasshome/widget-contract": "0.3.0",
+    "home-assistant-js-websocket": "^9.6.0"
+  },
+  "devDependencies": {
+    "@glasshome/ha-types": "0.2.0",
+    "@types/bun": "^1.4.0",
+    "fallow": "3.17.0",
+    "oxfmt": "0.65.0",
+    "oxlint": "1.81.0",
+    "oxlint-tsgolint": "7.0.2001",
+    "solid-js": "^1.9.0",
+    "tsdown": "^0.22.14",
+    "typescript": "^7.0.2"
+  },
   "peerDependencies": {
     "@glasshome/ha-types": "0.2.0",
     "solid-js": "^1.9.0"
@@ -45,47 +88,7 @@
       "optional": true
     }
   },
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsdown && tsc --noEmit && bun scripts/check-widget-reachable-surface.ts",
-    "dev": "tsdown --watch",
-    "test": "bun test",
-    "lint": "tsc --noEmit",
-    "gen:demo-ids": "bun scripts/gen-demo-ids.ts",
-    "check:dead": "fallow dead-code --fail-on-issues"
-  },
-  "dependencies": {
-    "home-assistant-js-websocket": "^9.6.0",
-    "@glasshome/widget-contract": "0.3.0"
-  },
-  "devDependencies": {
-    "@glasshome/ha-types": "0.2.0",
-    "@types/bun": "^1.4.0",
-    "fallow": "3.17.0",
-    "solid-js": "^1.9.0",
-    "tsdown": "^0.22.14",
-    "typescript": "^7.0.2"
-  },
-  "homepage": "https://github.com/glasshome/sync-layer#readme",
-  "bugs": {
-    "url": "https://github.com/glasshome/sync-layer/issues"
-  },
-  "publishConfig": {
-    "access": "public"
-  },
   "engines": {
     "node": ">=18"
-  },
-  "keywords": [
-    "home-assistant",
-    "websocket",
-    "typescript",
-    "reactive",
-    "solidjs",
-    "smart-home"
-  ],
-  "author": "GlassHome Labs",
-  "license": "MIT"
+  }
 }
