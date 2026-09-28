@@ -30,7 +30,24 @@ function formatter(timeZone: string): Intl.DateTimeFormat {
 
 const WEEKDAYS: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 
-function parts(ms: number, timeZone: string) {
+type Parts = ReturnType<typeof readParts>;
+
+// One projection asks every entity about the same few instants; formatToParts is what costs.
+const RECENT_LIMIT = 256;
+const recent = new Map<string, Parts>();
+
+function parts(ms: number, timeZone: string): Parts {
+  const key = `${timeZone}|${ms}`;
+  let p = recent.get(key);
+  if (!p) {
+    if (recent.size >= RECENT_LIMIT) recent.clear();
+    p = readParts(ms, timeZone);
+    recent.set(key, p);
+  }
+  return p;
+}
+
+function readParts(ms: number, timeZone: string) {
   const out: Record<string, string> = {};
   for (const p of formatter(timeZone).formatToParts(ms)) out[p.type] = p.value;
   return {
