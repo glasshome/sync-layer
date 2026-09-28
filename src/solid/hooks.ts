@@ -322,11 +322,7 @@ export function useEntityStatistics(
       // Demo mode has no real connection; the statistics fetcher synthesizes
       // data from the energy model and ignores the connection argument.
       if (!conn && !isDemoMode()) return [];
-      const result = await fetchStatisticsDuringPeriod(
-        conn ?? DEMO_STATS_CONNECTION,
-        [id],
-        opts,
-      );
+      const result = await fetchStatisticsDuringPeriod(conn ?? DEMO_STATS_CONNECTION, [id], opts);
       return result[id] ?? [];
     },
   );

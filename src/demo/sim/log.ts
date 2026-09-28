@@ -50,7 +50,11 @@ function removeOtherVersions(storage: Storage, keep: string): void {
   for (const key of stale) storage.removeItem(key);
 }
 
-export function readLog(storage: Storage | undefined, houseVersion: number, nowMs: number): LoggedCall[] {
+export function readLog(
+  storage: Storage | undefined,
+  houseVersion: number,
+  nowMs: number,
+): LoggedCall[] {
   if (!storage) return [];
   const key = logKey(houseVersion);
   try {
@@ -69,7 +73,12 @@ export function readLog(storage: Storage | undefined, houseVersion: number, nowM
   }
 }
 
-export function appendLog(storage: Storage | undefined, houseVersion: number, entry: LoggedCall, nowMs: number): void {
+export function appendLog(
+  storage: Storage | undefined,
+  houseVersion: number,
+  entry: LoggedCall,
+  nowMs: number,
+): void {
   if (!storage) return;
   const key = logKey(houseVersion);
   let existing: LoggedCall[] = [];

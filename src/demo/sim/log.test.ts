@@ -28,7 +28,10 @@ describe("demo log", () => {
 
   test("keeps only the 500 newest entries", () => {
     const s = memoryStorage();
-    const entries = Array.from({ length: 510 }, (_, i) => ({ simMs: T - 510_000 + i * 1000, call }));
+    const entries = Array.from({ length: 510 }, (_, i) => ({
+      simMs: T - 510_000 + i * 1000,
+      call,
+    }));
     s.setItem("glasshome.demo.log.v1", JSON.stringify(entries));
     appendLog(s, 1, { simMs: T, call }, T);
     const kept = readLog(s, 1, T);
@@ -56,7 +59,13 @@ describe("demo log", () => {
   test("an entityIds element that isn't a string reads as wrong shape", () => {
     const s = memoryStorage();
     const badCall = { ...call, entityIds: ["light.hallway", 42] };
-    s.setItem("glasshome.demo.log.v1", JSON.stringify([{ simMs: T, call: badCall }, { simMs: T, call }]));
+    s.setItem(
+      "glasshome.demo.log.v1",
+      JSON.stringify([
+        { simMs: T, call: badCall },
+        { simMs: T, call },
+      ]),
+    );
     expect(readLog(s, 1, T)).toEqual([{ simMs: T, call }]);
   });
 });

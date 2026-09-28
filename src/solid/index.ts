@@ -39,11 +39,4 @@ export {
 // DERIVED INDICES
 // ============================================
 
-export {
-  allEntityIds,
-  byArea,
-  byDevice,
-  byDomain,
-  byFloor,
-  byLabel,
-} from "./indices";
+export { allEntityIds, byArea, byDevice, byDomain, byFloor, byLabel } from "./indices";

@@ -88,43 +88,123 @@ const LEGACY_IDS = [
  */
 const LEGACY_ENTITY_TABLE: Record<
   string,
-  { features: number; category: EntityCategory | null; deviceClass: string | null; area: string | null }
+  {
+    features: number;
+    category: EntityCategory | null;
+    deviceClass: string | null;
+    area: string | null;
+  }
 > = {
-  "light.living_room_main": { features: 44, category: null, deviceClass: null, area: "living_room" },
+  "light.living_room_main": {
+    features: 44,
+    category: null,
+    deviceClass: null,
+    area: "living_room",
+  },
   "light.kitchen_counter": { features: 1, category: null, deviceClass: null, area: "kitchen" },
   "light.bedroom_ceiling": { features: 44, category: null, deviceClass: null, area: "bedroom" },
   "light.bathroom": { features: 0, category: null, deviceClass: null, area: null },
   "light.hallway": { features: 1, category: null, deviceClass: null, area: "entry" },
   "light.studio_rgb": { features: 44, category: null, deviceClass: null, area: "living_room" },
   "light.desk_rgb": { features: 44, category: null, deviceClass: null, area: "bedroom" },
-  "sensor.temperature_living": { features: 0, category: null, deviceClass: "temperature", area: "living_room" },
-  "sensor.humidity_living": { features: 0, category: null, deviceClass: "humidity", area: "living_room" },
-  "sensor.temperature_outdoor": { features: 0, category: null, deviceClass: "temperature", area: null },
+  "sensor.temperature_living": {
+    features: 0,
+    category: null,
+    deviceClass: "temperature",
+    area: "living_room",
+  },
+  "sensor.humidity_living": {
+    features: 0,
+    category: null,
+    deviceClass: "humidity",
+    area: "living_room",
+  },
+  "sensor.temperature_outdoor": {
+    features: 0,
+    category: null,
+    deviceClass: "temperature",
+    area: null,
+  },
   "sensor.power_consumption": { features: 0, category: null, deviceClass: "power", area: null },
-  "sensor.battery_door_sensor": { features: 0, category: null, deviceClass: "battery", area: "entry" },
-  "sensor.electricity_maps_co2_intensity": { features: 0, category: null, deviceClass: null, area: null },
-  "sensor.electricity_maps_fossil_fuel_percentage": { features: 0, category: null, deviceClass: null, area: null },
+  "sensor.battery_door_sensor": {
+    features: 0,
+    category: null,
+    deviceClass: "battery",
+    area: "entry",
+  },
+  "sensor.electricity_maps_co2_intensity": {
+    features: 0,
+    category: null,
+    deviceClass: null,
+    area: null,
+  },
+  "sensor.electricity_maps_fossil_fuel_percentage": {
+    features: 0,
+    category: null,
+    deviceClass: null,
+    area: null,
+  },
   "sensor.nordpool_current_price": { features: 0, category: null, deviceClass: null, area: null },
   "binary_sensor.front_door": { features: 0, category: null, deviceClass: "door", area: "entry" },
-  "binary_sensor.motion_hallway": { features: 0, category: null, deviceClass: "motion", area: "entry" },
-  "binary_sensor.window_bedroom": { features: 0, category: null, deviceClass: "window", area: "bedroom" },
-  "climate.living_room_thermostat": { features: 385, category: null, deviceClass: null, area: "living_room" },
+  "binary_sensor.motion_hallway": {
+    features: 0,
+    category: null,
+    deviceClass: "motion",
+    area: "entry",
+  },
+  "binary_sensor.window_bedroom": {
+    features: 0,
+    category: null,
+    deviceClass: "window",
+    area: "bedroom",
+  },
+  "climate.living_room_thermostat": {
+    features: 385,
+    category: null,
+    deviceClass: null,
+    area: "living_room",
+  },
   "climate.bedroom_ac": { features: 385, category: null, deviceClass: null, area: "bedroom" },
   "water_heater.boiler": { features: 7, category: null, deviceClass: null, area: "utility" },
   "water_heater.heat_pump_tank": { features: 3, category: null, deviceClass: null, area: "garage" },
   "fan.bedroom_ceiling": { features: 5, category: null, deviceClass: null, area: "bedroom" },
   "fan.air_purifier": { features: 11, category: null, deviceClass: null, area: "living_room" },
-  "cover.living_room_blinds": { features: 15, category: null, deviceClass: "shade", area: "living_room" },
-  "cover.bedroom_curtains": { features: 15, category: null, deviceClass: "curtain", area: "bedroom" },
+  "cover.living_room_blinds": {
+    features: 15,
+    category: null,
+    deviceClass: "shade",
+    area: "living_room",
+  },
+  "cover.bedroom_curtains": {
+    features: 15,
+    category: null,
+    deviceClass: "curtain",
+    area: "bedroom",
+  },
   "cover.garage_door": { features: 11, category: null, deviceClass: "garage", area: "garage" },
   "cover.driveway_gate": { features: 3, category: null, deviceClass: "gate", area: "garage" },
-  "cover.living_room_shutters": { features: 255, category: null, deviceClass: "shutter", area: "living_room" },
+  "cover.living_room_shutters": {
+    features: 255,
+    category: null,
+    deviceClass: "shutter",
+    area: "living_room",
+  },
   "cover.kitchen_blinds": { features: 127, category: null, deviceClass: "blind", area: "kitchen" },
   "lock.front_door_lock": { features: 1, category: null, deviceClass: null, area: "entry" },
   "lock.back_door_lock": { features: 1, category: null, deviceClass: null, area: "entry" },
   "switch.coffee_machine": { features: 0, category: null, deviceClass: "outlet", area: "kitchen" },
-  "switch.fan_living_room": { features: 0, category: null, deviceClass: "switch", area: "living_room" },
-  "media_player.living_room_speaker": { features: 152509, category: null, deviceClass: null, area: "living_room" },
+  "switch.fan_living_room": {
+    features: 0,
+    category: null,
+    deviceClass: "switch",
+    area: "living_room",
+  },
+  "media_player.living_room_speaker": {
+    features: 152509,
+    category: null,
+    deviceClass: null,
+    area: "living_room",
+  },
   "weather.demo_sunny": { features: 0, category: null, deviceClass: null, area: null },
   "weather.demo_clear_night": { features: 0, category: null, deviceClass: null, area: null },
   "weather.demo_cloudy": { features: 0, category: null, deviceClass: null, area: null },
@@ -142,21 +222,66 @@ const LEGACY_ENTITY_TABLE: Record<
   "camera.front_door_camera": { features: 2, category: null, deviceClass: null, area: "entry" },
   "scene.movie_night": { features: 0, category: null, deviceClass: null, area: "living_room" },
   "scene.good_morning": { features: 0, category: null, deviceClass: null, area: null },
-  "button.restart_home_assistant": { features: 0, category: "config" as EntityCategory, deviceClass: "restart", area: null },
-  "button.update_firmware": { features: 0, category: "config" as EntityCategory, deviceClass: "update", area: null },
-  "sensor.door_lock_battery": { features: 0, category: null, deviceClass: "battery", area: "entry" },
-  "sensor.motion_sensor_battery": { features: 0, category: null, deviceClass: "battery", area: "entry" },
+  "button.restart_home_assistant": {
+    features: 0,
+    category: "config" as EntityCategory,
+    deviceClass: "restart",
+    area: null,
+  },
+  "button.update_firmware": {
+    features: 0,
+    category: "config" as EntityCategory,
+    deviceClass: "update",
+    area: null,
+  },
+  "sensor.door_lock_battery": {
+    features: 0,
+    category: null,
+    deviceClass: "battery",
+    area: "entry",
+  },
+  "sensor.motion_sensor_battery": {
+    features: 0,
+    category: null,
+    deviceClass: "battery",
+    area: "entry",
+  },
   "sun.sun": { features: 0, category: null, deviceClass: null, area: null },
   "sensor.solar_power": { features: 0, category: null, deviceClass: "power", area: "utility" },
-  "sensor.grid_import_power": { features: 0, category: null, deviceClass: "power", area: "utility" },
-  "sensor.grid_export_power": { features: 0, category: null, deviceClass: "power", area: "utility" },
-  "sensor.battery_charge_power": { features: 0, category: null, deviceClass: "power", area: "utility" },
-  "sensor.battery_discharge_power": { features: 0, category: null, deviceClass: "power", area: "utility" },
+  "sensor.grid_import_power": {
+    features: 0,
+    category: null,
+    deviceClass: "power",
+    area: "utility",
+  },
+  "sensor.grid_export_power": {
+    features: 0,
+    category: null,
+    deviceClass: "power",
+    area: "utility",
+  },
+  "sensor.battery_charge_power": {
+    features: 0,
+    category: null,
+    deviceClass: "power",
+    area: "utility",
+  },
+  "sensor.battery_discharge_power": {
+    features: 0,
+    category: null,
+    deviceClass: "power",
+    area: "utility",
+  },
   "sensor.battery_soc": { features: 0, category: null, deviceClass: "battery", area: "utility" },
   "sensor.home_power": { features: 0, category: null, deviceClass: "power", area: "utility" },
   "sensor.fridge_power": { features: 0, category: null, deviceClass: "power", area: "utility" },
   "sensor.dishwasher_power": { features: 0, category: null, deviceClass: "power", area: "utility" },
-  "sensor.washing_machine_power": { features: 0, category: null, deviceClass: "power", area: "utility" },
+  "sensor.washing_machine_power": {
+    features: 0,
+    category: null,
+    deviceClass: "power",
+    area: "utility",
+  },
   "sensor.oven_power": { features: 0, category: null, deviceClass: "power", area: "utility" },
   "sensor.ev_charger_power": { features: 0, category: null, deviceClass: "power", area: "utility" },
   "sensor.always_on_power": { features: 0, category: null, deviceClass: "power", area: "utility" },
@@ -197,7 +322,9 @@ describe("generated house", () => {
     expect(g.registry.devices[r?.device_id ?? ""]?.name).toBe("Dryer");
   });
   test("side entities are categorised", () => {
-    const diag = Object.values(g.registry.entityRegistry).filter((r) => r.entity_category === "diagnostic");
+    const diag = Object.values(g.registry.entityRegistry).filter(
+      (r) => r.entity_category === "diagnostic",
+    );
     expect(diag.length).toBeGreaterThan(60);
   });
   test("only whole-house devices lack an area", () => {
@@ -205,12 +332,18 @@ describe("generated house", () => {
       ...HOUSE.whole.map((w) => w.key),
       ...HOUSE.people.flatMap((p) => [`person_${p.id}`, `phone_${p.id}`]),
     ]);
-    const orphans = Object.values(g.registry.devices).filter((d) => d.area_id === null && !whole.has(d.id));
+    const orphans = Object.values(g.registry.devices).filter(
+      (d) => d.area_id === null && !whole.has(d.id),
+    );
     expect(orphans.map((d) => d.id)).toEqual([]);
   });
   test("every kind projects every id it declares", () => {
     const T = Date.parse("2026-06-21T12:00:00Z");
-    const ctx = { nowMs: T, world: { timeZone: "UTC", seed: 1, latitude: 48, longitude: 0 }, noise: () => 0.5 };
+    const ctx = {
+      nowMs: T,
+      world: { timeZone: "UTC", seed: 1, latitude: 48, longitude: 0 },
+      noise: () => 0.5,
+    };
     for (const d of g.devices) {
       const k = KINDS[d.kind];
       const out = k.project(k.apply(undefined, { type: "init" }, d, ctx), d, ctx);
@@ -219,7 +352,11 @@ describe("generated house", () => {
   });
   test("legacy entities keep supported_features, category and device class", () => {
     const T = Date.parse("2026-06-21T12:00:00Z");
-    const ctx = { nowMs: T, world: { timeZone: "UTC", seed: 1, latitude: 48, longitude: 0 }, noise: () => 0.5 };
+    const ctx = {
+      nowMs: T,
+      world: { timeZone: "UTC", seed: 1, latitude: 48, longitude: 0 },
+      noise: () => 0.5,
+    };
     const projected: Record<string, { attributes: Record<string, unknown> }> = {};
     for (const d of g.devices) {
       const k = KINDS[d.kind];
@@ -232,13 +369,17 @@ describe("generated house", () => {
       if (legacy.features !== 0 || attr !== undefined)
         expect({ id, attr }).toEqual({ id, attr: legacy.features });
       expect({ id, category: now?.entity_category }).toEqual({ id, category: legacy.category });
-      expect({ id, deviceClass: now?.device_class }).toEqual({ id, deviceClass: legacy.deviceClass });
+      expect({ id, deviceClass: now?.device_class }).toEqual({
+        id,
+        deviceClass: legacy.deviceClass,
+      });
       if (AREA_MOVES.has(id)) continue;
       expect({ id, area: g.roomOf[id] ?? null }).toEqual({ id, area: legacy.area });
     }
   });
   test("room scenes carry their room", () => {
-    const areaOf = (id: string) => g.registry.devices[g.registry.entityRegistry[id]?.device_id ?? ""]?.area_id;
+    const areaOf = (id: string) =>
+      g.registry.devices[g.registry.entityRegistry[id]?.device_id ?? ""]?.area_id;
     expect(areaOf("scene.movie_night")).toBe("living_room");
     expect(areaOf("scene.dinner")).toBe("dining");
     expect(areaOf("scene.good_night")).toBeNull();
@@ -247,7 +388,10 @@ describe("generated house", () => {
     const b = inRoom(null);
     const bad = {
       ...HOUSE,
-      whole: [...HOUSE.whole, b.scene("Typo", [{ domain: "light", service: "turn_on", entityIds: ["light.nope"] }])],
+      whole: [
+        ...HOUSE.whole,
+        b.scene("Typo", [{ domain: "light", service: "turn_on", entityIds: ["light.nope"] }]),
+      ],
     };
     expect(() => generateHouse(bad, "2026-06-21T12:00:00.000Z")).toThrow("light.nope");
   });
@@ -264,7 +408,9 @@ describe("generated house", () => {
   test("movie night plays the speaker", () => {
     const scene = g.devices.find((d) => d.key === "movie_night");
     const targets = scene?.params.targets as { service: string; entityIds: string[] }[];
-    expect(targets.find((t) => t.entityIds.includes("media_player.living_room_speaker"))?.service).toBe("media_play");
+    expect(
+      targets.find((t) => t.entityIds.includes("media_player.living_room_speaker"))?.service,
+    ).toBe("media_play");
   });
   test("ids.ts is current", () => {
     const declared: string[] = [...DEMO_ENTITY_IDS];

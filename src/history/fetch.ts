@@ -41,7 +41,8 @@ export async function fetchHistory(
     const endMs = timeMap.toSim((endTime ?? new Date()).getTime());
     // One energy sample per wall minute, however fast the demo clock runs.
     const energyStepMs = timeMap.toSim(60_000) - timeMap.toSim(0);
-    const toWallSeconds = (simSeconds: number) => Math.round(timeMap.toWall(simSeconds * 1000) / 1000);
+    const toWallSeconds = (simSeconds: number) =>
+      Math.round(timeMap.toWall(simSeconds * 1000) / 1000);
     const replayed = demoHistory(
       entityIds.filter((id) => !isEnergyEntity(id)),
       startMs,

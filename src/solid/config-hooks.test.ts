@@ -4,13 +4,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 // because the host serves that entry to widget bundles (finding 46).
 import { resetStore, setState } from "../core/store";
 import { createRoot } from "solid-js";
-import {
-  useCurrency,
-  useHassConfig,
-  useLocale,
-  useTemperatureUnit,
-  useUnitSystem,
-} from "./hooks";
+import { useCurrency, useHassConfig, useLocale, useTemperatureUnit, useUnitSystem } from "./hooks";
 
 function makeConfig(overrides: Partial<HassConfig>): HassConfig {
   return {

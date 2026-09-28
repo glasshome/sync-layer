@@ -11,11 +11,7 @@
  * @packageDocumentation
  */
 
-import type {
-  AreaEntry,
-  DeviceEntry,
-  EntityCategory,
-} from "@glasshome/ha-types";
+import type { AreaEntry, DeviceEntry, EntityCategory } from "@glasshome/ha-types";
 
 // ============================================
 // BASIC TYPES
@@ -407,4 +403,3 @@ export type MapFunc<T, R> = (item: T) => R;
 export function extractDomain(entityId: EntityId): EntityDomain {
   return entityId.split(".")[0] ?? "";
 }
-

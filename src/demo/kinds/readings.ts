@@ -79,7 +79,13 @@ function isLegacyEnergyId(id: string): boolean {
   );
 }
 
-function sensorValue(id: string, p: SensorParams, nowMs: number, noiseVal: number, outdoorC: number): string {
+function sensorValue(
+  id: string,
+  p: SensorParams,
+  nowMs: number,
+  noiseVal: number,
+  outdoorC: number,
+): string {
   switch (p.reading) {
     case "temperature":
       return round1(20.5 + (outdoorC - 20.5) * 0.1 + (noiseVal - 0.5) * 0.4).toFixed(1);
@@ -179,7 +185,9 @@ const binarySensor: DeviceKind = {
     }
     if (event.type !== "call" || event.service !== "demo_set") return s;
     const on = Boolean(event.data.on);
-    return p.deviceClass === "motion" && on ? { on: true, autoOffRemainingMs: MOTION_AUTO_OFF_MS } : { on };
+    return p.deviceClass === "motion" && on
+      ? { on: true, autoOffRemainingMs: MOTION_AUTO_OFF_MS }
+      : { on };
   },
   project(state, device) {
     const s = state as BinarySensorState;
@@ -202,7 +210,13 @@ interface SunState {
   settingMs: number;
 }
 
-function sunCacheValid(state: SunState | undefined, nowMs: number, lat: number, lon: number, dateKey: string): state is SunState {
+function sunCacheValid(
+  state: SunState | undefined,
+  nowMs: number,
+  lat: number,
+  lon: number,
+  dateKey: string,
+): state is SunState {
   return (
     state != null &&
     state.dateKey === dateKey &&
@@ -213,7 +227,13 @@ function sunCacheValid(state: SunState | undefined, nowMs: number, lat: number, 
   );
 }
 
-function sunTimesFor(state: SunState | undefined, nowMs: number, lat: number, lon: number, dateKey: string): SunState {
+function sunTimesFor(
+  state: SunState | undefined,
+  nowMs: number,
+  lat: number,
+  lon: number,
+  dateKey: string,
+): SunState {
   if (sunCacheValid(state, nowMs, lat, lon, dateKey)) return state;
   const { risingMs, settingMs } = sunTimes(nowMs, lat, lon);
   return { dateKey, latKey: lat, lonKey: lon, risingMs, settingMs };
@@ -227,7 +247,13 @@ const sun: DeviceKind = {
     void event;
     void device;
     const lt = localTime(ctx.nowMs, ctx.world.timeZone);
-    return sunTimesFor(state as SunState | undefined, ctx.nowMs, ctx.world.latitude, ctx.world.longitude, lt.dateKey);
+    return sunTimesFor(
+      state as SunState | undefined,
+      ctx.nowMs,
+      ctx.world.latitude,
+      ctx.world.longitude,
+      lt.dateKey,
+    );
   },
   project(state, device, ctx) {
     const s = state as SunState;
@@ -240,7 +266,9 @@ const sun: DeviceKind = {
           elevation: round1(elevation),
           next_rising: new Date(s.risingMs).toISOString(),
           next_setting: new Date(s.settingMs).toISOString(),
-          rising: solarElevation(ctx.nowMs + 600_000, ctx.world.latitude, ctx.world.longitude) > elevation,
+          rising:
+            solarElevation(ctx.nowMs + 600_000, ctx.world.latitude, ctx.world.longitude) >
+            elevation,
         },
       },
     };
@@ -278,7 +306,11 @@ function weatherForecastDay(
   };
 }
 
-export function weatherForecastHourly(nowMs: number, world: World, hours = 24): Record<string, unknown>[] {
+export function weatherForecastHourly(
+  nowMs: number,
+  world: World,
+  hours = 24,
+): Record<string, unknown>[] {
   const firstHourMs = Math.floor(nowMs / 3_600_000) * 3_600_000;
   return Array.from({ length: hours }, (_, i) => {
     const t = firstHourMs + i * 3_600_000;
@@ -294,7 +326,9 @@ export function weatherForecastHourly(nowMs: number, world: World, hours = 24): 
 
 const weather: DeviceKind = {
   entities(device) {
-    return [{ entityId: entityIdFor("weather", device, "weather"), name: device.name, primary: true }];
+    return [
+      { entityId: entityIdFor("weather", device, "weather"), name: device.name, primary: true },
+    ];
   },
   apply() {
     return undefined;
@@ -306,7 +340,9 @@ const weather: DeviceKind = {
     const sunUp = elevation > -0.833;
     const dateKey = localTime(ctx.nowMs, ctx.world.timeZone).dateKey;
     const noiseVal = ctx.noise(`weather:condition:${dateKey}`);
-    const forecast = Array.from({ length: 7 }, (_, i) => weatherForecastDay(ctx.nowMs, ctx.world, i, (key) => ctx.noise(key)));
+    const forecast = Array.from({ length: 7 }, (_, i) =>
+      weatherForecastDay(ctx.nowMs, ctx.world, i, (key) => ctx.noise(key)),
+    );
     return {
       [id]: {
         state: weatherCondition(cloud, sunUp, noiseVal),
@@ -340,20 +376,146 @@ interface WeatherFixture {
 
 /** One fixed fixture per weather scene the widget can showcase. */
 export const WEATHER_FIXTURES: WeatherFixture[] = [
-  { slug: "sunny", state: "sunny", temp: 28, apparent: 31, humidity: 35, pressure: 1018, wind: 8, low: 18 },
-  { slug: "clear_night", state: "clear-night", temp: 14, apparent: 12, humidity: 55, pressure: 1016, wind: 5, low: 9 },
-  { slug: "cloudy", state: "cloudy", temp: 17, apparent: 16, humidity: 72, pressure: 1010, wind: 14, low: 11 },
-  { slug: "partly_cloudy", state: "partlycloudy", temp: 23, apparent: 24, humidity: 50, pressure: 1014, wind: 12, low: 15 },
-  { slug: "rainy", state: "rainy", temp: 12, apparent: 10, humidity: 88, pressure: 1004, wind: 18, low: 8 },
-  { slug: "pouring", state: "pouring", temp: 11, apparent: 8, humidity: 95, pressure: 998, wind: 26, low: 7 },
-  { slug: "snowy", state: "snowy", temp: -2, apparent: -6, humidity: 80, pressure: 1020, wind: 10, low: -7 },
-  { slug: "snowy_rainy", state: "snowy-rainy", temp: 1, apparent: -2, humidity: 92, pressure: 1006, wind: 16, low: -2 },
-  { slug: "lightning", state: "lightning", temp: 22, apparent: 24, humidity: 78, pressure: 1001, wind: 22, low: 17 },
-  { slug: "lightning_rainy", state: "lightning-rainy", temp: 19, apparent: 18, humidity: 90, pressure: 996, wind: 28, low: 14 },
-  { slug: "fog", state: "fog", temp: 8, apparent: 6, humidity: 98, pressure: 1015, wind: 4, low: 6 },
-  { slug: "hail", state: "hail", temp: 6, apparent: 3, humidity: 84, pressure: 1002, wind: 20, low: 1 },
-  { slug: "windy", state: "windy", temp: 18, apparent: 15, humidity: 60, pressure: 1009, wind: 42, low: 12 },
-  { slug: "exceptional", state: "exceptional", temp: 38, apparent: 44, humidity: 22, pressure: 1005, wind: 30, low: 28 },
+  {
+    slug: "sunny",
+    state: "sunny",
+    temp: 28,
+    apparent: 31,
+    humidity: 35,
+    pressure: 1018,
+    wind: 8,
+    low: 18,
+  },
+  {
+    slug: "clear_night",
+    state: "clear-night",
+    temp: 14,
+    apparent: 12,
+    humidity: 55,
+    pressure: 1016,
+    wind: 5,
+    low: 9,
+  },
+  {
+    slug: "cloudy",
+    state: "cloudy",
+    temp: 17,
+    apparent: 16,
+    humidity: 72,
+    pressure: 1010,
+    wind: 14,
+    low: 11,
+  },
+  {
+    slug: "partly_cloudy",
+    state: "partlycloudy",
+    temp: 23,
+    apparent: 24,
+    humidity: 50,
+    pressure: 1014,
+    wind: 12,
+    low: 15,
+  },
+  {
+    slug: "rainy",
+    state: "rainy",
+    temp: 12,
+    apparent: 10,
+    humidity: 88,
+    pressure: 1004,
+    wind: 18,
+    low: 8,
+  },
+  {
+    slug: "pouring",
+    state: "pouring",
+    temp: 11,
+    apparent: 8,
+    humidity: 95,
+    pressure: 998,
+    wind: 26,
+    low: 7,
+  },
+  {
+    slug: "snowy",
+    state: "snowy",
+    temp: -2,
+    apparent: -6,
+    humidity: 80,
+    pressure: 1020,
+    wind: 10,
+    low: -7,
+  },
+  {
+    slug: "snowy_rainy",
+    state: "snowy-rainy",
+    temp: 1,
+    apparent: -2,
+    humidity: 92,
+    pressure: 1006,
+    wind: 16,
+    low: -2,
+  },
+  {
+    slug: "lightning",
+    state: "lightning",
+    temp: 22,
+    apparent: 24,
+    humidity: 78,
+    pressure: 1001,
+    wind: 22,
+    low: 17,
+  },
+  {
+    slug: "lightning_rainy",
+    state: "lightning-rainy",
+    temp: 19,
+    apparent: 18,
+    humidity: 90,
+    pressure: 996,
+    wind: 28,
+    low: 14,
+  },
+  {
+    slug: "fog",
+    state: "fog",
+    temp: 8,
+    apparent: 6,
+    humidity: 98,
+    pressure: 1015,
+    wind: 4,
+    low: 6,
+  },
+  {
+    slug: "hail",
+    state: "hail",
+    temp: 6,
+    apparent: 3,
+    humidity: 84,
+    pressure: 1002,
+    wind: 20,
+    low: 1,
+  },
+  {
+    slug: "windy",
+    state: "windy",
+    temp: 18,
+    apparent: 15,
+    humidity: 60,
+    pressure: 1009,
+    wind: 42,
+    low: 12,
+  },
+  {
+    slug: "exceptional",
+    state: "exceptional",
+    temp: 38,
+    apparent: 44,
+    humidity: 22,
+    pressure: 1005,
+    wind: 30,
+    low: 28,
+  },
 ];
 
 function buildShowcaseForecast(w: WeatherFixture, midnightMs: number): Record<string, unknown>[] {
@@ -371,7 +533,9 @@ function buildShowcaseForecast(w: WeatherFixture, midnightMs: number): Record<st
 
 const weatherShowcase: DeviceKind = {
   entities(device) {
-    return [{ entityId: entityIdFor("weather", device, "weather"), name: device.name, primary: true }];
+    return [
+      { entityId: entityIdFor("weather", device, "weather"), name: device.name, primary: true },
+    ];
   },
   apply() {
     return undefined;
@@ -436,7 +600,13 @@ const energyMeter: DeviceKind = {
   entities() {
     return ENERGY_METER_ENTITY_IDS.map((id) => {
       const meta = ENERGY_METER_META[id];
-      return { entityId: id, name: meta.name, deviceClass: meta.deviceClass, unit: meta.unit, primary: id === "sensor.home_power" };
+      return {
+        entityId: id,
+        name: meta.name,
+        deviceClass: meta.deviceClass,
+        unit: meta.unit,
+        primary: id === "sensor.home_power",
+      };
     });
   },
   apply() {
@@ -450,7 +620,11 @@ const energyMeter: DeviceKind = {
       const value = energyEntityValue(id, sample) ?? 0;
       out[id] = {
         state: formatEnergyState(id, value),
-        attributes: { unit_of_measurement: meta.unit, device_class: meta.deviceClass, state_class: "measurement" },
+        attributes: {
+          unit_of_measurement: meta.unit,
+          device_class: meta.deviceClass,
+          state_class: "measurement",
+        },
       };
     }
     return out;
@@ -468,7 +642,9 @@ interface PersonState {
 
 const person: DeviceKind = {
   entities(device) {
-    return [{ entityId: entityIdFor("person", device, "person"), name: device.name, primary: true }];
+    return [
+      { entityId: entityIdFor("person", device, "person"), name: device.name, primary: true },
+    ];
   },
   apply(state, event) {
     const s = (state as PersonState | undefined) ?? { home: true };
@@ -521,7 +697,11 @@ const update: DeviceKind = {
     return {
       [id]: {
         state: available ? "on" : "off",
-        attributes: { installed_version: installed, latest_version: latest, device_class: "firmware" },
+        attributes: {
+          installed_version: installed,
+          latest_version: latest,
+          device_class: "firmware",
+        },
       },
     };
   },
@@ -533,7 +713,14 @@ const update: DeviceKind = {
 
 const camera: DeviceKind = {
   entities(device) {
-    return [{ entityId: entityIdFor("camera", device, "camera"), name: device.name, supportedFeatures: 2, primary: true }];
+    return [
+      {
+        entityId: entityIdFor("camera", device, "camera"),
+        name: device.name,
+        supportedFeatures: 2,
+        primary: true,
+      },
+    ];
   },
   apply() {
     return undefined;

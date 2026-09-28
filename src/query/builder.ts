@@ -30,12 +30,7 @@ import {
 import { getEntityView, getEntityViews } from "../entities/views";
 import { buildQuerySignature, memoizedExecute } from "./memoization";
 import { getNestedValue, projectMap, projectPick, projectPluck, projectToIds } from "./projections";
-import type {
-  EntitiesQueryBuilder,
-  EntityQueryBuilder,
-  IndexFilter,
-  QueryState,
-} from "./types";
+import type { EntitiesQueryBuilder, EntityQueryBuilder, IndexFilter, QueryState } from "./types";
 
 // ============================================
 // QUERY BUILDER IMPLEMENTATION
@@ -356,4 +351,3 @@ export function entities(): EntitiesQueryBuilder<EntityView> {
 export function entity(entityId: EntityId): EntityQueryBuilder {
   return new EntityQueryBuilderImpl(entityId);
 }
-

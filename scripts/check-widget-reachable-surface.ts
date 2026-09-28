@@ -78,4 +78,6 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`Widget-reachable surface: ${ENTRY} exposes no privileged handle (${names.size} exports).`);
+console.log(
+  `Widget-reachable surface: ${ENTRY} exposes no privileged handle (${names.size} exports).`,
+);

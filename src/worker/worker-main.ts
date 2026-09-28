@@ -32,7 +32,11 @@ export interface WorkerScope {
 type HaWireMessage = { type: string } & Record<string, unknown>;
 
 function isHaWireMessage(value: unknown): value is HaWireMessage {
-  return typeof value === "object" && value !== null && typeof (value as { type?: unknown }).type === "string";
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof (value as { type?: unknown }).type === "string"
+  );
 }
 
 /** Extract a readable message from a thrown value. HA's websocket client rejects

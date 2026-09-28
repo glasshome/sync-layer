@@ -22,7 +22,10 @@ function mirror(): RegistryMirror {
 describe("expandTargets", () => {
   test("entity ids pass through from target", () => {
     expect(
-      expandTargets({ domain: "light", service: "turn_on", target: { entity_id: "light.living" } }, mirror()),
+      expandTargets(
+        { domain: "light", service: "turn_on", target: { entity_id: "light.living" } },
+        mirror(),
+      ),
     ).toEqual(["light.living"]);
   });
 
@@ -37,7 +40,10 @@ describe("expandTargets", () => {
 
   test("device target expands to all its entities", () => {
     expect(
-      expandTargets({ domain: "light", service: "turn_on", target: { device_id: "dev1" } }, mirror()).sort(),
+      expandTargets(
+        { domain: "light", service: "turn_on", target: { device_id: "dev1" } },
+        mirror(),
+      ).sort(),
     ).toEqual(["light.living", "sensor.dev1_power"]);
   });
 
@@ -127,9 +133,7 @@ describe("enforceServiceCall", () => {
   });
 
   test("denies smuggled data.entity_id outside narrowing", () => {
-    const narrowed = [
-      { domain: "light", access: "control" as const, entities: ["light.kitchen"] },
-    ];
+    const narrowed = [{ domain: "light", access: "control" as const, entities: ["light.kitchen"] }];
     const verdict = enforceServiceCall(
       narrowed,
       {

@@ -94,7 +94,10 @@ export interface SyncLayerConnection {
    * await unsubscribe();
    * ```
    */
-  subscribeMessage<T>(callback: (message: T) => void, message: unknown): Promise<() => Promise<void>>;
+  subscribeMessage<T>(
+    callback: (message: T) => void,
+    message: unknown,
+  ): Promise<() => Promise<void>>;
 
   /**
    * Send a message and wait for response

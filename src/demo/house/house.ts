@@ -23,7 +23,12 @@ export interface House {
   whole: DeviceSpec[];
 }
 
-const LIVING_LIGHTS = { domain: "light", service: "turn_on", data: { brightness_pct: 20 }, area: "living_room" };
+const LIVING_LIGHTS = {
+  domain: "light",
+  service: "turn_on",
+  data: { brightness_pct: 20 },
+  area: "living_room",
+};
 const ALL_LIGHTS_OFF = { domain: "light", service: "turn_off" };
 const ALL_LOCKS_LOCKED = { domain: "lock", service: "lock" };
 
@@ -40,12 +45,19 @@ export const HOUSE: House = {
       b.light("Floor Lamp", { colorTemp: true }),
       b.light("Reading Lamp"),
       b.light("Shelf Strip", { color: true }),
-      b.climate("Living Room Thermostat", { id: "climate.living_room_thermostat", supportedFeatures: 385 }),
+      b.climate("Living Room Thermostat", {
+        id: "climate.living_room_thermostat",
+        supportedFeatures: 385,
+      }),
       b.climateSensor("Living Room Climate", {
         temperatureId: "sensor.temperature_living",
         humidityId: "sensor.humidity_living",
       }),
-      b.cover("Living Room Blinds", { id: "cover.living_room_blinds", manufacturer: "Somfy", model: "Roller Shade" }),
+      b.cover("Living Room Blinds", {
+        id: "cover.living_room_blinds",
+        manufacturer: "Somfy",
+        model: "Roller Shade",
+      }),
       b.cover("Living Room Shutters", {
         id: "cover.living_room_shutters",
         tilt: true,
@@ -53,7 +65,11 @@ export const HOUSE: House = {
         manufacturer: "Somfy",
         model: "Venetian Shutter",
       }),
-      b.switchDevice("Living Room Fan", { id: "switch.fan_living_room", watts: 45, deviceClass: "switch" }),
+      b.switchDevice("Living Room Fan", {
+        id: "switch.fan_living_room",
+        watts: 45,
+        deviceClass: "switch",
+      }),
       b.mediaPlayer("Living Room Speaker", {
         id: "media_player.living_room_speaker",
         sources: ["Spotify", "AirPlay", "TV"],
@@ -74,7 +90,11 @@ export const HOUSE: House = {
         [
           LIVING_LIGHTS,
           { domain: "cover", service: "close_cover", entityIds: ["cover.living_room_blinds"] },
-          { domain: "media_player", service: "media_play", entityIds: ["media_player.living_room_speaker"] },
+          {
+            domain: "media_player",
+            service: "media_play",
+            entityIds: ["media_player.living_room_speaker"],
+          },
         ],
         { key: "movie_night" },
       ),
@@ -89,7 +109,11 @@ export const HOUSE: House = {
         model: "Praktlysing",
         supportedFeatures: 127,
       }),
-      b.switchDevice("Coffee Machine", { id: "switch.coffee_machine", watts: 1200, deviceClass: "outlet" }),
+      b.switchDevice("Coffee Machine", {
+        id: "switch.coffee_machine",
+        watts: 1200,
+        deviceClass: "outlet",
+      }),
       b.appliance("Dishwasher", 1800, { legacyPowerId: "sensor.dishwasher_power" }),
       b.appliance("Oven", 2200, { legacyPowerId: "sensor.oven_power" }),
       b.appliance("Fridge", 150, { legacyPowerId: "sensor.fridge_power" }),
@@ -107,8 +131,18 @@ export const HOUSE: House = {
       b.scene(
         "Dinner",
         [
-          { domain: "light", service: "turn_on", data: { brightness_pct: 60 }, entityIds: ["light.dining_table"] },
-          { domain: "light", service: "turn_on", data: { brightness_pct: 40 }, entityIds: ["light.kitchen_pendant"] },
+          {
+            domain: "light",
+            service: "turn_on",
+            data: { brightness_pct: 60 },
+            entityIds: ["light.dining_table"],
+          },
+          {
+            domain: "light",
+            service: "turn_on",
+            data: { brightness_pct: 40 },
+            entityIds: ["light.kitchen_pendant"],
+          },
         ],
         { key: "dinner" },
       ),
@@ -120,8 +154,14 @@ export const HOUSE: House = {
         batteryId: "sensor.door_lock_battery",
         supportedFeatures: 1,
       }),
-      b.contact("door", "Front Door", { id: "binary_sensor.front_door", batteryId: "sensor.battery_door_sensor" }),
-      b.motion("Hallway Motion", { id: "binary_sensor.motion_hallway", batteryId: "sensor.motion_sensor_battery" }),
+      b.contact("door", "Front Door", {
+        id: "binary_sensor.front_door",
+        batteryId: "sensor.battery_door_sensor",
+      }),
+      b.motion("Hallway Motion", {
+        id: "binary_sensor.motion_hallway",
+        batteryId: "sensor.motion_sensor_battery",
+      }),
       b.camera("Front Door Camera", { id: "camera.front_door_camera" }),
     ]),
     room("utility", "Utility", "ground", (b) => [
@@ -240,7 +280,10 @@ export const HOUSE: House = {
       b.light("Terrace"),
       b.switchDevice("Irrigation", { watts: 10 }),
       b.plug("Pond Pump", 60),
-      b.climateSensor("Weather Station", { temperatureId: "sensor.temperature_outdoor", outdoor: true }),
+      b.climateSensor("Weather Station", {
+        temperatureId: "sensor.temperature_outdoor",
+        outdoor: true,
+      }),
       b.motion("Garden Motion"),
       b.contact("door", "Garden Gate"),
     ]),
@@ -300,7 +343,11 @@ export const HOUSE: House = {
       { domain: "light", service: "turn_on", entityIds: ["light.kitchen_counter"] },
       { domain: "switch", service: "turn_on", entityIds: ["switch.coffee_machine"] },
     ]),
-    b.scene("Good Night", [ALL_LIGHTS_OFF, ALL_LOCKS_LOCKED, { domain: "cover", service: "close_cover" }]),
+    b.scene("Good Night", [
+      ALL_LIGHTS_OFF,
+      ALL_LOCKS_LOCKED,
+      { domain: "cover", service: "close_cover" },
+    ]),
     b.scene("Away", [ALL_LIGHTS_OFF, ALL_LOCKS_LOCKED]),
     ...WEATHER_FIXTURES.map((w) => b.weatherShowcase(w)),
   ]),

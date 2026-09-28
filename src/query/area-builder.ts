@@ -62,7 +62,10 @@ class AreaQueryBuilderImpl implements AreaQueryBuilder {
     });
   }
 
-  orderBy(key: keyof AreaView | (string & {}), direction: "asc" | "desc" = "asc"): AreaQueryBuilder {
+  orderBy(
+    key: keyof AreaView | (string & {}),
+    direction: "asc" | "desc" = "asc",
+  ): AreaQueryBuilder {
     return this.clone({
       sorts: [...this.queryState.sorts, { key, direction }],
     });

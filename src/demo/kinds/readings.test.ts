@@ -6,9 +6,22 @@ import type { DeviceSpec, KindName } from "./types";
 
 const T = Date.parse("2026-06-21T12:00:00Z");
 const ctx = { nowMs: T, world: worldFor("UTC", 1, T), noise: () => 0.5 };
-const spec = (kind: KindName, params: Record<string, unknown>, ids: Record<string, string> = {}): DeviceSpec =>
-  ({ key: "k", kind, name: "K", areaId: null, manufacturer: "x", model: "y", params, ids });
-const run = (d: DeviceSpec) => KINDS[d.kind].project(KINDS[d.kind].apply(undefined, { type: "init" }, d, ctx), d, ctx);
+const spec = (
+  kind: KindName,
+  params: Record<string, unknown>,
+  ids: Record<string, string> = {},
+): DeviceSpec => ({
+  key: "k",
+  kind,
+  name: "K",
+  areaId: null,
+  manufacturer: "x",
+  model: "y",
+  params,
+  ids,
+});
+const run = (d: DeviceSpec) =>
+  KINDS[d.kind].project(KINDS[d.kind].apply(undefined, { type: "init" }, d, ctx), d, ctx);
 
 describe("readings", () => {
   test("sun is up at June noon UTC", () => {
@@ -19,7 +32,8 @@ describe("readings", () => {
     const rising = (iso: string) => {
       const ms = Date.parse(iso);
       const c = { nowMs: ms, world: worldFor("UTC", 1, ms), noise: () => 0.5 };
-      return KINDS.sun.project(KINDS.sun.apply(undefined, { type: "init" }, d, c), d, c)["sun.sun"]?.attributes.rising;
+      return KINDS.sun.project(KINDS.sun.apply(undefined, { type: "init" }, d, c), d, c)["sun.sun"]
+        ?.attributes.rising;
     };
     expect(rising("2026-06-21T09:00:00Z")).toBe(true);
     expect(rising("2026-06-21T16:00:00Z")).toBe(false);
@@ -39,7 +53,15 @@ describe("readings", () => {
     expect(forecast[0]?.datetime.startsWith("2026-06-21")).toBe(true);
   });
   test("showcase weather projections 5 s apart in one day are identical", () => {
-    const d = spec("weather_showcase", { slug: "sunny", state: "sunny", temp: 28, humidity: 35, pressure: 1018, wind: 8, low: 18 });
+    const d = spec("weather_showcase", {
+      slug: "sunny",
+      state: "sunny",
+      temp: 28,
+      humidity: 35,
+      pressure: 1018,
+      wind: 8,
+      low: 18,
+    });
     const at = (ms: number) => {
       const c = { nowMs: ms, world: worldFor("UTC", 1, ms), noise: () => 0.5 };
       return KINDS.weather_showcase.project(undefined, d, c);
@@ -66,10 +88,24 @@ describe("readings", () => {
     expect(Object.keys(out)).toContain("sensor.battery_soc");
   });
   test("motion clears two minutes after it trips", () => {
-    const d = spec("binary_sensor", { deviceClass: "motion" }, { binary_sensor: "binary_sensor.motion_hallway" });
+    const d = spec(
+      "binary_sensor",
+      { deviceClass: "motion" },
+      { binary_sensor: "binary_sensor.motion_hallway" },
+    );
     const k = KINDS.binary_sensor;
     let s = k.apply(undefined, { type: "init" }, d, ctx);
-    s = k.apply(s, { type: "call", entityId: "binary_sensor.motion_hallway", service: "demo_set", data: { on: true } }, d, ctx);
+    s = k.apply(
+      s,
+      {
+        type: "call",
+        entityId: "binary_sensor.motion_hallway",
+        service: "demo_set",
+        data: { on: true },
+      },
+      d,
+      ctx,
+    );
     expect(k.project(s, d, ctx)["binary_sensor.motion_hallway"]?.state).toBe("on");
     s = k.apply(s, { type: "tick", dtMs: 121_000 }, d, ctx);
     expect(k.project(s, d, ctx)["binary_sensor.motion_hallway"]?.state).toBe("off");
@@ -86,15 +122,40 @@ describe("readings", () => {
       return KINDS.sensor.project(undefined, d, coldCtx)["sensor.t"];
     };
     const outdoor = at("outdoor_temperature");
-    expect(outdoor?.state).toBe((Math.round(outdoorTempC(cold, coldCtx.world) * 10) / 10).toFixed(1));
+    expect(outdoor?.state).toBe(
+      (Math.round(outdoorTempC(cold, coldCtx.world) * 10) / 10).toFixed(1),
+    );
     expect(outdoor?.state).not.toBe(at("temperature")?.state);
-    expect(outdoor?.attributes).toMatchObject({ unit_of_measurement: "°C", device_class: "temperature" });
+    expect(outdoor?.attributes).toMatchObject({
+      unit_of_measurement: "°C",
+      device_class: "temperature",
+    });
   });
   test("camera projects its supported features", () => {
     expect(run(spec("camera", {}))["camera.k"]?.attributes.supported_features).toBe(2);
   });
   test("every kind is registered", () => {
-    const names: KindName[] = ["light","switch","fan","cover","lock","climate","water_heater","media_player","button","scene","sensor","binary_sensor","sun","weather","weather_showcase","energy_meter","person","update","camera"];
+    const names: KindName[] = [
+      "light",
+      "switch",
+      "fan",
+      "cover",
+      "lock",
+      "climate",
+      "water_heater",
+      "media_player",
+      "button",
+      "scene",
+      "sensor",
+      "binary_sensor",
+      "sun",
+      "weather",
+      "weather_showcase",
+      "energy_meter",
+      "person",
+      "update",
+      "camera",
+    ];
     for (const n of names) expect(KINDS[n]).toBeDefined();
   });
 });

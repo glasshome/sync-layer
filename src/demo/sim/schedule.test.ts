@@ -8,7 +8,9 @@ import { createDriver, dayPlan, TEMPLATES } from "./schedule";
 
 const g = generateHouse(HOUSE, "2026-06-21T00:00:00.000Z");
 const VISITED_ROOMS = new Set(
-  Object.values(TEMPLATES).flatMap((t) => [...t.weekday, ...t.weekend].flatMap((s) => (s.room ? [s.room] : []))),
+  Object.values(TEMPLATES).flatMap((t) =>
+    [...t.weekday, ...t.weekend].flatMap((s) => (s.room ? [s.room] : [])),
+  ),
 );
 const SNAPSHOT_IDS = new Set([
   ...HOUSE.people.map((p) => `person.${p.id}`),
@@ -16,13 +18,29 @@ const SNAPSHOT_IDS = new Set([
   "cover.bedroom_curtains",
   "cover.kids_room_blinds",
   ...g.devices
-    .filter((d) => d.kind === "light" && d.areaId && VISITED_ROOMS.has(d.areaId) && d.params.scheduled !== false)
-    .flatMap((d) => KINDS.light.entities(d).filter((e) => e.primary).map((e) => e.entityId)),
+    .filter(
+      (d) =>
+        d.kind === "light" &&
+        d.areaId &&
+        VISITED_ROOMS.has(d.areaId) &&
+        d.params.scheduled !== false,
+    )
+    .flatMap((d) =>
+      KINDS.light
+        .entities(d)
+        .filter((e) => e.primary)
+        .map((e) => e.entityId),
+    ),
 ]);
 function modelAt(iso: string, stepMs?: number) {
   const t = Date.parse(iso);
   const world = worldFor("UTC", 3, t);
-  return createDemoModel(g.devices, KINDS, { startMs: t, world, stepMs, driver: () => createDriver(HOUSE, g, world) });
+  return createDemoModel(g.devices, KINDS, {
+    startMs: t,
+    world,
+    stepMs,
+    driver: () => createDriver(HOUSE, g, world),
+  });
 }
 
 function must<T>(value: T | null | undefined): T {
@@ -35,7 +53,8 @@ describe("schedule", () => {
     const p = must(HOUSE.people[0]);
     const a = dayPlan(p, "2026-06-22", 1, 3);
     expect(dayPlan(p, "2026-06-22", 1, 3)).toEqual(a);
-    for (let i = 1; i < a.length; i++) expect(must(a[i]).startMin).toBeGreaterThan(must(a[i - 1]).startMin);
+    for (let i = 1; i < a.length; i++)
+      expect(must(a[i]).startMin).toBeGreaterThan(must(a[i - 1]).startMin);
   });
   test("a winter weekday evening has the living room lit and everyone home", () => {
     const s = modelAt("2026-12-14T21:30:00Z").project();
@@ -51,7 +70,12 @@ describe("schedule", () => {
   });
   test("night locks the doors", () => {
     const m = modelAt("2026-12-14T22:00:00Z");
-    m.dispatch({ domain: "lock", service: "unlock", data: {}, entityIds: ["lock.front_door_lock"] });
+    m.dispatch({
+      domain: "lock",
+      service: "unlock",
+      data: {},
+      entityIds: ["lock.front_door_lock"],
+    });
     m.advanceTo(Date.parse("2026-12-15T01:00:00Z"));
     const s = m.project();
     expect(s["lock.front_door_lock"]?.state).toBe("locked");
@@ -59,7 +83,12 @@ describe("schedule", () => {
   });
   test("a boundary-held light survives until the next boundary, then the schedule may change it", () => {
     const m = modelAt("2026-12-14T21:30:00Z");
-    m.dispatch({ domain: "light", service: "turn_off", data: {}, entityIds: ["light.living_room_main"] });
+    m.dispatch({
+      domain: "light",
+      service: "turn_off",
+      data: {},
+      entityIds: ["light.living_room_main"],
+    });
     m.hold("light.living_room_main", "boundary");
     m.advanceTo(Date.parse("2026-12-14T21:31:00Z"));
     expect(m.project()["light.living_room_main"]?.state).toBe("off");
@@ -105,7 +134,9 @@ describe("schedule", () => {
     coarse.advanceTo(must(relockedAt));
     expect(lockOf(coarse)).toBe("locked");
     coarse.advanceTo(end);
-    expect(coarse.projectDevice("away")["scene.away"]?.state).toBe(fine.projectDevice("away")["scene.away"]?.state);
+    expect(coarse.projectDevice("away")["scene.away"]?.state).toBe(
+      fine.projectDevice("away")["scene.away"]?.state,
+    );
   });
   test("two wakes within ten minutes keep the coffee on until the later run ends", () => {
     const sam = must(HOUSE.people.find((p) => p.id === "sam"));
@@ -114,7 +145,8 @@ describe("schedule", () => {
       .filter((d) => d.getUTCDay() >= 1 && d.getUTCDay() <= 5)
       .map((d) => {
         const key = d.toISOString().slice(0, 10);
-        const wake = (p: typeof sam) => must(dayPlan(p, key, d.getUTCDay(), 3).find((s) => s.activity === "wake")).startMin;
+        const wake = (p: typeof sam) =>
+          must(dayPlan(p, key, d.getUTCDay(), 3).find((s) => s.activity === "wake")).startMin;
         return { key, a: wake(alex), s: wake(sam) };
       })
       .find(({ a, s }) => s > a && s - a < 10);
@@ -132,7 +164,9 @@ describe("schedule", () => {
   });
   test("a model created mid-brew stops the coffee when the brew that began at wake ends", () => {
     const alex = must(HOUSE.people.find((p) => p.id === "alex"));
-    const wake = must(dayPlan(alex, "2026-12-14", 1, 3).find((s) => s.activity === "wake")).startMin;
+    const wake = must(
+      dayPlan(alex, "2026-12-14", 1, 3).find((s) => s.activity === "wake"),
+    ).startMin;
     const createdAt = Date.parse("2026-12-14T00:00:00Z") + (wake + 8) * 60_000;
     const late = modelAt(new Date(createdAt).toISOString(), 60_000);
     const early = modelAt("2026-12-14T05:00:00Z", 60_000);
@@ -160,7 +194,8 @@ describe("schedule", () => {
     const on: number[] = [];
     for (let t = m.nowMs; t < Date.parse("2026-12-14T08:30:00Z"); t += 60_000) {
       m.advanceTo(t + 60_000);
-      if (m.projectDevice("kitchen_coffee_machine")["switch.coffee_machine"]?.state === "on") on.push(m.nowMs);
+      if (m.projectDevice("kitchen_coffee_machine")["switch.coffee_machine"]?.state === "on")
+        on.push(m.nowMs);
     }
     expect(on.length).toBeGreaterThanOrEqual(10);
     expect(on.length).toBeLessThanOrEqual(20);
@@ -189,14 +224,24 @@ describe("schedule", () => {
     const fine = modelAt(start, 1000);
     const coarse = modelAt(start, 60_000);
     for (const m of [fine, coarse]) {
-      m.dispatch({ domain: "cover", service: "open_cover", data: {}, entityIds: ["cover.office_blinds"] });
+      m.dispatch({
+        domain: "cover",
+        service: "open_cover",
+        data: {},
+        entityIds: ["cover.office_blinds"],
+      });
       m.dispatch({
         domain: "climate",
         service: "set_temperature",
         data: { temperature: 24 },
         entityIds: ["climate.office_heat_pump"],
       });
-      m.dispatch({ domain: "media_player", service: "media_play", data: {}, entityIds: ["media_player.living_room_speaker"] });
+      m.dispatch({
+        domain: "media_player",
+        service: "media_play",
+        data: {},
+        entityIds: ["media_player.living_room_speaker"],
+      });
     }
     const exact = /^(person|lock|light|cover|climate|switch|binary_sensor|media_player|fan)\./;
     const diffs: string[] = [];
@@ -213,9 +258,12 @@ describe("schedule", () => {
             : Math.abs(Number(q?.state) - num) <= Math.max(0.2, Math.abs(num) * 0.01);
         const posOk = q?.attributes.current_position === p.attributes.current_position;
         const temp = p.attributes.current_temperature;
-        const tempOk = typeof temp !== "number" || Math.abs(Number(q?.attributes.current_temperature) - temp) <= 0.2;
+        const tempOk =
+          typeof temp !== "number" ||
+          Math.abs(Number(q?.attributes.current_temperature) - temp) <= 0.2;
         const titleOk = q?.attributes.media_title === p.attributes.media_title;
-        if (!(stateOk && posOk && tempOk && titleOk)) diffs.push(`${new Date(t).toISOString()} ${id}`);
+        if (!(stateOk && posOk && tempOk && titleOk))
+          diffs.push(`${new Date(t).toISOString()} ${id}`);
       }
     }
     expect(diffs).toEqual([]);

@@ -57,7 +57,10 @@ export class BridgeInvalidAuthError extends Error {
 export function createHaBridge(worker: Worker, events: BridgeEvents = {}): HaBridge {
   let nextId = 1;
   let connState: ConnState = "disconnected";
-  const pendingSends = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+  const pendingSends = new Map<
+    number,
+    { resolve: (v: unknown) => void; reject: (e: Error) => void }
+  >();
   const subCallbacks = new Map<number, (payload: unknown) => void>();
   const rawListeners = new Set<(message: unknown) => void>();
   let pendingConnect: { resolve: () => void; reject: (e: Error) => void } | null = null;

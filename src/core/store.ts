@@ -43,8 +43,14 @@ import type {
  */
 export interface HaLink {
   sendMessagePromise<T>(message: unknown): Promise<T>;
-  subscribeMessage<T>(callback: (message: T) => void, message: unknown): Promise<() => Promise<void>>;
-  subscribeEvents(callback: (event: unknown) => void, eventType?: string): Promise<() => void | Promise<void>>;
+  subscribeMessage<T>(
+    callback: (message: T) => void,
+    message: unknown,
+  ): Promise<() => Promise<void>>;
+  subscribeEvents(
+    callback: (event: unknown) => void,
+    eventType?: string,
+  ): Promise<() => void | Promise<void>>;
 }
 
 export interface GlassHomeState {
@@ -199,4 +205,3 @@ export const setState: SetStoreFunction<GlassHomeState> = storeTuple[1];
 export function resetStore(): void {
   setState(reconcile(initialState));
 }
-

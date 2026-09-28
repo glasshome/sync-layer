@@ -21,7 +21,11 @@ export interface Slot {
 
 type Template = HousePerson["template"];
 
-const at = (startMin: number, activity: Activity, room: string | null): Slot => ({ startMin, activity, room });
+const at = (startMin: number, activity: Activity, room: string | null): Slot => ({
+  startMin,
+  activity,
+  room,
+});
 
 const ADULT_WEEKEND: Slot[] = [
   at(0, "sleep", "bedroom"),
@@ -97,12 +101,18 @@ const DAY_AHEAD_MS = 36 * 3_600_000;
 const LIGHTS_BELOW_ELEVATION = 6;
 const RELOCK_AFTER_MS = 2 * MINUTE_MS;
 
-export function dayPlan(person: HousePerson, dateKey: string, weekday: number, seed: number): Slot[] {
+export function dayPlan(
+  person: HousePerson,
+  dateKey: string,
+  weekday: number,
+  seed: number,
+): Slot[] {
   const template = TEMPLATES[person.template];
   const base = weekday === 0 || weekday === 6 ? template.weekend : template.weekday;
   let previous = -1;
   return base.map((slot, i) => {
-    const shifted = slot.startMin + Math.round((noise(seed, person.id + dateKey + i) - 0.5) * SHIFT_SPAN_MIN);
+    const shifted =
+      slot.startMin + Math.round((noise(seed, person.id + dateKey + i) - 0.5) * SHIFT_SPAN_MIN);
     const startMin = Math.max(shifted, previous + 1);
     previous = startMin;
     return { ...slot, startMin };
@@ -181,7 +191,10 @@ const AWAY: DemoEntityId = "scene.away";
 
 const ACTIONS: Record<Activity, ActivityAction> = {
   sleep: { lights: "none" },
-  wake: { lights: "first", appliance: { id: COFFEE_MACHINE, minutes: 10, templates: ["commuter", "home_office"] } },
+  wake: {
+    lights: "first",
+    appliance: { id: COFFEE_MACHINE, minutes: 10, templates: ["commuter", "home_office"] },
+  },
   cook: { lights: "all", appliance: { id: OVEN, minutes: 40 } },
   eat: { lights: "all" },
   work: { lights: "all" },
@@ -220,11 +233,16 @@ function gearByRoom(generated: GeneratedHouse): Map<string, RoomGear> {
   return rooms;
 }
 
-const call = (domain: string, service: string, entityIds: string[], data: Record<string, unknown> = {}) =>
-  ({ domain, service, data, entityIds }) satisfies ServiceCall;
+const call = (
+  domain: string,
+  service: string,
+  entityIds: string[],
+  data: Record<string, unknown> = {},
+) => ({ domain, service, data, entityIds }) satisfies ServiceCall;
 
 const isAwakeAtHome = (s: Slot) => s.activity !== "sleep" && s.activity !== "away";
-const touchesEvent = (t: Transition) => [t.from.activity, t.to.activity].some((a) => a === "away" || a === "sleep");
+const touchesEvent = (t: Transition) =>
+  [t.from.activity, t.to.activity].some((a) => a === "away" || a === "sleep");
 
 interface Due {
   atMs: number;
@@ -258,9 +276,16 @@ export function createDriver(house: House, generated: GeneratedHouse, world: Wor
   const nobodyHome = (slots: Iterable<Slot>) => [...slots].every((s) => s.activity === "away");
   const nobodyAwake = (slots: Iterable<Slot>) => ![...slots].some(isAwakeAtHome);
 
-  function runAppliance(model: DemoModel, person: HousePerson, to: Slot, startMs: number, nowMs: number): void {
+  function runAppliance(
+    model: DemoModel,
+    person: HousePerson,
+    to: Slot,
+    startMs: number,
+    nowMs: number,
+  ): void {
     const appliance = ACTIONS[to.activity].appliance;
-    if (!appliance || (appliance.templates && !appliance.templates.includes(person.template))) return;
+    if (!appliance || (appliance.templates && !appliance.templates.includes(person.template)))
+      return;
     const endMs = startMs + appliance.minutes * MINUTE_MS;
     if (endMs <= nowMs || !known.has(appliance.id)) return;
     issue(model, call("switch", "turn_on", [appliance.id]));
@@ -272,10 +297,16 @@ export function createDriver(house: House, generated: GeneratedHouse, world: Wor
     if (room) {
       issue(model, call("binary_sensor", "demo_set", room.motion, { on: true }));
       if (solarElevation(atMs, world.latitude, world.longitude) < LIGHTS_BELOW_ELEVATION) {
-        issue(model, call("light", "turn_on", PICK_LIGHTS[ACTIONS[to.activity].lights](room.lights)));
+        issue(
+          model,
+          call("light", "turn_on", PICK_LIGHTS[ACTIONS[to.activity].lights](room.lights)),
+        );
       }
     }
-    issue(model, call("person", "demo_set", [`person.${person.id}`], { home: to.activity !== "away" }));
+    issue(
+      model,
+      call("person", "demo_set", [`person.${person.id}`], { home: to.activity !== "away" }),
+    );
   }
 
   function household(model: DemoModel, t: Transition, before: Map<string, Slot>): void {
@@ -289,7 +320,8 @@ export function createDriver(house: House, generated: GeneratedHouse, world: Wor
     if (t.to.activity === "sleep" && t.from.activity !== "sleep" && nobodyAwake(where.values())) {
       issue(model, call("scene", "turn_on", [GOOD_NIGHT]));
     }
-    const firstUp = t.to.activity === "wake" && t.from.activity === "sleep" && nobodyAwake(before.values());
+    const firstUp =
+      t.to.activity === "wake" && t.from.activity === "sleep" && nobodyAwake(before.values());
     if (firstUp && solarElevation(t.atMs, world.latitude, world.longitude) > 0) {
       issue(model, call("cover", "open_cover", gear(t.from.room)?.covers ?? []));
     }
@@ -311,7 +343,10 @@ export function createDriver(house: House, generated: GeneratedHouse, world: Wor
 
   function track(person: HousePerson, fromMs: number): void {
     const today = dayOf(person, fromMs, world);
-    pending.set(person.id, transitionsOf(person, today, world).filter((t) => t.atMs > fromMs));
+    pending.set(
+      person.id,
+      transitionsOf(person, today, world).filter((t) => t.atMs > fromMs),
+    );
     nextDayAnchor.set(person.id, today.midnightMs + DAY_AHEAD_MS);
   }
 
@@ -331,7 +366,12 @@ export function createDriver(house: House, generated: GeneratedHouse, world: Wor
     for (const [id, endMs] of runEnds) {
       if (endMs > toMs) continue;
       runEnds.delete(id);
-      due.push({ atMs: endMs, order: 0, key: id, run: (m) => issue(m, call("switch", "turn_off", [id])) });
+      due.push({
+        atMs: endMs,
+        order: 0,
+        key: id,
+        run: (m) => issue(m, call("switch", "turn_off", [id])),
+      });
     }
     for (const person of people) {
       const queue = upcoming(person);

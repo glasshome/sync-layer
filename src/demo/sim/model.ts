@@ -1,6 +1,14 @@
 import { noise } from "../world/noise";
 import type { World } from "../world/world";
-import type { DeviceKind, DeviceSpec, KindName, Projection, ServiceCall, SimContext, SimEvent } from "../kinds/types";
+import type {
+  DeviceKind,
+  DeviceSpec,
+  KindName,
+  Projection,
+  ServiceCall,
+  SimContext,
+  SimEvent,
+} from "../kinds/types";
 
 export type HoldUntil = "boundary" | "event";
 
@@ -37,12 +45,22 @@ const MAX_EFFECT_DEPTH = 4;
 export function createDemoModel(
   devices: DeviceSpec[],
   kinds: Record<KindName, DeviceKind>,
-  opts: { startMs: number; world: World; stepMs?: number; log?: (msg: string) => void; driver?: () => Driver },
+  opts: {
+    startMs: number;
+    world: World;
+    stepMs?: number;
+    log?: (msg: string) => void;
+    driver?: () => Driver;
+  },
 ): DemoModel {
   const stepMs = opts.stepMs ?? 1000;
   const log = opts.log ?? (() => {});
   let nowMs = opts.startMs;
-  const ctx = (): SimContext => ({ nowMs, world: opts.world, noise: (k) => noise(opts.world.seed, k) });
+  const ctx = (): SimContext => ({
+    nowMs,
+    world: opts.world,
+    noise: (k) => noise(opts.world.seed, k),
+  });
   const byKey = new Map(devices.map((d) => [d.key, d]));
   const byEntity = new Map<string, DeviceSpec>();
   const states = new Map<string, unknown>();
@@ -109,7 +127,8 @@ export function createDemoModel(
     },
     project() {
       const out: Record<string, Projection> = {};
-      for (const d of devices) Object.assign(out, kinds[d.kind].project(states.get(d.key), d, ctx()));
+      for (const d of devices)
+        Object.assign(out, kinds[d.kind].project(states.get(d.key), d, ctx()));
       return out;
     },
     projectDevice(key) {

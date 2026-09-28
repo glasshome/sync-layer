@@ -102,7 +102,9 @@ export function demoHistory(
       }
     }
     result[track.entityId] =
-      track.points.length > MAX_HISTORY_POINTS ? track.points.slice(-MAX_HISTORY_POINTS) : track.points;
+      track.points.length > MAX_HISTORY_POINTS
+        ? track.points.slice(-MAX_HISTORY_POINTS)
+        : track.points;
   }
   return result;
 }

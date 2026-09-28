@@ -95,7 +95,12 @@ function reconcile(key: Key): Promise<void> {
   return next;
 }
 
-function write(entityId: EntityId, type: ForecastType, forecast: WeatherForecast[] | null, error: Error | null) {
+function write(
+  entityId: EntityId,
+  type: ForecastType,
+  forecast: WeatherForecast[] | null,
+  error: Error | null,
+) {
   setState(
     produce((s) => {
       const rec = (s.forecasts[entityId] ??= {

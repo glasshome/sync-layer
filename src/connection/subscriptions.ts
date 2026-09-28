@@ -32,10 +32,7 @@ import type {
 } from "../core/types";
 import { bulkAppendHistoryPoints, type HistoryPoint } from "../history/points";
 import { isHistoryTracked } from "../history/query";
-import {
-  setManagerConnection,
-  setResubscribeHandler,
-} from "./subscription-manager";
+import { setManagerConnection, setResubscribeHandler } from "./subscription-manager";
 import type { SyncLayerConnection } from "./types";
 import { privilegedConn } from "../core/privileged-conn";
 
@@ -122,7 +119,8 @@ function bufferMessage(message: SubscribeEntitiesMessage): void {
   if (!rafScheduled) {
     rafScheduled = true;
     // Use rAF in browser, fallback to microtask in SSR/node
-    const schedule = typeof requestAnimationFrame === "function" ? requestAnimationFrame : queueMicrotask;
+    const schedule =
+      typeof requestAnimationFrame === "function" ? requestAnimationFrame : queueMicrotask;
     schedule(flushMessageBuffer);
   }
 }
@@ -196,12 +194,9 @@ async function subscribeEntities(
     subscribeMsg.entity_ids = entityIds;
   }
 
-  const unsub = await connection.subscribeMessage(
-    (message: SubscribeEntitiesMessage) => {
-      bufferMessage(message);
-    },
-    subscribeMsg,
-  );
+  const unsub = await connection.subscribeMessage((message: SubscribeEntitiesMessage) => {
+    bufferMessage(message);
+  }, subscribeMsg);
   return unsub;
 }
 

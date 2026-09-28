@@ -17,7 +17,14 @@ import { generateHouse, type GeneratedHouse } from "./house/generate";
 import { HOUSE } from "./house/house";
 import { KINDS } from "./kinds";
 import type { Projection, ServiceCall } from "./kinds/types";
-import { appendLog, clearLog, type LoggedCall, MAX_LOG_ENTRIES, pruneLog, readLog } from "./sim/log";
+import {
+  appendLog,
+  clearLog,
+  type LoggedCall,
+  MAX_LOG_ENTRIES,
+  pruneLog,
+  readLog,
+} from "./sim/log";
 import { createDemoModel, type DemoModel, type HoldUntil } from "./sim/model";
 import { createDriver } from "./sim/schedule";
 import { localTime } from "./world/local-time";
@@ -118,7 +125,10 @@ export function applyVisitorHolds(model: DemoModel, entityIds: string[]): void {
 
 function catchUp(model: DemoModel, simMs: number): void {
   const gap = simMs - model.nowMs;
-  model.advanceTo(simMs, gap <= FINE_GAP_MS ? FINE_STEP_MS : gap <= COARSE_GAP_MS ? COARSE_STEP_MS : LONG_STEP_MS);
+  model.advanceTo(
+    simMs,
+    gap <= FINE_GAP_MS ? FINE_STEP_MS : gap <= COARSE_GAP_MS ? COARSE_STEP_MS : LONG_STEP_MS,
+  );
 }
 
 // Past the coarse bound (a slept laptop, a fast demo-speed) the house resettles at the target instead of stepping.
@@ -133,7 +143,12 @@ function advanceSession(s: DemoSession, simMs: number): void {
 }
 
 /** Builds from the oldest logged call, replays each with holds, catches up to `targetMs`. */
-function replayedModel(generated: GeneratedHouse, world: World, log: readonly LoggedCall[], targetMs: number): DemoModel {
+function replayedModel(
+  generated: GeneratedHouse,
+  world: World,
+  log: readonly LoggedCall[],
+  targetMs: number,
+): DemoModel {
   const oldest = log[0];
   const model = buildModel(generated, oldest ? Math.min(oldest.simMs, targetMs) : targetMs, world);
   for (const entry of log) {
@@ -198,7 +213,14 @@ function resolveClock(opts: DemoHouseOptions): ResolvedClock {
   if (clock !== "live") {
     const startMs = Date.parse(clock.pinned);
     if (Number.isNaN(startMs)) throw new Error(`invalid demo pinned time: ${clock.pinned}`);
-    return { startMs, timeZone: clock.timeZone ?? "UTC", seed: clock.seed, live: false, speed: 0, persist: false };
+    return {
+      startMs,
+      timeZone: clock.timeZone ?? "UTC",
+      seed: clock.seed,
+      live: false,
+      speed: 0,
+      persist: false,
+    };
   }
   const timeZone = visitorTimeZone();
   const nowMs = Date.now();
@@ -208,7 +230,14 @@ function resolveClock(opts: DemoHouseOptions): ResolvedClock {
   if (o.pinnedMs !== undefined && o.speed === undefined) {
     return { startMs: o.pinnedMs, timeZone, seed, live: false, speed: 0, persist: false };
   }
-  return { startMs: o.pinnedMs ?? nowMs, timeZone, seed, live: true, speed: o.speed ?? 1, persist: !hasOverride };
+  return {
+    startMs: o.pinnedMs ?? nowMs,
+    timeZone,
+    seed,
+    live: true,
+    speed: o.speed ?? 1,
+    persist: !hasOverride,
+  };
 }
 
 // ============================================
@@ -228,11 +257,19 @@ function buildModel(generated: GeneratedHouse, startMs: number, world: World): D
   });
 }
 
-function attributesOf(generated: GeneratedHouse, entityId: string, p: Projection): Record<string, unknown> {
+function attributesOf(
+  generated: GeneratedHouse,
+  entityId: string,
+  p: Projection,
+): Record<string, unknown> {
   return { friendly_name: generated.friendlyNames[entityId] ?? entityId, ...p.attributes };
 }
 
-function toEntities(generated: GeneratedHouse, projections: Record<string, Projection>, iso: string) {
+function toEntities(
+  generated: GeneratedHouse,
+  projections: Record<string, Projection>,
+  iso: string,
+) {
   const entities: Record<string, HassEntity> = {};
   for (const [entityId, p] of Object.entries(projections)) {
     entities[entityId] = {
@@ -294,7 +331,8 @@ function publish(s: DemoSession, force: ReadonlySet<string>): void {
         } else {
           if (changed) e.last_changed = iso;
           e.state = p.state;
-          for (const key of Object.keys(e.attributes)) if (!(key in attributes)) delete e.attributes[key];
+          for (const key of Object.keys(e.attributes))
+            if (!(key in attributes)) delete e.attributes[key];
           for (const [key, value] of Object.entries(attributes)) {
             if (!sameValue(e.attributes[key], value)) e.attributes[key] = value;
           }
@@ -381,7 +419,10 @@ export async function loadDemoHouse(opts: DemoHouseOptions): Promise<void> {
   }
 
   const { registry } = generated;
-  setState("entities", reconcile(toEntities(generated, projections, new Date(clock.startMs).toISOString())));
+  setState(
+    "entities",
+    reconcile(toEntities(generated, projections, new Date(clock.startMs).toISOString())),
+  );
   setState("entityRegistry", reconcile(registry.entityRegistry));
   setState("areas", reconcile(registry.areas));
   setState("floors", reconcile(registry.floors));

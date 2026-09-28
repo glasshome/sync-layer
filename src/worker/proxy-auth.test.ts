@@ -28,5 +28,8 @@ describe("reconnectErrorMessage", () => {
       reason: "invalid_auth",
     }));
   it("stays reconnecting for any other error", () =>
-    expect(reconnectErrorMessage(ERR_CANNOT_CONNECT)).toEqual({ k: "conn", state: "reconnecting" }));
+    expect(reconnectErrorMessage(ERR_CANNOT_CONNECT)).toEqual({
+      k: "conn",
+      state: "reconnecting",
+    }));
 });

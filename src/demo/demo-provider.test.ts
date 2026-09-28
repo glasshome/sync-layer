@@ -336,13 +336,19 @@ describe("demo house provider", () => {
     applyDemoServiceCall("light", "turn_on", {}, { entity_id: "light.does_not_exist" });
     applyDemoServiceCall("switch", "flash", {}, { entity_id: "switch.coffee_machine" });
     expect(demoCallLog()).toEqual([]);
-    applyDemoServiceCall("light", "turn_off", {}, { entity_id: ["light.does_not_exist", "light.hallway"] });
+    applyDemoServiceCall(
+      "light",
+      "turn_off",
+      {},
+      { entity_id: ["light.does_not_exist", "light.hallway"] },
+    );
     expect(demoCallLog().length).toBe(1);
   });
 
   test("the in-memory log keeps the 500 newest calls", async () => {
     await loadDemoHouse({ clock: { pinned: "2026-06-21T12:00:00Z", seed: 1 } });
-    for (let i = 0; i < 505; i++) applyDemoServiceCall("switch", "toggle", {}, { entity_id: "switch.coffee_machine" });
+    for (let i = 0; i < 505; i++)
+      applyDemoServiceCall("switch", "toggle", {}, { entity_id: "switch.coffee_machine" });
     expect(demoCallLog().length).toBe(500);
   });
 
@@ -371,12 +377,18 @@ describe("demo house provider", () => {
     await new Promise((r) => setTimeout(r, 1300));
     const after = state.entities["cover.living_room_blinds"];
     expect(["opening", "open"]).toContain(after?.state ?? "");
-    expect(typeof after?.attributes.current_position === "number" && after.attributes.current_position > 0).toBe(true);
+    expect(
+      typeof after?.attributes.current_position === "number" &&
+        after.attributes.current_position > 0,
+    ).toBe(true);
   });
 
   test("a jump past the coarse bound keeps the visitor's holds, like a fresh load at the target", async () => {
     const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
-    Object.defineProperty(globalThis, "localStorage", { value: memoryLocalStorage(), configurable: true });
+    Object.defineProperty(globalThis, "localStorage", {
+      value: memoryLocalStorage(),
+      configurable: true,
+    });
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
     const tapMs = localTime(Date.parse("2026-12-14T12:00:00Z"), zone).midnightMs + 23.5 * 3_600_000;
     const targetMs = tapMs + 6.25 * 3_600_000;
@@ -410,7 +422,10 @@ describe("demo house provider", () => {
 
   test("a visitor change survives reload until the next boundary", async () => {
     const previousStorage = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
-    Object.defineProperty(globalThis, "localStorage", { value: memoryLocalStorage(), configurable: true });
+    Object.defineProperty(globalThis, "localStorage", {
+      value: memoryLocalStorage(),
+      configurable: true,
+    });
     try {
       await loadDemoHouse({ clock: "live", search: "" });
       applyDemoServiceCall("light", "turn_off", {}, { entity_id: "light.hallway" });

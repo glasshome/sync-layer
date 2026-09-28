@@ -2,7 +2,14 @@ import { DEMO_ALBUM_COVER } from "../demo-album-cover";
 import { energyEntityValue, formatEnergyState, simulateEnergy } from "../energy-sim";
 import { outdoorTempC } from "../world/world";
 import { entityIdFor } from "./types";
-import type { DeviceKind, DeviceSpec, EntitySeed, Projection, ServiceCall, SimEvent } from "./types";
+import type {
+  DeviceKind,
+  DeviceSpec,
+  EntitySeed,
+  Projection,
+  ServiceCall,
+  SimEvent,
+} from "./types";
 
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -151,10 +158,18 @@ function switchWatts(s: SwitchState, p: SwitchParams, nowMs: number): number {
   return s.on ? s.watts : 0;
 }
 
-function nextSwitchState(s: SwitchState, event: SimEvent, p: SwitchParams, nowMs: number): SwitchState {
+function nextSwitchState(
+  s: SwitchState,
+  event: SimEvent,
+  p: SwitchParams,
+  nowMs: number,
+): SwitchState {
   if (event.type === "tick") {
     if (!p.energy) return s;
-    return { ...s, energyKwh: s.energyKwh + switchWatts(s, p, nowMs) * event.dtMs * KWH_PER_WATT_MS };
+    return {
+      ...s,
+      energyKwh: s.energyKwh + switchWatts(s, p, nowMs) * event.dtMs * KWH_PER_WATT_MS,
+    };
   }
   if (event.type !== "call") return s;
   switch (event.service) {
@@ -173,10 +188,20 @@ const switchKind: DeviceKind = {
   entities(device) {
     const p = device.params as SwitchParams;
     const seeds: EntitySeed[] = [
-      { entityId: entityIdFor("switch", device, "switch"), name: device.name, deviceClass: p.deviceClass, primary: true },
+      {
+        entityId: entityIdFor("switch", device, "switch"),
+        name: device.name,
+        deviceClass: p.deviceClass,
+        primary: true,
+      },
     ];
     if (p.power || p.legacyPowerId) {
-      seeds.push({ entityId: switchPowerId(device, p), name: "Power", deviceClass: "power", unit: "W" });
+      seeds.push({
+        entityId: switchPowerId(device, p),
+        name: "Power",
+        deviceClass: "power",
+        unit: "W",
+      });
     }
     if (p.energy) {
       seeds.push({
@@ -220,7 +245,11 @@ const switchKind: DeviceKind = {
     if (p.energy) {
       out[entityIdFor("sensor", device, "energy", "energy")] = {
         state: s.energyKwh.toFixed(2),
-        attributes: { unit_of_measurement: "kWh", device_class: "energy", state_class: "total_increasing" },
+        attributes: {
+          unit_of_measurement: "kWh",
+          device_class: "energy",
+          state_class: "total_increasing",
+        },
       };
     }
     return out;
@@ -287,18 +316,27 @@ const fan: DeviceKind = {
         return {
           ...s,
           on: true,
-          percentage: data.percentage != null ? Number(data.percentage) : s.percentage > 0 ? s.percentage : 100,
+          percentage:
+            data.percentage != null
+              ? Number(data.percentage)
+              : s.percentage > 0
+                ? s.percentage
+                : 100,
         };
       case "turn_off":
         return { ...s, on: false };
       case "toggle":
-        return s.on ? { ...s, on: false } : { ...s, on: true, percentage: s.percentage > 0 ? s.percentage : 100 };
+        return s.on
+          ? { ...s, on: false }
+          : { ...s, on: true, percentage: s.percentage > 0 ? s.percentage : 100 };
       case "set_percentage": {
         const percentage = clamp(Number(data.percentage), 0, 100);
         return { ...s, percentage, on: percentage > 0 };
       }
       case "set_preset_mode":
-        return typeof data.preset_mode === "string" ? { ...s, presetMode: data.preset_mode, on: true } : s;
+        return typeof data.preset_mode === "string"
+          ? { ...s, presetMode: data.preset_mode, on: true }
+          : s;
       case "oscillate":
         return data.oscillating != null ? { ...s, oscillating: Boolean(data.oscillating) } : s;
       case "set_direction":
@@ -327,7 +365,15 @@ const fan: DeviceKind = {
     const s = state as FanState;
     return s.on ? s.watts : 0;
   },
-  handles: ["turn_on", "turn_off", "toggle", "set_percentage", "set_preset_mode", "oscillate", "set_direction"],
+  handles: [
+    "turn_on",
+    "turn_off",
+    "toggle",
+    "set_percentage",
+    "set_preset_mode",
+    "oscillate",
+    "set_direction",
+  ],
 };
 
 // ============================================
@@ -370,7 +416,11 @@ function tickCover(s: CoverState, dtMs: number, travelMs: number): CoverState {
   let next = s.position + dir * step;
   if ((dir > 0 && next >= s.target) || (dir < 0 && next <= s.target)) next = s.target;
   const reached = next === s.target;
-  return { ...s, position: next, state: reached ? coverRestLabel(next) : dir > 0 ? "opening" : "closing" };
+  return {
+    ...s,
+    position: next,
+    state: reached ? coverRestLabel(next) : dir > 0 ? "opening" : "closing",
+  };
 }
 
 const cover: DeviceKind = {
@@ -477,7 +527,9 @@ const lock: DeviceKind = {
     ];
   },
   apply(state, event, device) {
-    const s = (state as LockState | undefined) ?? { locked: !(device.params as LockParams).unlocked };
+    const s = (state as LockState | undefined) ?? {
+      locked: !(device.params as LockParams).unlocked,
+    };
     if (event.type !== "call") return s;
     switch (event.service) {
       case "lock":
@@ -492,7 +544,8 @@ const lock: DeviceKind = {
     const s = state as LockState;
     const p = device.params as LockParams;
     const id = entityIdFor("lock", device, "lock");
-    const attributes = p.supportedFeatures != null ? { supported_features: p.supportedFeatures } : {};
+    const attributes =
+      p.supportedFeatures != null ? { supported_features: p.supportedFeatures } : {};
     return { [id]: { state: s.locked ? "locked" : "unlocked", attributes } };
   },
   handles: ["lock", "unlock"],
@@ -853,7 +906,9 @@ const button: DeviceKind = {
     const p = device.params as ButtonParams;
     const id = entityIdFor("button", device, "button");
     const value = s.lastPressedMs != null ? new Date(s.lastPressedMs).toISOString() : "unknown";
-    return { [id]: { state: value, attributes: p.deviceClass ? { device_class: p.deviceClass } : {} } };
+    return {
+      [id]: { state: value, attributes: p.deviceClass ? { device_class: p.deviceClass } : {} },
+    };
   },
   handles: ["press"],
 };

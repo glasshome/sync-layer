@@ -58,8 +58,18 @@ const PRIMARY_ROLE: Record<KindName, string> = {
   camera: "camera",
 };
 
-const HUE: Hardware = { manufacturer: "Signify", model: "Hue White Ambiance", integration: "hue", transport: "zigbee" };
-const SHELLY_RELAY: Hardware = { manufacturer: "Shelly", model: "Plus 1PM", integration: "shelly", transport: "wifi" };
+const HUE: Hardware = {
+  manufacturer: "Signify",
+  model: "Hue White Ambiance",
+  integration: "hue",
+  transport: "zigbee",
+};
+const SHELLY_RELAY: Hardware = {
+  manufacturer: "Shelly",
+  model: "Plus 1PM",
+  integration: "shelly",
+  transport: "wifi",
+};
 const SHELLY_PLUG: Hardware = {
   manufacturer: "Shelly",
   model: "Plus Plug S",
@@ -129,33 +139,78 @@ export function inRoom(roomId: string | null) {
   return {
     light: (
       name: string,
-      opts: BuildOpts & FeatureOpts & { dimmable?: boolean; color?: boolean; colorTemp?: boolean; watts?: number } = {},
+      opts: BuildOpts &
+        FeatureOpts & {
+          dimmable?: boolean;
+          color?: boolean;
+          colorTemp?: boolean;
+          watts?: number;
+        } = {},
     ) => {
       const model = opts.color ? "Hue White and Color Ambiance" : HUE.model;
       const { dimmable = true, color, colorTemp, watts = 9, supportedFeatures } = opts;
-      return make("light", name, { dimmable, color, colorTemp, watts, supportedFeatures }, { ...HUE, model }, opts);
+      return make(
+        "light",
+        name,
+        { dimmable, color, colorTemp, watts, supportedFeatures },
+        { ...HUE, model },
+        opts,
+      );
     },
     switchDevice: (name: string, opts: BuildOpts & { watts?: number; deviceClass?: string } = {}) =>
-      make("switch", name, { watts: opts.watts ?? 0, deviceClass: opts.deviceClass }, SHELLY_RELAY, opts),
+      make(
+        "switch",
+        name,
+        { watts: opts.watts ?? 0, deviceClass: opts.deviceClass },
+        SHELLY_RELAY,
+        opts,
+      ),
     plug: (name: string, watts: number, opts: BuildOpts & { legacyPowerId?: string } = {}) =>
-      make("switch", name, { watts, power: true, energy: true, legacyPowerId: opts.legacyPowerId }, SHELLY_PLUG, opts),
+      make(
+        "switch",
+        name,
+        { watts, power: true, energy: true, legacyPowerId: opts.legacyPowerId },
+        SHELLY_PLUG,
+        opts,
+      ),
     appliance: (name: string, watts: number, opts: BuildOpts & { legacyPowerId?: string } = {}) =>
-      make("switch", name, { watts, power: true, legacyPowerId: opts.legacyPowerId }, SHELLY_RELAY, opts),
+      make(
+        "switch",
+        name,
+        { watts, power: true, legacyPowerId: opts.legacyPowerId },
+        SHELLY_RELAY,
+        opts,
+      ),
     fan: (
       name: string,
-      opts: BuildOpts & { presets?: string[]; oscillate?: boolean; direction?: boolean; watts?: number } = {},
+      opts: BuildOpts & {
+        presets?: string[];
+        oscillate?: boolean;
+        direction?: boolean;
+        watts?: number;
+      } = {},
     ) =>
       make(
         "fan",
         name,
-        { presets: opts.presets, oscillate: opts.oscillate, direction: opts.direction, watts: opts.watts ?? 40 },
+        {
+          presets: opts.presets,
+          oscillate: opts.oscillate,
+          direction: opts.direction,
+          watts: opts.watts ?? 40,
+        },
         { manufacturer: "Dreo", model: "Smart Fan", integration: "demo", transport: "wifi" },
         opts,
       ),
     cover: (
       name: string,
       opts: BuildOpts &
-        FeatureOpts & { position?: boolean; tilt?: boolean; deviceClass?: string; travelMs?: number } = {},
+        FeatureOpts & {
+          position?: boolean;
+          tilt?: boolean;
+          deviceClass?: string;
+          travelMs?: number;
+        } = {},
     ) =>
       make(
         "cover",
@@ -181,7 +236,12 @@ export function inRoom(roomId: string | null) {
     climate: (
       name: string,
       opts: BuildOpts &
-        FeatureOpts & { modes?: string[]; fanModes?: string[]; presets?: string[]; watts?: number } = {},
+        FeatureOpts & {
+          modes?: string[];
+          fanModes?: string[];
+          presets?: string[];
+          watts?: number;
+        } = {},
     ) =>
       make(
         "climate",
@@ -193,14 +253,27 @@ export function inRoom(roomId: string | null) {
           watts: opts.watts ?? 1500,
           supportedFeatures: opts.supportedFeatures,
         },
-        { manufacturer: "Google", model: "Nest Learning Thermostat", integration: "demo", transport: "wifi" },
+        {
+          manufacturer: "Google",
+          model: "Nest Learning Thermostat",
+          integration: "demo",
+          transport: "wifi",
+        },
         opts,
       ),
-    waterHeater: (name: string, opts: BuildOpts & FeatureOpts & { modes: string[]; min: number; max: number }) =>
+    waterHeater: (
+      name: string,
+      opts: BuildOpts & FeatureOpts & { modes: string[]; min: number; max: number },
+    ) =>
       make(
         "water_heater",
         name,
-        { modes: opts.modes, min: opts.min, max: opts.max, supportedFeatures: opts.supportedFeatures },
+        {
+          modes: opts.modes,
+          min: opts.min,
+          max: opts.max,
+          supportedFeatures: opts.supportedFeatures,
+        },
         { manufacturer: "Vaillant", model: "uniSTOR", integration: "demo", transport: "wifi" },
         opts,
       ),
@@ -215,7 +288,10 @@ export function inRoom(roomId: string | null) {
         { manufacturer: "Sonos", model: "One", integration: "demo", transport: "wifi" },
         opts,
       ),
-    button: (name: string, opts: BuildOpts & { category?: "config" | "diagnostic"; deviceClass?: string } = {}) =>
+    button: (
+      name: string,
+      opts: BuildOpts & { category?: "config" | "diagnostic"; deviceClass?: string } = {},
+    ) =>
       make(
         "button",
         name,
@@ -224,14 +300,28 @@ export function inRoom(roomId: string | null) {
         opts,
       ),
     scene: (name: string, targets: SceneTarget[], opts: BuildOpts = {}) =>
-      make("scene", name, { targets }, { manufacturer: "Home Assistant", model: "Scene", integration: "demo" }, opts),
+      make(
+        "scene",
+        name,
+        { targets },
+        { manufacturer: "Home Assistant", model: "Scene", integration: "demo" },
+        opts,
+      ),
     climateSensor: (
       name: string,
       opts: BuildOpts & { temperatureId?: string; humidityId?: string; outdoor?: boolean } = {},
     ): DeviceSpec[] => {
       const base = keyOf(name, opts);
-      const hw: Hardware = { manufacturer: "Aqara", model: "Temperature and Humidity Sensor", ...ZIGBEE_BATTERY };
-      const reading = (role: "temperature" | "humidity", entityName: string, id: string | undefined): DeviceSpec => {
+      const hw: Hardware = {
+        manufacturer: "Aqara",
+        model: "Temperature and Humidity Sensor",
+        ...ZIGBEE_BATTERY,
+      };
+      const reading = (
+        role: "temperature" | "humidity",
+        entityName: string,
+        id: string | undefined,
+      ): DeviceSpec => {
         const value = role === "temperature" && opts.outdoor ? "outdoor_temperature" : role;
         const own = { ...opts, key: `${base}_${role}`, id, deviceId: base, entityName };
         return make("sensor", name, { reading: value }, hw, own);
@@ -249,7 +339,11 @@ export function inRoom(roomId: string | null) {
         { manufacturer: "Aqara", model: "Motion Sensor P1", ...ZIGBEE_BATTERY },
         opts,
       ),
-    contact: (deviceClass: "door" | "window", name: string, opts: BuildOpts & { initial?: boolean } = {}) =>
+    contact: (
+      deviceClass: "door" | "window",
+      name: string,
+      opts: BuildOpts & { initial?: boolean } = {},
+    ) =>
       make(
         "binary_sensor",
         name,
@@ -281,7 +375,10 @@ export function inRoom(roomId: string | null) {
         { manufacturer: "Ring", model: "Video Doorbell", integration: "demo", transport: "wifi" },
         opts,
       ),
-    fixedSensor: (name: string, opts: BuildOpts & { value: number; unit?: string; deviceClass?: string }) =>
+    fixedSensor: (
+      name: string,
+      opts: BuildOpts & { value: number; unit?: string; deviceClass?: string },
+    ) =>
       make(
         "sensor",
         name,
@@ -289,9 +386,16 @@ export function inRoom(roomId: string | null) {
         { manufacturer: "Home Assistant", model: "Sensor", integration: "demo" },
         opts,
       ),
-    sun: () => make("sun", "Sun", {}, { manufacturer: "Home Assistant", model: "Sun", integration: "sun" }),
+    sun: () =>
+      make("sun", "Sun", {}, { manufacturer: "Home Assistant", model: "Sun", integration: "sun" }),
     weather: (name: string, opts: BuildOpts = {}) =>
-      make("weather", name, {}, { manufacturer: "Met.no", model: "Forecast", integration: "met" }, opts),
+      make(
+        "weather",
+        name,
+        {},
+        { manufacturer: "Met.no", model: "Forecast", integration: "met" },
+        opts,
+      ),
     weatherShowcase: (fixture: (typeof WEATHER_FIXTURES)[number]) =>
       make(
         "weather_showcase",

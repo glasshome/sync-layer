@@ -21,7 +21,11 @@ export interface GeneratedHouse {
 
 type SideRole = "signal" | "battery" | "firmware";
 
-const SIDE_NAME: Record<SideRole, string> = { signal: "Signal strength", battery: "Battery", firmware: "Firmware" };
+const SIDE_NAME: Record<SideRole, string> = {
+  signal: "Signal strength",
+  battery: "Battery",
+  firmware: "Firmware",
+};
 
 interface Placed {
   spec: DeviceSpec;
@@ -100,7 +104,8 @@ function place(declared: DeviceSpec[]): Placed[] {
   for (const [deviceId, specs] of groups) {
     const owner = specs[0];
     if (!owner) continue;
-    for (const spec of specs) placed.push({ spec, deviceId, side: false, seeds: KINDS[spec.kind].entities(spec) });
+    for (const spec of specs)
+      placed.push({ spec, deviceId, side: false, seeds: KINDS[spec.kind].entities(spec) });
     for (const role of sideRoles(owner)) {
       const spec = sideSpec(owner, role);
       // A battery with a declared id is a user-facing entity, so it stays uncategorised.
@@ -116,7 +121,11 @@ function resolveTarget(t: SceneTarget, placed: Placed[]): ServiceCall {
     t.entityIds ??
     placed
       .filter((p) => !p.side && (t.area === undefined || p.spec.areaId === t.area))
-      .flatMap((p) => p.seeds.filter((s) => s.primary && s.entityId.startsWith(`${t.domain}.`)).map((s) => s.entityId));
+      .flatMap((p) =>
+        p.seeds
+          .filter((s) => s.primary && s.entityId.startsWith(`${t.domain}.`))
+          .map((s) => s.entityId),
+      );
   return { domain: t.domain, service: t.service, data: t.data ?? {}, entityIds };
 }
 
@@ -150,7 +159,12 @@ function toCategory(c: EntitySeed["category"]): EntityCategory | null {
   return (c ?? null) as EntityCategory | null;
 }
 
-function entityEntry(p: Placed, seed: EntitySeed, name: string | null, createdIso: string): EntityRegistryEntry {
+function entityEntry(
+  p: Placed,
+  seed: EntitySeed,
+  name: string | null,
+  createdIso: string,
+): EntityRegistryEntry {
   const integration = p.spec.params.integration;
   const platform = typeof integration === "string" ? integration : "demo";
   return {
@@ -243,7 +257,11 @@ function areaEntry(room: HouseRoom, placed: Placed[], createdIso: string): AreaR
 }
 
 export function generateHouse(house: House, createdIso: string): GeneratedHouse {
-  const declared = [...house.rooms.flatMap((r) => r.devices), ...house.whole, ...peopleSpecs(house)];
+  const declared = [
+    ...house.rooms.flatMap((r) => r.devices),
+    ...house.whole,
+    ...peopleSpecs(house),
+  ];
   const placed = resolveScenes(place(declared));
   assertUnique(
     "device key",
@@ -258,7 +276,8 @@ export function generateHouse(house: House, createdIso: string): GeneratedHouse 
   const roomOf: Record<string, string> = {};
   const friendlyNames: Record<string, string> = {};
   for (const p of placed) {
-    const owner = devices[p.deviceId] ?? (devices[p.deviceId] = deviceEntry(p.spec, p.deviceId, createdIso));
+    const owner =
+      devices[p.deviceId] ?? (devices[p.deviceId] = deviceEntry(p.spec, p.deviceId, createdIso));
     for (const seed of p.seeds) {
       const name = seed.primary ? (p.spec.entityName ?? null) : seed.name;
       entityRegistry[seed.entityId] = entityEntry(p, seed, name, createdIso);
@@ -267,7 +286,9 @@ export function generateHouse(house: House, createdIso: string): GeneratedHouse 
     }
   }
 
-  const areas = Object.fromEntries(house.rooms.map((r) => [r.id, areaEntry(r, placed, createdIso)]));
+  const areas = Object.fromEntries(
+    house.rooms.map((r) => [r.id, areaEntry(r, placed, createdIso)]),
+  );
   const floors = Object.fromEntries(
     house.floors.map((f): [string, FloorRegistryEntry] => [
       f.id,

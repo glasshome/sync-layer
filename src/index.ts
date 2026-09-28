@@ -32,11 +32,7 @@ export type { SyncLayerConnection } from "./connection/types";
 
 export { area, areas } from "./query/area-builder";
 export { entities, entity } from "./query/builder";
-export {
-  entitiesByAreaAndDomain,
-  entitiesWhere,
-  searchEntities,
-} from "./query/helpers";
+export { entitiesByAreaAndDomain, entitiesWhere, searchEntities } from "./query/helpers";
 export type {
   AreaQueryBuilder,
   EntitiesQueryBuilder,
@@ -132,11 +128,7 @@ export { fetchStream, fetchStreamData } from "./camera/fetch";
 export { getStream, refreshStream } from "./camera/query";
 export { fetchEnergyPreferences } from "./energy/prefs";
 export { hassMediaUrl } from "./media/url";
-export type {
-  EnergyDeviceConsumption,
-  EnergyPreferences,
-  EnergySource,
-} from "./energy/prefs";
+export type { EnergyDeviceConsumption, EnergyPreferences, EnergySource } from "./energy/prefs";
 export type {
   CameraStream,
   CameraStreamData,
@@ -146,17 +138,8 @@ export type {
   StreamQueryOptions,
   StreamResult,
 } from "./camera/types";
-export {
-  getWebRtcClientConfig,
-  sendWebRtcCandidate,
-  startWebRtcSession,
-} from "./camera/webrtc";
-export {
-  buildAreaView,
-  buildDeviceView,
-  getAreaView,
-  getAreaViews,
-} from "./entities/area-views";
+export { getWebRtcClientConfig, sendWebRtcCandidate, startWebRtcSession } from "./camera/webrtc";
+export { buildAreaView, buildDeviceView, getAreaView, getAreaViews } from "./entities/area-views";
 export {
   buildEntityView,
   entityViewEquals,
@@ -171,17 +154,10 @@ export {
   NEED_ATTRIBUTE_DOMAINS,
 } from "./history/constants";
 export { fetchEntityHistory, fetchHistory, historyStateToTimeline } from "./history/fetch";
-export {
-  appendHistoryPoint,
-  bulkAppendHistoryPoints,
-  MAX_HISTORY_POINTS,
-} from "./history/points";
+export { appendHistoryPoint, bulkAppendHistoryPoints, MAX_HISTORY_POINTS } from "./history/points";
 export type { HistoryPoint } from "./history/points";
 export { isHistoryTracked, trackEntityHistory, untrackEntityHistory } from "./history/query";
-export {
-  fetchStatisticsDuringPeriod,
-  normalizeStatisticTime,
-} from "./history/statistics";
+export { fetchStatisticsDuringPeriod, normalizeStatisticTime } from "./history/statistics";
 export type {
   StatisticsPeriod,
   StatisticsQueryOptions,

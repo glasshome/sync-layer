@@ -1,9 +1,15 @@
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import * as provider from "../demo-provider";
-import { advanceDemoTo, applyDemoServiceCall, loadDemoHouse, unloadDemoData } from "../demo-provider";
+import {
+  advanceDemoTo,
+  applyDemoServiceCall,
+  loadDemoHouse,
+  unloadDemoData,
+} from "../demo-provider";
 import { demoHistory } from "./history";
 
-const demoEntityHistory = (id: string, startMs: number, endMs: number) => demoHistory([id], startMs, endMs)[id] ?? [];
+const demoEntityHistory = (id: string, startMs: number, endMs: number) =>
+  demoHistory([id], startMs, endMs)[id] ?? [];
 
 const END = Date.parse("2026-12-14T21:00:00Z");
 beforeAll(() => loadDemoHouse({ clock: { pinned: "2026-12-14T21:00:00Z", seed: 3 } }));
@@ -27,7 +33,9 @@ describe("demo history", () => {
   });
   test("empty window returns no points", () => {
     expect(demoEntityHistory("light.living_room_main", END, END - 1000)).toEqual([]);
-    expect(demoEntityHistory("light.living_room_main", END + 3_600_000, END + 7_200_000)).toEqual([]);
+    expect(demoEntityHistory("light.living_room_main", END + 3_600_000, END + 7_200_000)).toEqual(
+      [],
+    );
   });
   test("history agrees with live state at the end", async () => {
     const { state } = await import("../../core/store");
@@ -42,7 +50,11 @@ describe("demo history", () => {
   test("one replay serves every requested id", () => {
     const replays = spyOn(provider, "demoReplayModel");
     try {
-      const h = demoHistory(["light.living_room_main", "sensor.temperature_living"], END - 3_600_000, END);
+      const h = demoHistory(
+        ["light.living_room_main", "sensor.temperature_living"],
+        END - 3_600_000,
+        END,
+      );
       expect(replays).toHaveBeenCalledTimes(1);
       expect(h["light.living_room_main"]?.length ?? 0).toBeGreaterThan(0);
       expect(h["sensor.temperature_living"]?.length ?? 0).toBeGreaterThan(0);
@@ -131,7 +143,11 @@ describe("demo history: wall-clock windows", () => {
     applyDemoServiceCall("light", "toggle", {}, { entity_id: id });
     const endTime = new Date();
     await new Promise((r) => setTimeout(r, 20));
-    const result = await fetchHistory({ startTime: new Date(endTime.getTime() - 3_600_000), endTime, entityIds: [id] });
+    const result = await fetchHistory({
+      startTime: new Date(endTime.getTime() - 3_600_000),
+      endTime,
+      entityIds: [id],
+    });
     expect(result[id]?.at(-1)?.s).toBe(state.entities[id]?.state);
   });
 });

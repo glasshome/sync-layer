@@ -8,7 +8,7 @@ function declinationAndEquation(ms: number) {
   const e = (23.439 - 0.00000036 * d) * RAD;
   const ra = Math.atan2(Math.cos(e) * Math.sin(l), Math.cos(l)) / RAD / 15;
   const decl = Math.asin(Math.sin(e) * Math.sin(l));
-  const eqTimeMin = (q / 15 - ((ra % 24) + 24) % 24) * 60;
+  const eqTimeMin = (q / 15 - (((ra % 24) + 24) % 24)) * 60;
   return { decl, eqTimeMin: ((eqTimeMin + 720) % 1440) - 720 };
 }
 
@@ -18,7 +18,8 @@ export function solarElevation(ms: number, lat: number, lon: number): number {
   const solarMin = utcMin + eqTimeMin + lon * 4;
   const hourAngle = (solarMin / 4 - 180) * RAD;
   const phi = lat * RAD;
-  const sinEl = Math.sin(phi) * Math.sin(decl) + Math.cos(phi) * Math.cos(decl) * Math.cos(hourAngle);
+  const sinEl =
+    Math.sin(phi) * Math.sin(decl) + Math.cos(phi) * Math.cos(decl) * Math.cos(hourAngle);
   return Math.asin(sinEl) / RAD;
 }
 
@@ -35,5 +36,8 @@ function nextCrossing(ms: number, lat: number, lon: number, rising: boolean): nu
 }
 
 export function sunTimes(ms: number, lat: number, lon: number) {
-  return { risingMs: nextCrossing(ms, lat, lon, true), settingMs: nextCrossing(ms, lat, lon, false) };
+  return {
+    risingMs: nextCrossing(ms, lat, lon, true),
+    settingMs: nextCrossing(ms, lat, lon, false),
+  };
 }

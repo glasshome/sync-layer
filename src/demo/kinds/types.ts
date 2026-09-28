@@ -59,12 +59,33 @@ export interface DeviceKind<P = Record<string, unknown>, S = unknown> {
 }
 
 export type KindName =
-  | "light" | "switch" | "fan" | "cover" | "lock" | "climate" | "water_heater"
-  | "media_player" | "button" | "scene" | "sensor" | "binary_sensor" | "sun"
-  | "weather" | "weather_showcase" | "energy_meter" | "person" | "update" | "camera";
+  | "light"
+  | "switch"
+  | "fan"
+  | "cover"
+  | "lock"
+  | "climate"
+  | "water_heater"
+  | "media_player"
+  | "button"
+  | "scene"
+  | "sensor"
+  | "binary_sensor"
+  | "sun"
+  | "weather"
+  | "weather_showcase"
+  | "energy_meter"
+  | "person"
+  | "update"
+  | "camera";
 
 /** Registry override wins; otherwise domain.device-key[_suffix], the generator's default naming. */
-export function entityIdFor(domain: string, device: DeviceSpec, role: string, suffix?: string): string {
+export function entityIdFor(
+  domain: string,
+  device: DeviceSpec,
+  role: string,
+  suffix?: string,
+): string {
   const explicit = device.ids?.[role];
   if (explicit) return explicit;
   const base = device.key;

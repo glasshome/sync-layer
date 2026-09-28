@@ -8,7 +8,11 @@ import type { DeviceSpec, KindName, Projection } from "./types";
 const T = Date.parse("2026-06-21T18:00:00Z");
 const ctx = { nowMs: T, world: worldFor("UTC", 1, T), noise: () => 0.5 };
 
-function spec(kind: KindName, params: Record<string, unknown>, ids: Record<string, string>): DeviceSpec {
+function spec(
+  kind: KindName,
+  params: Record<string, unknown>,
+  ids: Record<string, string>,
+): DeviceSpec {
   return { key: "k", kind, name: "K", areaId: null, manufacturer: "x", model: "y", params, ids };
 }
 
@@ -271,12 +275,21 @@ describe("ACTUATORS ports every applyDemoServiceCall case", () => {
 });
 
 function tick(kind: KindName, state: unknown, device: DeviceSpec, dtMs: number): unknown {
-  return ACTUATORS[kind as keyof typeof ACTUATORS].apply(state, { type: "tick", dtMs }, device, ctx);
+  return ACTUATORS[kind as keyof typeof ACTUATORS].apply(
+    state,
+    { type: "tick", dtMs },
+    device,
+    ctx,
+  );
 }
 
 describe("cover travel completes to a settled state", () => {
   test("close_cover, open_cover, toggle, set_cover_position, tilt all settle after travel", () => {
-    const d = spec("cover", { position: true, tilt: true, travelMs: 8000 }, { cover: "cover.living_room_blinds" });
+    const d = spec(
+      "cover",
+      { position: true, tilt: true, travelMs: 8000 },
+      { cover: "cover.living_room_blinds" },
+    );
     let s = ACTUATORS.cover.apply(undefined, { type: "init" }, d, ctx);
 
     s = ACTUATORS.cover.apply(
@@ -366,7 +379,12 @@ test("cover travels over time", () => {
   let s = ACTUATORS.cover.apply(undefined, { type: "init" }, d, ctx);
   s = ACTUATORS.cover.apply(
     s,
-    { type: "call", entityId: "cover.blinds", service: "set_cover_position", data: { position: 100 } },
+    {
+      type: "call",
+      entityId: "cover.blinds",
+      service: "set_cover_position",
+      data: { position: 100 },
+    },
     d,
     ctx,
   );
@@ -406,35 +424,64 @@ test("climate reaches a new setpoint within about two minutes", () => {
   let s = ACTUATORS.climate.apply(undefined, { type: "init" }, d, ctx);
   s = ACTUATORS.climate.apply(
     s,
-    { type: "call", entityId: "climate.living", service: "set_hvac_mode", data: { hvac_mode: "heat" } },
+    {
+      type: "call",
+      entityId: "climate.living",
+      service: "set_hvac_mode",
+      data: { hvac_mode: "heat" },
+    },
     d,
     ctx,
   );
   s = ACTUATORS.climate.apply(
     s,
-    { type: "call", entityId: "climate.living", service: "set_temperature", data: { temperature: 24 } },
+    {
+      type: "call",
+      entityId: "climate.living",
+      service: "set_temperature",
+      data: { temperature: 24 },
+    },
     d,
     ctx,
   );
-  for (let i = 0; i < 150; i++) s = ACTUATORS.climate.apply(s, { type: "tick", dtMs: 1000 }, d, ctx);
-  expect(ACTUATORS.climate.project(s, d, ctx)["climate.living"]?.attributes.current_temperature).toBeCloseTo(24, 0);
+  for (let i = 0; i < 150; i++)
+    s = ACTUATORS.climate.apply(s, { type: "tick", dtMs: 1000 }, d, ctx);
+  expect(
+    ACTUATORS.climate.project(s, d, ctx)["climate.living"]?.attributes.current_temperature,
+  ).toBeCloseTo(24, 0);
 });
 
 test("scene effects are its targets", () => {
-  const targets = [{ domain: "light", service: "turn_on", data: { brightness_pct: 20 }, entityIds: ["light.x"] }];
+  const targets = [
+    { domain: "light", service: "turn_on", data: { brightness_pct: 20 }, entityIds: ["light.x"] },
+  ];
   const d = spec("scene", { targets }, { scene: "scene.movie_night" });
-  const call = { type: "call" as const, entityId: "scene.movie_night", service: "turn_on", data: {} };
+  const call = {
+    type: "call" as const,
+    entityId: "scene.movie_night",
+    service: "turn_on",
+    data: {},
+  };
   const s = ACTUATORS.scene.apply(undefined, call, d, ctx);
   expect(ACTUATORS.scene.effects?.(s, call, d)).toEqual(targets);
 });
 
 describe("switch with power and energy", () => {
-  const call = (entityId: string, service: string) => ({ type: "call" as const, entityId, service, data: {} });
+  const call = (entityId: string, service: string) => ({
+    type: "call" as const,
+    entityId,
+    service,
+    data: {},
+  });
 
   test("power sensor reads the switch's watts, quantized to 10 W", () => {
     const d = spec("switch", { watts: 1234, power: true }, {});
     const seeds = ACTUATORS.switch.entities(d);
-    expect(seeds.find((s) => s.entityId === "sensor.k_power")).toMatchObject({ name: "Power", deviceClass: "power", unit: "W" });
+    expect(seeds.find((s) => s.entityId === "sensor.k_power")).toMatchObject({
+      name: "Power",
+      deviceClass: "power",
+      unit: "W",
+    });
     let s = ACTUATORS.switch.apply(undefined, { type: "init" }, d, ctx);
     expect(ACTUATORS.switch.project(s, d, ctx)["sensor.k_power"]?.state).toBe("0");
     s = ACTUATORS.switch.apply(s, call("switch.k", "turn_on"), d, ctx);
@@ -445,16 +492,24 @@ describe("switch with power and energy", () => {
 
   test("energy sensor accumulates kWh while on", () => {
     const d = spec("switch", { watts: 2000, power: true, energy: true }, {});
-    expect(ACTUATORS.switch.entities(d).find((s) => s.entityId === "sensor.k_energy")).toMatchObject({ name: "Energy", unit: "kWh" });
+    expect(
+      ACTUATORS.switch.entities(d).find((s) => s.entityId === "sensor.k_energy"),
+    ).toMatchObject({ name: "Energy", unit: "kWh" });
     let s = ACTUATORS.switch.apply(undefined, { type: "init" }, d, ctx);
     const before = Number(ACTUATORS.switch.project(s, d, ctx)["sensor.k_energy"]?.state);
     s = ACTUATORS.switch.apply(s, { type: "tick", dtMs: 3_600_000 }, d, ctx);
-    expect(Number(ACTUATORS.switch.project(s, d, ctx)["sensor.k_energy"]?.state)).toBeCloseTo(before, 2);
+    expect(Number(ACTUATORS.switch.project(s, d, ctx)["sensor.k_energy"]?.state)).toBeCloseTo(
+      before,
+      2,
+    );
     s = ACTUATORS.switch.apply(s, call("switch.k", "turn_on"), d, ctx);
     s = ACTUATORS.switch.apply(s, { type: "tick", dtMs: 3_600_000 }, d, ctx);
     const energy = ACTUATORS.switch.project(s, d, ctx)["sensor.k_energy"];
     expect(Number(energy?.state)).toBeCloseTo(before + 2, 2);
-    expect(energy?.attributes).toMatchObject({ unit_of_measurement: "kWh", state_class: "total_increasing" });
+    expect(energy?.attributes).toMatchObject({
+      unit_of_measurement: "kWh",
+      state_class: "total_increasing",
+    });
   });
 
   test("legacy power id follows the energy curve and drives the switch", () => {
@@ -462,8 +517,14 @@ describe("switch with power and energy", () => {
       const d = spec("switch", { watts: 100, power: true, legacyPowerId: id }, {});
       expect(ACTUATORS.switch.entities(d).map((s) => s.entityId)).toEqual(["switch.k", id]);
       for (const hour of [3, 8, 13, 19]) {
-        const at = { ...ctx, nowMs: Date.parse(`2026-06-21T${String(hour).padStart(2, "0")}:00:00Z`) };
-        const expected = formatEnergyState(id, energyEntityValue(id, simulateEnergy(at.nowMs)) ?? 0);
+        const at = {
+          ...ctx,
+          nowMs: Date.parse(`2026-06-21T${String(hour).padStart(2, "0")}:00:00Z`),
+        };
+        const expected = formatEnergyState(
+          id,
+          energyEntityValue(id, simulateEnergy(at.nowMs)) ?? 0,
+        );
         let s = ACTUATORS.switch.apply(undefined, { type: "init" }, d, at);
         s = ACTUATORS.switch.apply(s, call("switch.k", "turn_off"), d, at);
         const out = ACTUATORS.switch.project(s, d, at);
@@ -475,9 +536,18 @@ describe("switch with power and energy", () => {
 });
 
 test("media_play and media_pause set playback directly", () => {
-  const d = spec("media_player", { tracks: [{ title: "A", artist: "B" }] }, { media_player: "media_player.m" });
+  const d = spec(
+    "media_player",
+    { tracks: [{ title: "A", artist: "B" }] },
+    { media_player: "media_player.m" },
+  );
   const k = ACTUATORS.media_player;
-  const call = (service: string) => ({ type: "call" as const, entityId: "media_player.m", service, data: {} });
+  const call = (service: string) => ({
+    type: "call" as const,
+    entityId: "media_player.m",
+    service,
+    data: {},
+  });
   let s = k.apply(undefined, { type: "init" }, d, ctx);
   s = k.apply(s, call("media_play"), d, ctx);
   expect(k.project(s, d, ctx)["media_player.m"]?.state).toBe("playing");
@@ -509,22 +579,37 @@ describe("declared overrides win over computed features", () => {
 
   test("button carries category and device class", () => {
     const d = spec("button", { category: "config", deviceClass: "restart" }, {});
-    expect(ACTUATORS.button.entities(d)[0]).toMatchObject({ category: "config", deviceClass: "restart" });
-    const out = ACTUATORS.button.project(ACTUATORS.button.apply(undefined, { type: "init" }, d, ctx), d, ctx);
+    expect(ACTUATORS.button.entities(d)[0]).toMatchObject({
+      category: "config",
+      deviceClass: "restart",
+    });
+    const out = ACTUATORS.button.project(
+      ACTUATORS.button.apply(undefined, { type: "init" }, d, ctx),
+      d,
+      ctx,
+    );
     expect(out["button.k"]?.attributes.device_class).toBe("restart");
   });
 
   test("switch carries a device class", () => {
     const d = spec("switch", { deviceClass: "outlet" }, {});
     expect(ACTUATORS.switch.entities(d)[0]?.deviceClass).toBe("outlet");
-    const out = ACTUATORS.switch.project(ACTUATORS.switch.apply(undefined, { type: "init" }, d, ctx), d, ctx);
+    const out = ACTUATORS.switch.project(
+      ACTUATORS.switch.apply(undefined, { type: "init" }, d, ctx),
+      d,
+      ctx,
+    );
     expect(out["switch.k"]?.attributes.device_class).toBe("outlet");
   });
 });
 
 test("switch powerW agrees with its displayed power", () => {
   const at = { ...ctx, nowMs: Date.parse("2026-06-21T19:00:00Z") };
-  const legacy = spec("switch", { watts: 100, power: true, legacyPowerId: "sensor.oven_power" }, {});
+  const legacy = spec(
+    "switch",
+    { watts: 100, power: true, legacyPowerId: "sensor.oven_power" },
+    {},
+  );
   let s = ACTUATORS.switch.apply(undefined, { type: "init" }, legacy, at);
   s = ACTUATORS.switch.apply(s, { type: "tick", dtMs: 1000 }, legacy, at);
   const shown = Number(ACTUATORS.switch.project(s, legacy, at)["sensor.oven_power"]?.state);
@@ -534,7 +619,12 @@ test("switch powerW agrees with its displayed power", () => {
   const plain = spec("switch", { watts: 1200, power: true }, {});
   let p = ACTUATORS.switch.apply(undefined, { type: "init" }, plain, at);
   expect(ACTUATORS.switch.powerW?.(p)).toBe(0);
-  p = ACTUATORS.switch.apply(p, { type: "call", entityId: "switch.k", service: "turn_on", data: {} }, plain, at);
+  p = ACTUATORS.switch.apply(
+    p,
+    { type: "call", entityId: "switch.k", service: "turn_on", data: {} },
+    plain,
+    at,
+  );
   expect(ACTUATORS.switch.powerW?.(p)).toBe(1200);
 });
 
@@ -543,7 +633,12 @@ test("a long tick skips as many tracks as it spans", () => {
   const d = spec("media_player", { tracks }, { media_player: "media_player.m" });
   const k = ACTUATORS.media_player;
   let s = k.apply(undefined, { type: "init" }, d, ctx);
-  s = k.apply(s, { type: "call", entityId: "media_player.m", service: "media_play", data: {} }, d, ctx);
+  s = k.apply(
+    s,
+    { type: "call", entityId: "media_player.m", service: "media_play", data: {} },
+    d,
+    ctx,
+  );
   s = k.apply(s, { type: "tick", dtMs: 400_000 }, d, ctx);
   expect(k.project(s, d, ctx)["media_player.m"]?.attributes.media_title).toBe("C");
 });
