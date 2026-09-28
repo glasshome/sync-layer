@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.2](https://github.com/glasshome/sync-layer/compare/v0.10.1...v0.10.2) (2026-09-28)
+
+
+### Performance Improvements
+
+* **demo:** a projection formats each instant once, not once per entity ([00e553b](https://github.com/glasshome/sync-layer/commit/00e553bd939d4aaf93719b51a595a9856136d09c))
+
 ## [0.10.1](https://github.com/glasshome/sync-layer/compare/v0.10.0...v0.10.1) (2026-09-27)
 
 
