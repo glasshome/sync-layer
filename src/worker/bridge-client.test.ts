@@ -59,4 +59,18 @@ describe("bridge client", () => {
     expect(bridge.conn.authState).toBe("pending");
     expect(states).toEqual(["connected", "disconnected"]);
   });
+
+  it("passes the socket close code and reason on with the state", () => {
+    const w = fakeWorker();
+    const seen: unknown[] = [];
+    createHaBridge(w as unknown as Worker, {
+      onConnState: (state, reason, close) => seen.push({ state, reason, close }),
+    });
+    w.onmessage?.({
+      data: { k: "conn", state: "disconnected", close: { code: 1006, reason: "" } },
+    } as MessageEvent);
+    expect(seen).toEqual([
+      { state: "disconnected", reason: undefined, close: { code: 1006, reason: "" } },
+    ]);
+  });
 });

@@ -3,6 +3,7 @@ import { type Connection, createConnection, createSocket } from "home-assistant-
 import { enforceServiceCall, RegistryMirror } from "./enforcement";
 import type {
   MainToWorker,
+  SocketClose,
   WidgetServiceCall,
   WidgetServiceResult,
   WorkerToMain,
@@ -222,8 +223,14 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
     const proxiedAuth = new Proxy(auth, {
       get: (target, prop) => (prop === "wsUrl" ? proxyWsUrl : Reflect.get(target, prop)),
     });
-    const socketFactory = (options: Parameters<typeof createSocket>[0]) =>
-      createSocket({ ...options, auth: proxiedAuth });
+    let lastClose: SocketClose | undefined;
+    const socketFactory = async (options: Parameters<typeof createSocket>[0]) => {
+      const socket = await createSocket({ ...options, auth: proxiedAuth });
+      socket.addEventListener("close", (ev) => {
+        lastClose = { code: ev.code, reason: ev.reason };
+      });
+      return socket;
+    };
 
     try {
       conn = await createConnection({ auth, createSocket: socketFactory });
@@ -232,7 +239,9 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
       return;
     }
 
-    conn.addEventListener("disconnected", () => post({ k: "conn", state: "disconnected" }));
+    conn.addEventListener("disconnected", () =>
+      post({ k: "conn", state: "disconnected", ...(lastClose ? { close: lastClose } : {}) }),
+    );
     conn.addEventListener("reconnect-error", (_c, err) => post(reconnectErrorMessage(err)));
     let everReady = false;
     conn.addEventListener("ready", () => {

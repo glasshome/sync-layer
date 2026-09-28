@@ -227,5 +227,5 @@ export {
 // ============================================
 
 export { claimHostApi, type HostApi } from "./host-api";
-export type { ConnState } from "./worker/protocol";
+export type { ConnState, SocketClose } from "./worker/protocol";
 export { runHaBridgeWorker, type WorkerScope } from "./worker/worker-main";

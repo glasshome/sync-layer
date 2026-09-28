@@ -34,10 +34,14 @@ export type MainToWorker =
 
 export type ConnState = "connected" | "disconnected" | "reconnecting";
 export type ConnReason = "invalid_auth" | "ping_timeout";
+export interface SocketClose {
+  code: number;
+  reason: string;
+}
 
 export type WorkerToMain =
   | { k: "connect_result"; ok: boolean; error?: string; reason?: "invalid_auth" }
-  | { k: "conn"; state: ConnState; reason?: ConnReason }
+  | { k: "conn"; state: ConnState; reason?: ConnReason; close?: SocketClose }
   /** Fired after a reconnect completes; main thread reloads data + resubscribes. */
   | { k: "ready_after_reconnect" }
   | { k: "result"; id: number; ok: boolean; result?: unknown; error?: string }
