@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1](https://github.com/glasshome/sync-layer/compare/v0.11.0...v0.11.1) (2026-10-02)
+
+
+### Bug Fixes
+
+* serve HA's local copy of remotely accessible media art ([b27b001](https://github.com/glasshome/sync-layer/commit/b27b0015ef862e7182b794ca3516c78ea3172594))
+
 ## [0.11.0](https://github.com/glasshome/sync-layer/compare/v0.10.2...v0.11.0) (2026-09-28)
 
 
