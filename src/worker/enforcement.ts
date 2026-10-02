@@ -100,6 +100,20 @@ export function expandTargets(call: ServiceCallShape, registry: RegistryMirror):
   return [...ids];
 }
 
+// HA or a device it drives fetches any URL in service data, past the page CSP; media-source ids stay inside HA.
+const NETWORK_URL = /^(?:[a-z][a-z0-9+.-]*:)?\/\//i;
+const HA_MEDIA_SOURCE = /^media-source:\/\//i;
+
+function namesNetworkUrl(value: unknown): boolean {
+  if (typeof value === "string") {
+    const v = value.trim();
+    return NETWORK_URL.test(v) && !HA_MEDIA_SOURCE.test(v);
+  }
+  if (Array.isArray(value)) return value.some(namesNetworkUrl);
+  if (value && typeof value === "object") return Object.values(value).some(namesNetworkUrl);
+  return false;
+}
+
 export type EnforcementVerdict =
   | { allowed: true; entityIds: string[] }
   | { allowed: false; entityIds: string[]; message: string };
@@ -110,6 +124,13 @@ export function enforceServiceCall(
   registry: RegistryMirror,
 ): EnforcementVerdict {
   const entityIds = expandTargets(call, registry);
+  if (namesNetworkUrl(call.data) || namesNetworkUrl(call.target)) {
+    return {
+      allowed: false,
+      entityIds,
+      message: `Call to ${call.domain}.${call.service} names a network address; widgets cannot send Home Assistant to a URL`,
+    };
+  }
   if (matchesCapability(caps, { domain: call.domain, service: call.service, entityIds })) {
     return { allowed: true, entityIds };
   }

