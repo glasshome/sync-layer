@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.4](https://github.com/glasshome/sync-layer/compare/v0.11.3...v0.11.4) (2026-10-02)
+
+
+### Bug Fixes
+
+* **demo:** schedule tests advance hours in minute steps ([4746b9b](https://github.com/glasshome/sync-layer/commit/4746b9be9eb073ad2c5930d3a32532a7c2ec97bf))
+
 ## [0.11.3](https://github.com/glasshome/sync-layer/compare/v0.11.2...v0.11.3) (2026-10-02)
 
 
