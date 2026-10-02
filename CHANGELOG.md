@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.3](https://github.com/glasshome/sync-layer/compare/v0.11.2...v0.11.3) (2026-10-02)
+
+
+### Bug Fixes
+
+* **demo:** replay budget test bounds a blowup instead of racing a loaded runner ([1dce484](https://github.com/glasshome/sync-layer/commit/1dce484c85f8009414ba99d78a5082a0b7babc39))
+
 ## [0.11.2](https://github.com/glasshome/sync-layer/compare/v0.11.1...v0.11.2) (2026-10-02)
 
 
