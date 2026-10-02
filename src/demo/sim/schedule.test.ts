@@ -69,7 +69,7 @@ describe("schedule", () => {
     expect(s["person.sam"]?.state).toBe("home");
   });
   test("night locks the doors", () => {
-    const m = modelAt("2026-12-14T22:00:00Z");
+    const m = modelAt("2026-12-14T22:00:00Z", 60_000);
     m.dispatch({
       domain: "lock",
       service: "unlock",
@@ -82,7 +82,7 @@ describe("schedule", () => {
     expect(s["light.living_room_main"]?.state).toBe("off");
   });
   test("a boundary-held light survives until the next boundary, then the schedule may change it", () => {
-    const m = modelAt("2026-12-14T21:30:00Z");
+    const m = modelAt("2026-12-14T21:30:00Z", 60_000);
     m.dispatch({
       domain: "light",
       service: "turn_off",
