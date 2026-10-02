@@ -12,6 +12,7 @@
 
 import type { EntityRegistryEntry } from "@glasshome/ha-types";
 import { produce } from "solid-js/store";
+import { preferLocalPicture } from "../media/local-picture";
 import { setState } from "./store";
 import type {
   AreaRegistryEntry,
@@ -38,6 +39,7 @@ export function bulkUpdateEntities(entities: HassEntity[]): void {
   setState(
     produce((s) => {
       for (const entity of entities) {
+        preferLocalPicture(entity.attributes);
         s.entities[entity.entity_id] = entity;
       }
     }),

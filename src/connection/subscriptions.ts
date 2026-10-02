@@ -32,6 +32,7 @@ import type {
 } from "../core/types";
 import { bulkAppendHistoryPoints, type HistoryPoint } from "../history/points";
 import { isHistoryTracked } from "../history/query";
+import { preferLocalPicture } from "../media/local-picture";
 import { setManagerConnection, setResubscribeHandler } from "./subscription-manager";
 import type { SyncLayerConnection } from "./types";
 import { privilegedConn } from "../core/privileged-conn";
@@ -504,7 +505,8 @@ function applyCompressedState(
   compressed: CompressedEntityState,
 ): void {
   const stateVal = compressed.s ?? compressed.state ?? "unknown";
-  const attributes = compressed.a ?? compressed.attributes ?? {};
+  const attributes = (compressed.a ?? compressed.attributes ?? {}) as Record<string, unknown>;
+  preferLocalPicture(attributes);
   const context = compressed.c ?? compressed.context ?? { id: "", parent_id: null, user_id: null };
   const lastChanged = timestampToIso(compressed.lc ?? compressed.last_changed);
   const lastUpdated = timestampToIso(compressed.lu ?? compressed.last_updated);
@@ -520,7 +522,7 @@ function applyCompressedState(
     if (stateChanged || changedAt) {
       existing.last_updated = lastUpdated;
     }
-    if (!shallowEqualAttributes(existing.attributes, attributes as Record<string, unknown>)) {
+    if (!shallowEqualAttributes(existing.attributes, attributes)) {
       Object.assign(existing.attributes, attributes);
     }
     if (existing.context.id !== context.id) {
@@ -530,7 +532,7 @@ function applyCompressedState(
     s.entities[entityId] = {
       entity_id: entityId,
       state: stateVal,
-      attributes: attributes as Record<string, unknown>,
+      attributes,
       last_changed: lastChanged,
       last_updated: lastUpdated,
       context,
@@ -555,6 +557,7 @@ function applyStateDiff(
       stateChanged = true;
     }
     if (additions.a) {
+      preferLocalPicture(additions.a, existing.attributes.entity_picture_local);
       // Only assign attributes that actually differ
       for (const [key, value] of Object.entries(additions.a)) {
         if (existing.attributes[key] !== value) {
@@ -585,4 +588,5 @@ function applyStateDiff(
       delete existing.attributes[key];
     }
   }
+  preferLocalPicture(existing.attributes);
 }
