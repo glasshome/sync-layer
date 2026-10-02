@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.2](https://github.com/glasshome/sync-layer/compare/v0.11.1...v0.11.2) (2026-10-02)
+
+
+### Bug Fixes
+
+* **worker:** refuse widget service calls that name a network URL ([f712303](https://github.com/glasshome/sync-layer/commit/f7123032292825dc45c6b8660da23090b0ea819c))
+
 ## [0.11.1](https://github.com/glasshome/sync-layer/compare/v0.11.0...v0.11.1) (2026-10-02)
 
 
