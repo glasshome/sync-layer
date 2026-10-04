@@ -157,6 +157,86 @@ describe("enforceServiceCall", () => {
   });
 });
 
+describe("the call Home Assistant receives is the call the check read", () => {
+  const doorOnly = [{ domain: "lock", access: "control" as const, entities: ["lock.front_door"] }];
+
+  const widened: [string, Parameters<typeof enforceServiceCall>[1]][] = [
+    [
+      "floor beside an allowed entity",
+      {
+        domain: "lock",
+        service: "unlock",
+        target: { entity_id: "lock.front_door", floor_id: "ground_floor" },
+      },
+    ],
+    ["floor alone", { domain: "lock", service: "unlock", target: { floor_id: "ground_floor" } }],
+    [
+      "floor inside service data",
+      {
+        domain: "lock",
+        service: "unlock",
+        target: { entity_id: "lock.front_door" },
+        data: { floor_id: "ground_floor" },
+      },
+    ],
+    [
+      "a target key Home Assistant may add later",
+      {
+        domain: "lock",
+        service: "unlock",
+        target: { entity_id: "lock.front_door", zone_id: "home" },
+      },
+    ],
+    ["entity_id all", { domain: "lock", service: "unlock", target: { entity_id: "all" } }],
+    [
+      "a label that names no entity or device the dashboard knows",
+      { domain: "lock", service: "unlock", target: { label_id: "area_label" } },
+    ],
+  ];
+
+  for (const [name, call] of widened) {
+    test(`refuses ${name}`, () => {
+      expect(enforceServiceCall(doorOnly, call, mirror()).allowed).toBe(false);
+    });
+  }
+
+  test("forwards concrete entity ids and strips target keys from data", () => {
+    const verdict = enforceServiceCall(
+      [{ domain: "light", access: "control" as const, entities: ["light.kitchen"] }],
+      {
+        domain: "light",
+        service: "turn_on",
+        target: { label_id: "mood" },
+        data: { brightness: 40, entity_id: "light.kitchen" },
+      },
+      mirror(),
+    );
+    expect(verdict.allowed).toBe(true);
+    if (!verdict.allowed) return;
+    expect(verdict.call).toEqual({
+      domain: "light",
+      service: "turn_on",
+      data: { brightness: 40 },
+      target: { entity_id: ["light.kitchen"] },
+    });
+  });
+
+  test("a call with no target stays without one", () => {
+    const verdict = enforceServiceCall(
+      [{ domain: "notify", access: "control" as const }],
+      { domain: "notify", service: "persistent_notification", data: { message: "hi" } },
+      mirror(),
+    );
+    expect(verdict.allowed).toBe(true);
+    if (!verdict.allowed) return;
+    expect(verdict.call).toEqual({
+      domain: "notify",
+      service: "persistent_notification",
+      data: { message: "hi" },
+    });
+  });
+});
+
 describe("service fields that make Home Assistant fetch a URL", () => {
   const grants = [
     { domain: "media_player", access: "control" as const },

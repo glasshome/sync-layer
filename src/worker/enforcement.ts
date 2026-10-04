@@ -196,8 +196,43 @@ function namesNetworkUrl(value: unknown): boolean {
   return false;
 }
 
+const EXPANDED_TARGET_KEYS = new Set(["entity_id", "device_id", "area_id", "label_id"]);
+// HA's target grammar, also honoured inside service data; floor_id is HA's but not expanded here.
+const TARGET_KEYS = new Set([...EXPANDED_TARGET_KEYS, "floor_id"]);
+const ENTITY_KEYWORDS = new Set(["all", "none"]);
+
+function unexpandedTarget(call: ServiceCallShape, entityIds: string[]): string | null {
+  const target = call.target ?? {};
+  const data = call.data ?? {};
+  const unread = [
+    ...Object.keys(target).filter((key) => !EXPANDED_TARGET_KEYS.has(key)),
+    ...Object.keys(data).filter((key) => TARGET_KEYS.has(key) && !EXPANDED_TARGET_KEYS.has(key)),
+  ];
+  if (unread.length > 0) return `targets by ${unread.join(", ")}`;
+  const keyword = [...asArray(target.entity_id), ...asArray(data.entity_id)].find((id) =>
+    ENTITY_KEYWORDS.has(id),
+  );
+  if (keyword) return `targets entity_id "${keyword}"`;
+  const named = [target, data].some((src) => Object.keys(src).some((key) => TARGET_KEYS.has(key)));
+  if (named && entityIds.length === 0) return "targets nothing the dashboard knows";
+  return null;
+}
+
+// The call HA receives is the one the check read: concrete entity ids, no other target keys.
+function rewritten(call: ServiceCallShape, entityIds: string[]): ServiceCallShape {
+  const data = Object.fromEntries(
+    Object.entries(call.data ?? {}).filter(([key]) => !TARGET_KEYS.has(key)),
+  );
+  return {
+    domain: call.domain,
+    service: call.service,
+    data,
+    ...(entityIds.length > 0 ? { target: { entity_id: entityIds } } : {}),
+  };
+}
+
 export type EnforcementVerdict =
-  | { allowed: true; entityIds: string[] }
+  | { allowed: true; entityIds: string[]; call: ServiceCallShape }
   | { allowed: false; entityIds: string[]; message: string };
 
 export function enforceServiceCall(
@@ -213,8 +248,16 @@ export function enforceServiceCall(
       message: `Call to ${call.domain}.${call.service} names a network address or a template; widgets cannot send Home Assistant to a URL or have it render templates`,
     };
   }
+  const unexpanded = unexpandedTarget(call, entityIds);
+  if (unexpanded) {
+    return {
+      allowed: false,
+      entityIds,
+      message: `Call to ${call.domain}.${call.service} ${unexpanded}; widgets name the entities they act on`,
+    };
+  }
   if (matchesCapability(caps, { domain: call.domain, service: call.service, entityIds })) {
-    return { allowed: true, entityIds };
+    return { allowed: true, entityIds, call: rewritten(call, entityIds) };
   }
   return {
     allowed: false,
