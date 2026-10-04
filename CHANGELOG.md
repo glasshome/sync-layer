@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.5](https://github.com/glasshome/sync-layer/compare/v0.11.4...v0.11.5) (2026-10-04)
+
+
+### Bug Fixes
+
+* **enforcement:** refuse network schemes only, so provider ids like library:// pass ([#17](https://github.com/glasshome/sync-layer/issues/17)) ([38ef102](https://github.com/glasshome/sync-layer/commit/38ef102df9dd3bc4d25ec5143c5301fbe502c173))
+
 ## [0.11.4](https://github.com/glasshome/sync-layer/compare/v0.11.3...v0.11.4) (2026-10-02)
 
 
