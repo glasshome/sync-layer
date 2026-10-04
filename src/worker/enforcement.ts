@@ -100,15 +100,55 @@ export function expandTargets(call: ServiceCallShape, registry: RegistryMirror):
   return [...ids];
 }
 
-// HA or a device it drives fetches any URL in service data, past the page CSP; media-source ids stay inside HA.
-const NETWORK_URL = /^(?:[a-z][a-z0-9+.-]*:)?\/\//i;
-const HA_MEDIA_SOURCE = /^media-source:\/\//i;
+// HA or a device it drives fetches any network URL in service data, past the page CSP; provider ids such as library:// stay inside HA.
+const NETWORK_SCHEMES = new Set([
+  "http",
+  "https",
+  "ftp",
+  "ftps",
+  "sftp",
+  "ws",
+  "wss",
+  "rtsp",
+  "rtsps",
+  "rtmp",
+  "rtmps",
+  "rtp",
+  "srt",
+  "udp",
+  "tcp",
+  "tls",
+  "mms",
+  "mmsh",
+  "mmst",
+  "icy",
+  "icyx",
+  "smb",
+  "nfs",
+  "file",
+  "x-file-cifs",
+  "x-rincon-mp3radio",
+  "plugin",
+  "special",
+]);
+const SCHEME = /(?<![a-z0-9+._-])([a-z][a-z0-9+._-]*):[/\\]/gi;
+const SCHEME_RELATIVE = /^\s*[/\\]{2}/;
+
+function namesNetworkScheme(text: string): boolean {
+  for (const [, scheme = ""] of text.matchAll(SCHEME)) {
+    if (
+      scheme
+        .toLowerCase()
+        .split("+")
+        .some((part) => NETWORK_SCHEMES.has(part))
+    )
+      return true;
+  }
+  return false;
+}
 
 function namesNetworkUrl(value: unknown): boolean {
-  if (typeof value === "string") {
-    const v = value.trim();
-    return NETWORK_URL.test(v) && !HA_MEDIA_SOURCE.test(v);
-  }
+  if (typeof value === "string") return SCHEME_RELATIVE.test(value) || namesNetworkScheme(value);
   if (Array.isArray(value)) return value.some(namesNetworkUrl);
   if (value && typeof value === "object") return Object.values(value).some(namesNetworkUrl);
   return false;

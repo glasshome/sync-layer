@@ -209,6 +209,33 @@ describe("service fields that make Home Assistant fetch a URL", () => {
         data: { media_content_id: " RTSP://cam.local/live", media_content_type: "video" },
       },
     ],
+    [
+      "url inside a provider id",
+      {
+        domain: "media_player",
+        service: "play_media",
+        target: speaker,
+        data: { media_content_id: "builtin://track/https://attacker.example/a.mp3" },
+      },
+    ],
+    [
+      "composite scheme",
+      {
+        domain: "media_player",
+        service: "play_media",
+        target: speaker,
+        data: { media_content_id: "hls+https://attacker.example/x.m3u8" },
+      },
+    ],
+    [
+      "backslash scheme-relative",
+      {
+        domain: "media_player",
+        service: "play_media",
+        target: speaker,
+        data: { media_content_id: "\\\\attacker.example\\share" },
+      },
+    ],
   ];
 
   for (const [name, call] of exits) {
@@ -222,6 +249,10 @@ describe("service fields that make Home Assistant fetch a URL", () => {
     for (const id of [
       "media-source://media_source/local/song.mp3",
       "spotify:track:4uLU6hMCjMI75M1A2tKUQC",
+      "library://track/123",
+      "spotify://track/4uLU6hMCjMI75M1A2tKUQC",
+      "filesystem_smb--a1b2://track/Music/song.flac",
+      "apple_music://album/1",
     ]) {
       const verdict = enforceServiceCall(
         grants,
@@ -235,5 +266,18 @@ describe("service fields that make Home Assistant fetch a URL", () => {
       );
       expect(verdict.allowed).toBe(true);
     }
+  });
+
+  test("allows prose that mentions a scheme word", () => {
+    const verdict = enforceServiceCall(
+      [{ domain: "notify", access: "control" as const }],
+      {
+        domain: "notify",
+        service: "notify",
+        data: { message: "Backup file: done, see http status" },
+      },
+      mirror(),
+    );
+    expect(verdict.allowed).toBe(true);
   });
 });
