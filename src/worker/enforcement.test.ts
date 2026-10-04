@@ -236,6 +236,29 @@ describe("service fields that make Home Assistant fetch a URL", () => {
         data: { media_content_id: "\\\\attacker.example\\share" },
       },
     ],
+    ...[
+      "https:attacker.example/x",
+      "ht\ttps://attacker.example/x",
+      "zip://https%3A%2F%2Fa.example%2Fx.zip/a.mp3",
+      "x-sonosapi-hls://attacker.example/x",
+      "{{ 'https:' ~ '//a.example' }}",
+    ].map((id): [string, Parameters<typeof enforceServiceCall>[1]] => [
+      `content id ${JSON.stringify(id)}`,
+      {
+        domain: "media_player",
+        service: "play_media",
+        target: speaker,
+        data: { media_content_id: id },
+      },
+    ]),
+    [
+      "url as an object key",
+      {
+        domain: "notify",
+        service: "mobile_app_phone",
+        data: { data: { "https://attacker.example/x": 1 } },
+      },
+    ],
   ];
 
   for (const [name, call] of exits) {
