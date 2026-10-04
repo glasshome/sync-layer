@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.6](https://github.com/glasshome/sync-layer/compare/v0.11.5...v0.11.6) (2026-10-04)
+
+
+### Bug Fixes
+
+* **worker:** refuse target keys the check does not expand and forward the checked call ([#19](https://github.com/glasshome/sync-layer/issues/19)) ([f18263a](https://github.com/glasshome/sync-layer/commit/f18263a18e4a5fb1d6a3b90b80ce543d089ba30c))
+
 ## [0.11.5](https://github.com/glasshome/sync-layer/compare/v0.11.4...v0.11.5) (2026-10-04)
 
 
