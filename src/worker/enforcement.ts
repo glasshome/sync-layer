@@ -100,17 +100,99 @@ export function expandTargets(call: ServiceCallShape, registry: RegistryMirror):
   return [...ids];
 }
 
-// HA or a device it drives fetches any URL in service data, past the page CSP; media-source ids stay inside HA.
-const NETWORK_URL = /^(?:[a-z][a-z0-9+.-]*:)?\/\//i;
-const HA_MEDIA_SOURCE = /^media-source:\/\//i;
+// HA or a device it drives fetches any network URL in service data, past the page CSP; provider ids such as library:// stay inside HA.
+const NETWORK_SCHEMES = new Set([
+  "http",
+  "https",
+  "httpproxy",
+  "ftp",
+  "ftps",
+  "sftp",
+  "scp",
+  "gopher",
+  "gophers",
+  "ws",
+  "wss",
+  "rtsp",
+  "rtsps",
+  "rtmp",
+  "rtmps",
+  "rtmpt",
+  "rtmpts",
+  "rtmpe",
+  "rtmpte",
+  "rtp",
+  "srt",
+  "udp",
+  "tcp",
+  "tls",
+  "mms",
+  "mmsh",
+  "mmst",
+  "icy",
+  "icyx",
+  "shout",
+  "smb",
+  "nfs",
+  "dav",
+  "davs",
+  "upnp",
+  "file",
+  "ipfs",
+  "ipns",
+  "aac",
+  "plugin",
+  "special",
+  "x-file-cifs",
+  "x-rincon-mp3radio",
+  "x-sonosapi-hls",
+  "x-sonosapi-hls-static",
+  "x-sonosapi-stream",
+  "x-sonosapi-radio",
+  "x-sonos-http",
+]);
+const SCHEME = /(?<![a-z0-9+._-])([a-z][a-z0-9+._-]*):(?=\S)/gi;
+const SCHEME_RELATIVE = /^\s*[/\\]{2}/;
+// oxlint-disable-next-line no-control-regex -- URL parsers drop C0 controls, so the scan must too
+const URL_PARSERS_DROP = /[\u0000-\u001f\u007f]/g;
+const PERCENT_ESCAPE = /%([0-9a-f]{2})/gi;
+// HA renders templates in some service fields server-side; a template reads any entity and builds any URL.
+const TEMPLATE = /\{[{%#]/;
+
+function decoded(text: string): string {
+  let current = text.replace(URL_PARSERS_DROP, "");
+  for (let i = 0; i < 4; i++) {
+    const next = current
+      .replace(PERCENT_ESCAPE, (_, hex: string) => String.fromCharCode(Number.parseInt(hex, 16)))
+      .replace(URL_PARSERS_DROP, "");
+    if (next === current) break;
+    current = next;
+  }
+  return current;
+}
+
+function namesNetworkScheme(text: string): boolean {
+  for (const [, scheme = ""] of text.matchAll(SCHEME)) {
+    if (
+      scheme
+        .toLowerCase()
+        .split("+")
+        .some((part) => NETWORK_SCHEMES.has(part))
+    )
+      return true;
+  }
+  return false;
+}
 
 function namesNetworkUrl(value: unknown): boolean {
   if (typeof value === "string") {
-    const v = value.trim();
-    return NETWORK_URL.test(v) && !HA_MEDIA_SOURCE.test(v);
+    const text = decoded(value);
+    return TEMPLATE.test(text) || SCHEME_RELATIVE.test(text) || namesNetworkScheme(text);
   }
   if (Array.isArray(value)) return value.some(namesNetworkUrl);
-  if (value && typeof value === "object") return Object.values(value).some(namesNetworkUrl);
+  if (value && typeof value === "object") {
+    return Object.entries(value).some(([key, v]) => namesNetworkUrl(key) || namesNetworkUrl(v));
+  }
   return false;
 }
 
@@ -128,7 +210,7 @@ export function enforceServiceCall(
     return {
       allowed: false,
       entityIds,
-      message: `Call to ${call.domain}.${call.service} names a network address; widgets cannot send Home Assistant to a URL`,
+      message: `Call to ${call.domain}.${call.service} names a network address or a template; widgets cannot send Home Assistant to a URL or have it render templates`,
     };
   }
   if (matchesCapability(caps, { domain: call.domain, service: call.service, entityIds })) {
