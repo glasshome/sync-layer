@@ -148,12 +148,13 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
         return;
       }
       try {
+        const checked = verdict.call;
         const res = await conn.sendMessagePromise<{ context?: unknown; response?: unknown }>({
           type: "call_service",
-          domain: call.domain,
-          service: call.service,
-          service_data: call.data ?? {},
-          ...(call.target ? { target: call.target } : {}),
+          domain: checked.domain,
+          service: checked.service,
+          service_data: checked.data ?? {},
+          ...(checked.target ? { target: checked.target } : {}),
           ...(call.returnResponse ? { return_response: true } : {}),
         });
         reply({
