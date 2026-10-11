@@ -26,7 +26,7 @@ function seedHistory(count: number): void {
     entityHistory,
     loading: false,
     error: null,
-    lastFetched: Date.now(),
+    lastFetched: 0,
   };
   setState(
     produce((s) => {

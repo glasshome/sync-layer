@@ -32,6 +32,11 @@ function isLoggedCall(v: unknown): v is LoggedCall {
   return typeof c.simMs === "number" && isServiceCall(c.call);
 }
 
+export function appendCapped(log: LoggedCall[], entry: LoggedCall): void {
+  log.push(entry);
+  if (log.length > MAX_LOG_ENTRIES) log.splice(0, log.length - MAX_LOG_ENTRIES);
+}
+
 export function pruneLog(entries: readonly LoggedCall[], nowMs: number): LoggedCall[] {
   const cutoff = nowMs - MAX_AGE_MS;
   return entries

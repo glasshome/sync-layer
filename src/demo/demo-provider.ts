@@ -8,6 +8,7 @@
  */
 
 import type { EntityRegistryEntry } from "@glasshome/ha-types";
+import { type Clock, systemClock, type TimerHandle } from "@glasshome/widget-contract/clock";
 import { produce, reconcile } from "solid-js/store";
 import { setState } from "../core/store";
 import type { AreaRegistryEntry, DeviceRegistryEntry, HassEntity } from "../core/types";
@@ -17,14 +18,7 @@ import { generateHouse, type GeneratedHouse } from "./house/generate";
 import { HOUSE } from "./house/house";
 import { KINDS } from "./kinds";
 import type { Projection, ServiceCall } from "./kinds/types";
-import {
-  appendLog,
-  clearLog,
-  type LoggedCall,
-  MAX_LOG_ENTRIES,
-  pruneLog,
-  readLog,
-} from "./sim/log";
+import { appendCapped, appendLog, clearLog, type LoggedCall, pruneLog, readLog } from "./sim/log";
 import { createDemoModel, type DemoModel, type HoldUntil } from "./sim/model";
 import { createDriver } from "./sim/schedule";
 import { localTime } from "./world/local-time";
@@ -35,6 +29,7 @@ export type DemoClockOption = "live" | { pinned: string; seed: number; timeZone?
 export interface DemoHouseOptions {
   clock: DemoClockOption;
   search?: string;
+  time?: Clock;
 }
 
 export interface DemoFixtures {
@@ -62,6 +57,7 @@ interface DemoSession {
   publishMs: Map<string, number>;
   log: LoggedCall[];
   persist: boolean;
+  time: Clock;
 }
 
 interface ResolvedClock {
@@ -94,7 +90,7 @@ const VISITOR_HOLDS: Partial<Record<string, HoldUntil>> = {
 };
 
 let session: DemoSession | null = null;
-let ticker: ReturnType<typeof setInterval> | null = null;
+let ticker: { handle: TimerHandle; time: Clock } | null = null;
 let contextCounter = 0;
 
 export function isDemoMode(): boolean {
@@ -208,7 +204,7 @@ export function parseDemoOverrides(
   return out;
 }
 
-function resolveClock(opts: DemoHouseOptions): ResolvedClock {
+function resolveClock(opts: DemoHouseOptions, time: Clock): ResolvedClock {
   const clock = opts.clock;
   if (clock !== "live") {
     const startMs = Date.parse(clock.pinned);
@@ -223,7 +219,7 @@ function resolveClock(opts: DemoHouseOptions): ResolvedClock {
     };
   }
   const timeZone = visitorTimeZone();
-  const nowMs = Date.now();
+  const nowMs = time.now();
   const o = parseDemoOverrides(opts.search ?? globalThis.location?.search ?? "", timeZone, nowMs);
   const seed = o.seed ?? 1;
   const hasOverride = o.pinnedMs !== undefined || o.seed !== undefined || o.speed !== undefined;
@@ -298,7 +294,7 @@ function sameProjection(a: Projection, b: Projection): boolean {
 }
 
 function publish(s: DemoSession, force: ReadonlySet<string>): void {
-  const wallMs = Date.now();
+  const wallMs = s.time.now();
   const due: [string, Projection][] = [];
   for (const [entityId, p] of Object.entries(s.model.project())) {
     const last = s.published.get(entityId);
@@ -362,7 +358,7 @@ export function advanceDemoTo(simMs: number): void {
 }
 
 function liveSimMs(s: DemoSession): number {
-  return s.startMs + (Date.now() - s.wallStartMs) * s.speed;
+  return s.startMs + (s.time.now() - s.wallStartMs) * s.speed;
 }
 
 export interface DemoTimeMap {
@@ -376,7 +372,7 @@ export function demoTimeMap(): DemoTimeMap | null {
 }
 
 function timeMapOf(s: DemoSession): DemoTimeMap {
-  const anchorWallMs = s.live ? s.wallStartMs : Date.now();
+  const anchorWallMs = s.live ? s.wallStartMs : s.time.now();
   const anchorSimMs = s.live ? s.startMs : s.model.nowMs;
   const speed = s.live ? s.speed : 1;
   return {
@@ -395,7 +391,8 @@ function tick(): void {
 // ============================================
 
 export async function loadDemoHouse(opts: DemoHouseOptions): Promise<void> {
-  const clock = resolveClock(opts);
+  const time = opts.time ?? systemClock;
+  const clock = resolveClock(opts, time);
   stopDemoEnergyTicker();
   const world = worldFor(clock.timeZone, clock.seed, clock.startMs);
   setWorld(world);
@@ -412,7 +409,7 @@ export async function loadDemoHouse(opts: DemoHouseOptions): Promise<void> {
   }
 
   const projections = model.project();
-  const wallMs = Date.now();
+  const wallMs = time.now();
   const published = new Map<string, Published>();
   for (const [entityId, projection] of Object.entries(projections)) {
     published.set(entityId, { projection, wallMs });
@@ -441,8 +438,9 @@ export async function loadDemoHouse(opts: DemoHouseOptions): Promise<void> {
     publishMs,
     log: [...log],
     persist: clock.persist,
+    time,
   };
-  if (clock.live) startTicker();
+  if (clock.live) startTicker(time);
 }
 
 export function unloadDemoData(): void {
@@ -474,20 +472,20 @@ export async function loadDemoData(): Promise<void> {
 // TICKER
 // ============================================
 
-function startTicker(): void {
-  if (ticker !== null || typeof setInterval !== "function") return;
-  ticker = setInterval(tick, TICK_MS);
+function startTicker(time: Clock): void {
+  if (ticker !== null) return;
+  ticker = { handle: time.setInterval(tick, TICK_MS), time };
 }
 
 /** @deprecated since 0.10.0, the demo ticker starts with loadDemoHouse */
 export function startDemoEnergyTicker(): void {
-  if (session?.live) startTicker();
+  if (session?.live) startTicker(session.time);
 }
 
 /** @deprecated since 0.10.0, the demo ticker stops with unloadDemoData */
 export function stopDemoEnergyTicker(): void {
   if (ticker !== null) {
-    clearInterval(ticker);
+    ticker.time.clearInterval(ticker.handle);
     ticker = null;
   }
 }
@@ -517,9 +515,8 @@ export function applyDemoServiceCall(
   if (s.model.dispatch(call) === 0) return;
   holdVisitorEntities(s.model, entityIds);
   const entry = { simMs: s.model.nowMs, call };
-  s.log.push(entry);
-  if (s.log.length > MAX_LOG_ENTRIES) s.log.splice(0, s.log.length - MAX_LOG_ENTRIES);
-  if (s.persist) appendLog(demoStorage(), HOUSE.version, entry, Date.now());
+  appendCapped(s.log, entry);
+  if (s.persist) appendLog(demoStorage(), HOUSE.version, entry, s.time.now());
   publish(s, new Set(entityIds));
 }
 
@@ -529,7 +526,7 @@ export function applyDemoServiceCall(
 
 /** @deprecated since 0.10.0, use loadDemoHouse */
 export function createDemoFixtures(): DemoFixtures {
-  const nowMs = Date.now();
+  const nowMs = systemClock.now();
   const iso = new Date(nowMs).toISOString();
   const generated = generateHouse(HOUSE, iso);
   const world = worldFor("UTC", 1, nowMs);

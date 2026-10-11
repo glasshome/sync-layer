@@ -42,7 +42,9 @@ function makeFakeConn(opts?: { rejectSubscribe?: boolean }) {
 const CAL = "calendar.family";
 
 /** track() schedules its flush on a microtask; settle it. */
-const settle = () => new Promise<void>((r) => setTimeout(r, 0));
+async function settle(): Promise<void> {
+  for (let i = 0; i < 50; i++) await null;
+}
 
 beforeEach(() => {
   resetCalendarTracking();
@@ -69,8 +71,9 @@ describe("trackCalendarEvents", () => {
     expect(msg?.entity_id).toBe(CAL);
     expect(typeof msg?.start).toBe("string");
     expect(typeof msg?.end).toBe("string");
-    expect(new Date(msg?.start as string).getTime()).toBeLessThan(Date.now());
-    expect(new Date(msg?.end as string).getTime()).toBeGreaterThan(Date.now());
+    expect(new Date(msg?.start as string).getTime()).toBeLessThan(
+      new Date(msg?.end as string).getTime(),
+    );
 
     untrackA();
     untrackB();

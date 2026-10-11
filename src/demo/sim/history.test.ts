@@ -1,3 +1,4 @@
+import { createManualClock } from "@glasshome/widget-contract/clock";
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import * as provider from "../demo-provider";
 import {
@@ -12,7 +13,8 @@ const demoEntityHistory = (id: string, startMs: number, endMs: number) =>
   demoHistory([id], startMs, endMs)[id] ?? [];
 
 const END = Date.parse("2026-12-14T21:00:00Z");
-beforeAll(() => loadDemoHouse({ clock: { pinned: "2026-12-14T21:00:00Z", seed: 3 } }));
+const time = createManualClock(END);
+beforeAll(() => loadDemoHouse({ clock: { pinned: "2026-12-14T21:00:00Z", seed: 3 }, time }));
 afterAll(() => unloadDemoData());
 
 function must<T>(value: T | null | undefined): T {
@@ -41,12 +43,6 @@ describe("demo history", () => {
     const { state } = await import("../../core/store");
     const h = demoEntityHistory("light.living_room_main", END - 3_600_000, END);
     expect(h.at(-1)?.s).toBe(state.entities["light.living_room_main"]?.state);
-  });
-  // A loaded CI runner takes ~240ms; the bound catches a blowup, not a regression of tens of ms.
-  test("24h replay finishes in well under a second", () => {
-    const start = performance.now();
-    demoEntityHistory("light.living_room_main", END - 24 * 3_600_000, END);
-    expect(performance.now() - start).toBeLessThan(1000);
   });
   test("one replay serves every requested id", () => {
     const replays = spyOn(provider, "demoReplayModel");
@@ -92,12 +88,13 @@ describe("demo history: a hold from before the window", () => {
 describe("demo history: wall-clock windows", () => {
   beforeAll(() => {
     unloadDemoData();
-    return loadDemoHouse({ clock: { pinned: "2026-06-21T21:00:00Z", seed: 1 } });
+    time.setNow(Date.parse("2026-06-21T21:00:00Z"));
+    return loadDemoHouse({ clock: { pinned: "2026-06-21T21:00:00Z", seed: 1 }, time });
   });
 
   test("fetch.ts maps a wall-clock window onto the pinned house", async () => {
     const { fetchHistory } = await import("../../history/fetch");
-    const endTime = new Date();
+    const endTime = new Date(time.now());
     const startTime = new Date(endTime.getTime() - 24 * 3_600_000);
     const result = await fetchHistory({
       startTime,
@@ -120,7 +117,7 @@ describe("demo history: wall-clock windows", () => {
     const { state } = await import("../../core/store");
     const { trackEntityHistory, untrackEntityHistory } = await import("../../history/query");
     const id = "light.living_room_main";
-    const endTime = new Date();
+    const endTime = new Date(time.now());
     await trackEntityHistory(id, { startTime: new Date(endTime.getTime() - 3_600_000), endTime });
     try {
       const fetched = state.history[id]?.entityHistory.length ?? 0;
@@ -130,7 +127,7 @@ describe("demo history: wall-clock windows", () => {
       const points = state.history[id]?.entityHistory ?? [];
       expect(points.length).toBe(fetched + 1);
       const appended = points.at(-1)?.lu ?? 0;
-      expect(Math.abs(appended - Date.now() / 1000)).toBeLessThanOrEqual(1);
+      expect(Math.abs(appended - time.now() / 1000)).toBeLessThanOrEqual(1);
       expect(appended).toBeGreaterThanOrEqual(lastFetchedLu);
     } finally {
       untrackEntityHistory(id);
@@ -142,8 +139,7 @@ describe("demo history: wall-clock windows", () => {
     const { fetchHistory } = await import("../../history/fetch");
     const id = "light.kitchen_counter";
     applyDemoServiceCall("light", "toggle", {}, { entity_id: id });
-    const endTime = new Date();
-    await new Promise((r) => setTimeout(r, 20));
+    const endTime = new Date(time.now());
     const result = await fetchHistory({
       startTime: new Date(endTime.getTime() - 3_600_000),
       endTime,

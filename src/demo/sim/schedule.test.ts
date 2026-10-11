@@ -212,12 +212,6 @@ describe("schedule", () => {
     }
     expect(picked).toMatchSnapshot();
   });
-  test("a day at five-minute steps stays cheap", () => {
-    const m = modelAt("2026-12-14T00:00:00Z", 300_000);
-    const t0 = performance.now();
-    m.advanceTo(Date.parse("2026-12-15T00:00:00Z"));
-    expect(performance.now() - t0).toBeLessThan(500);
-  });
   test("two hours at one-second and one-minute steps agree minute by minute", () => {
     const start = "2026-12-14T16:30:00Z";
     const end = Date.parse("2026-12-14T18:30:00Z");

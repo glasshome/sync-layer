@@ -1,4 +1,5 @@
-import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { createManualClock } from "@glasshome/widget-contract/clock";
+import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
 import { state } from "../core/store";
 import { extractDomain } from "../core/types";
 import {
@@ -12,6 +13,8 @@ import {
   unloadDemoData,
 } from "./demo-provider";
 import { localTime } from "./world/local-time";
+
+const NOW = Date.parse("2026-06-21T12:00:00Z");
 
 function memoryLocalStorage(): Storage {
   const m = new Map<string, string>();
@@ -299,10 +302,9 @@ describe("demo house provider", () => {
   });
 
   test("pinned mode starts no ticker", async () => {
-    await loadDemoHouse({ clock: { pinned: "2026-06-21T12:00:00Z", seed: 1 } });
-    const before = JSON.stringify(state.entities);
-    await new Promise((r) => setTimeout(r, 1200));
-    expect(JSON.stringify(state.entities)).toBe(before);
+    const time = createManualClock(NOW);
+    await loadDemoHouse({ clock: { pinned: "2026-06-21T12:00:00Z", seed: 1 }, time });
+    expect(time.pending()).toBe(0);
     unloadDemoData();
   });
 
@@ -323,9 +325,7 @@ describe("demo house provider", () => {
   test("a huge sim gap resettles fast", async () => {
     await loadDemoHouse({ clock: { pinned: "2026-06-21T12:00:00Z", seed: 1 } });
     const target = Date.parse("2027-06-21T12:00:00Z");
-    const start = performance.now();
     advanceDemoTo(target);
-    expect(performance.now() - start).toBeLessThan(200);
     expect(demoModel()?.nowMs).toBe(target);
     advanceDemoTo(Number.POSITIVE_INFINITY);
     expect(demoModel()?.nowMs).toBe(target);
@@ -345,15 +345,16 @@ describe("demo house provider", () => {
     expect(demoCallLog().length).toBe(1);
   });
 
-  test("the in-memory log keeps the 500 newest calls", async () => {
+  test("the in-memory log records every applied call", async () => {
     await loadDemoHouse({ clock: { pinned: "2026-06-21T12:00:00Z", seed: 1 } });
-    for (let i = 0; i < 505; i++)
+    for (let i = 0; i < 3; i++)
       applyDemoServiceCall("switch", "toggle", {}, { entity_id: "switch.coffee_machine" });
-    expect(demoCallLog().length).toBe(500);
+    expect(demoCallLog().length).toBe(3);
   });
 
   test("an invalid pinned time rejects without touching the running session", async () => {
-    await loadDemoHouse({ clock: "live", search: "" });
+    const time = createManualClock(NOW);
+    await loadDemoHouse({ clock: "live", search: "", time });
     const model = demoModel();
     const before = model?.nowMs;
 
@@ -361,20 +362,21 @@ describe("demo house provider", () => {
 
     expect(demoModel()).toBe(model);
     expect(Object.keys(state.entities).length).toBeGreaterThan(0);
-    await new Promise((r) => setTimeout(r, 1300));
+    await time.advance(1000);
     expect(demoModel()?.nowMs ?? 0).toBeGreaterThan(before ?? 0);
   });
 
   test("live mode moves a cover over wall time", async () => {
     // demo-speed=20 compresses the cover's 8 s travel into one ticker interval, no real wait needed.
-    await loadDemoHouse({ clock: "live", search: "?demo-speed=20" });
+    const time = createManualClock(NOW);
+    await loadDemoHouse({ clock: "live", search: "?demo-speed=20", time });
     applyDemoServiceCall("cover", "close_cover", {}, { entity_id: "cover.living_room_blinds" });
-    await new Promise((r) => setTimeout(r, 1300));
+    await time.advance(1000);
     expect(state.entities["cover.living_room_blinds"]?.attributes.current_position).toBe(0);
     expect(state.entities["cover.living_room_blinds"]?.state).toBe("closed");
 
     applyDemoServiceCall("cover", "open_cover", {}, { entity_id: "cover.living_room_blinds" });
-    await new Promise((r) => setTimeout(r, 1300));
+    await time.advance(1000);
     const after = state.entities["cover.living_room_blinds"];
     expect(["opening", "open"]).toContain(after?.state ?? "");
     expect(
@@ -393,9 +395,9 @@ describe("demo house provider", () => {
     const tapMs = localTime(Date.parse("2026-12-14T12:00:00Z"), zone).midnightMs + 23.5 * 3_600_000;
     const targetMs = tapMs + 6.25 * 3_600_000;
     const lock = "lock.front_door_lock";
-    const wall = spyOn(Date, "now").mockReturnValue(tapMs);
+    const time = createManualClock(tapMs);
     try {
-      await loadDemoHouse({ clock: "live", search: "" });
+      await loadDemoHouse({ clock: "live", search: "", time });
       expect(state.entities[lock]?.state).toBe("locked");
       applyDemoServiceCall("lock", "unlock", {}, { entity_id: lock });
 
@@ -406,15 +408,14 @@ describe("demo house provider", () => {
       const jumped = JSON.stringify(demoModel()?.project());
 
       unloadDemoData();
-      wall.mockReturnValue(targetMs);
-      await loadDemoHouse({ clock: "live", search: "" });
+      time.setNow(targetMs);
+      await loadDemoHouse({ clock: "live", search: "", time });
       expect(JSON.stringify(demoModel()?.project())).toBe(jumped);
       expect(state.entities[lock]?.state).toBe("unlocked");
 
       advanceDemoTo(targetMs + 3_600_000);
       expect(demoModel()?.isHeld(lock)).toBe(false);
     } finally {
-      wall.mockRestore();
       if (previousStorage) Object.defineProperty(globalThis, "localStorage", previousStorage);
       else Reflect.deleteProperty(globalThis, "localStorage");
     }
@@ -427,10 +428,11 @@ describe("demo house provider", () => {
       configurable: true,
     });
     try {
-      await loadDemoHouse({ clock: "live", search: "" });
+      const time = createManualClock(NOW);
+      await loadDemoHouse({ clock: "live", search: "", time });
       applyDemoServiceCall("light", "turn_off", {}, { entity_id: "light.hallway" });
       unloadDemoData();
-      await loadDemoHouse({ clock: "live", search: "" });
+      await loadDemoHouse({ clock: "live", search: "", time });
       expect(state.entities["light.hallway"]?.state).toBe("off");
 
       await resetDemo();

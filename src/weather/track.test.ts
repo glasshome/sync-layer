@@ -35,7 +35,9 @@ function makeFakeConn() {
 }
 
 const W = "weather.home";
-const settle = () => new Promise<void>((r) => setTimeout(r, 0));
+async function settle(): Promise<void> {
+  for (let i = 0; i < 50; i++) await null;
+}
 
 beforeEach(() => {
   resetForecastTracking();

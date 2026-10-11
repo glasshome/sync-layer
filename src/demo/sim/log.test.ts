@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { appendLog, clearLog, readLog } from "./log";
+import { appendCapped, appendLog, clearLog, MAX_LOG_ENTRIES, readLog } from "./log";
 
 function memoryStorage(): Storage {
   const m = new Map<string, string>();
@@ -38,6 +38,15 @@ describe("demo log", () => {
     expect(kept.length).toBe(500);
     expect(kept.at(-1)?.simMs).toBe(T);
     expect(kept[0]?.simMs).toBe(entries[11]?.simMs);
+  });
+
+  test("appendCapped keeps the newest entries in order", () => {
+    const log = Array.from({ length: MAX_LOG_ENTRIES }, (_, i) => ({ simMs: i, call }));
+    appendCapped(log, { simMs: MAX_LOG_ENTRIES, call });
+    appendCapped(log, { simMs: MAX_LOG_ENTRIES + 1, call });
+    expect(log.length).toBe(MAX_LOG_ENTRIES);
+    expect(log[0]?.simMs).toBe(2);
+    expect(log.at(-1)?.simMs).toBe(MAX_LOG_ENTRIES + 1);
   });
 
   test("garbage, throwing storage and a version bump read as empty", () => {

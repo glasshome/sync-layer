@@ -29,7 +29,9 @@ function makeFakeConn() {
   return { conn: conn as unknown as SyncLayerConnection, pushes };
 }
 
-const settle = () => new Promise<void>((r) => setTimeout(r, 0));
+async function settle(): Promise<void> {
+  for (let i = 0; i < 50; i++) await null;
+}
 
 function entity(attributes: Record<string, unknown>): HassEntity {
   return {
