@@ -1,4 +1,10 @@
 import type { CapabilityGrant } from "@glasshome/widget-contract";
+import {
+  type Clock,
+  systemClock,
+  type TimerHandle,
+  withDeadline,
+} from "@glasshome/widget-contract/clock";
 import { type Connection, createConnection, createSocket } from "home-assistant-js-websocket";
 import { enforceServiceCall, RegistryMirror } from "./enforcement";
 import type {
@@ -28,6 +34,7 @@ export interface WorkerScope {
   postMessage(message: unknown): void;
   onmessage: ((ev: MessageEvent) => void) | null;
   location: { protocol: string; host: string };
+  clock?: Clock;
 }
 
 type HaWireMessage = { type: string } & Record<string, unknown>;
@@ -79,15 +86,16 @@ function buildProxyWsUrl(
 }
 
 export function runHaBridgeWorker(scope: WorkerScope): void {
+  const clock = scope.clock ?? systemClock;
   let conn: Connection | null = null;
   const widgets = new Map<string, WidgetChannel>();
   const subs = new Map<number, () => void | Promise<void>>();
 
   const registry = new RegistryMirror();
 
-  let suspendTimeout: ReturnType<typeof setTimeout> | null = null;
+  let suspendTimeout: TimerHandle | null = null;
   let resumeVisible: (() => void) | null = null;
-  let heartbeat: ReturnType<typeof setInterval> | null = null;
+  let heartbeat: TimerHandle | null = null;
 
   const post = (msg: WorkerToMain) => scope.postMessage(msg);
 
@@ -178,20 +186,20 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
 
   function startHeartbeat(c: Connection): void {
     stopHeartbeat();
-    heartbeat = setInterval(() => {
-      const timer = new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("ping timeout")), HEARTBEAT_TIMEOUT_MS),
-      );
-      Promise.race([c.ping(), timer]).catch(() => {
+    heartbeat = clock.setInterval(() => {
+      const lost = () => {
         post({ k: "conn", state: "reconnecting", reason: "ping_timeout" });
         c.reconnect();
-      });
+      };
+      withDeadline(clock, c.ping(), HEARTBEAT_TIMEOUT_MS).then((r) => {
+        if (!r.ok) lost();
+      }, lost);
     }, HEARTBEAT_INTERVAL_MS);
   }
 
   function stopHeartbeat(): void {
     if (heartbeat !== null) {
-      clearInterval(heartbeat);
+      clock.clearInterval(heartbeat);
       heartbeat = null;
     }
   }
@@ -204,13 +212,13 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
           resumeVisible = resolve;
         }),
       );
-      suspendTimeout ??= setTimeout(() => {
+      suspendTimeout ??= clock.setTimeout(() => {
         suspendTimeout = null;
         conn?.suspend();
       }, SUSPEND_DELAY_MS);
     } else {
       if (suspendTimeout !== null) {
-        clearTimeout(suspendTimeout);
+        clock.clearTimeout(suspendTimeout);
         suspendTimeout = null;
       }
       resumeVisible?.();
