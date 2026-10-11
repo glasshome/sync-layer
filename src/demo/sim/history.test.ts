@@ -7,6 +7,7 @@ import {
   loadDemoHouse,
   unloadDemoData,
 } from "../demo-provider";
+import { KINDS } from "../kinds";
 import { demoHistory } from "./history";
 
 const demoEntityHistory = (id: string, startMs: number, endMs: number) =>
@@ -44,28 +45,47 @@ describe("demo history", () => {
     const h = demoEntityHistory("light.living_room_main", END - 3_600_000, END);
     expect(h.at(-1)?.s).toBe(state.entities["light.living_room_main"]?.state);
   });
-  test("replay steps scale linearly with the window", () => {
+  test("replay work scales linearly with the window", () => {
     const real = provider.demoReplayModel;
+    const applies = Object.values(KINDS).map((k) => spyOn(k, "apply"));
     let steps = 0;
+    let projections = 0;
     const spy = spyOn(provider, "demoReplayModel").mockImplementation((startMs) => {
       const model = real(startMs);
       if (!model) return model;
       const advance = model.advanceTo.bind(model);
+      const project = model.projectDevice.bind(model);
       model.advanceTo = (ms, step) => {
         steps += 1;
         advance(ms, step);
       };
+      model.projectDevice = (key) => {
+        projections += 1;
+        return project(key);
+      };
       return model;
     });
-    try {
-      demoEntityHistory("light.living_room_main", END - 6 * 3_600_000, END);
-      const half = steps;
+    const measure = (hours: number) => {
       steps = 0;
-      demoEntityHistory("light.living_room_main", END - 12 * 3_600_000, END);
-      expect(half).toBeGreaterThan(0);
-      expect(steps / half).toBeLessThanOrEqual(2.1);
+      projections = 0;
+      for (const sp of applies) sp.mockClear();
+      demoEntityHistory("light.living_room_main", END - hours * 3_600_000, END);
+      return {
+        steps,
+        projections,
+        applies: applies.reduce((n, sp) => n + sp.mock.calls.length, 0),
+      };
+    };
+    try {
+      const half = measure(6);
+      const full = measure(12);
+      for (const key of ["steps", "projections", "applies"] as const) {
+        expect(half[key]).toBeGreaterThan(0);
+        expect(full[key] / half[key]).toBeLessThanOrEqual(2.1);
+      }
     } finally {
       spy.mockRestore();
+      for (const sp of applies) sp.mockRestore();
     }
   });
   test("one replay serves every requested id", () => {
