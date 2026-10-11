@@ -1,4 +1,4 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, spyOn, test } from "bun:test";
 import { KINDS } from "../kinds";
 import { generateHouse } from "../house/generate";
 import { HOUSE } from "../house/house";
@@ -211,6 +211,24 @@ describe("schedule", () => {
       }
     }
     expect(picked).toMatchSnapshot();
+  });
+  test("stepping work scales linearly with the window", () => {
+    const spies = Object.values(KINDS).map((k) => spyOn(k, "apply"));
+    const applies = (hours: number) => {
+      for (const sp of spies) sp.mockClear();
+      const m = modelAt("2026-12-14T00:00:00Z", 300_000);
+      const before = spies.reduce((n, sp) => n + sp.mock.calls.length, 0);
+      m.advanceTo(Date.parse("2026-12-14T00:00:00Z") + hours * 3_600_000);
+      return spies.reduce((n, sp) => n + sp.mock.calls.length, 0) - before;
+    };
+    try {
+      const half = applies(12);
+      const full = applies(24);
+      expect(half).toBeGreaterThan(0);
+      expect(full / half).toBeLessThanOrEqual(2.1);
+    } finally {
+      for (const sp of spies) sp.mockRestore();
+    }
   });
   test("two hours at one-second and one-minute steps agree minute by minute", () => {
     const start = "2026-12-14T16:30:00Z";

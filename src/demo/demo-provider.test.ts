@@ -1,5 +1,5 @@
 import { createManualClock } from "@glasshome/widget-contract/clock";
-import { afterAll, afterEach, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { state } from "../core/store";
 import { extractDomain } from "../core/types";
 import {
@@ -12,6 +12,7 @@ import {
   resetDemo,
   unloadDemoData,
 } from "./demo-provider";
+import { KINDS } from "./kinds";
 import { localTime } from "./world/local-time";
 
 const NOW = Date.parse("2026-06-21T12:00:00Z");
@@ -329,6 +330,24 @@ describe("demo house provider", () => {
     expect(demoModel()?.nowMs).toBe(target);
     advanceDemoTo(Number.POSITIVE_INFINITY);
     expect(demoModel()?.nowMs).toBe(target);
+  });
+
+  test("resettling costs the same however far the gap", async () => {
+    const spies = Object.values(KINDS).map((k) => spyOn(k, "apply"));
+    const applies = async (target: string) => {
+      await loadDemoHouse({ clock: { pinned: "2026-06-21T12:00:00Z", seed: 1 } });
+      for (const sp of spies) sp.mockClear();
+      advanceDemoTo(Date.parse(target));
+      return spies.reduce((n, sp) => n + sp.mock.calls.length, 0);
+    };
+    try {
+      const sixMonths = await applies("2026-12-21T12:00:00Z");
+      const year = await applies("2027-06-21T12:00:00Z");
+      expect(sixMonths).toBeGreaterThan(0);
+      expect(year / sixMonths).toBeLessThanOrEqual(1.1);
+    } finally {
+      for (const sp of spies) sp.mockRestore();
+    }
   });
 
   test("a call no target of which is mocked is not logged", async () => {

@@ -44,6 +44,30 @@ describe("demo history", () => {
     const h = demoEntityHistory("light.living_room_main", END - 3_600_000, END);
     expect(h.at(-1)?.s).toBe(state.entities["light.living_room_main"]?.state);
   });
+  test("replay steps scale linearly with the window", () => {
+    const real = provider.demoReplayModel;
+    let steps = 0;
+    const spy = spyOn(provider, "demoReplayModel").mockImplementation((startMs) => {
+      const model = real(startMs);
+      if (!model) return model;
+      const advance = model.advanceTo.bind(model);
+      model.advanceTo = (ms, step) => {
+        steps += 1;
+        advance(ms, step);
+      };
+      return model;
+    });
+    try {
+      demoEntityHistory("light.living_room_main", END - 6 * 3_600_000, END);
+      const half = steps;
+      steps = 0;
+      demoEntityHistory("light.living_room_main", END - 12 * 3_600_000, END);
+      expect(half).toBeGreaterThan(0);
+      expect(steps / half).toBeLessThanOrEqual(2.1);
+    } finally {
+      spy.mockRestore();
+    }
+  });
   test("one replay serves every requested id", () => {
     const replays = spyOn(provider, "demoReplayModel");
     try {
