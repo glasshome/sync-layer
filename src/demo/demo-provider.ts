@@ -32,7 +32,7 @@ export interface DemoHouseOptions {
   time?: Clock;
 }
 
-export interface DemoFixtures {
+interface DemoFixtures {
   entities: Record<string, HassEntity>;
   entityRegistry: Record<string, EntityRegistryEntry>;
   areas: Record<string, AreaRegistryEntry>;
