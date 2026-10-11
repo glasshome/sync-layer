@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.12.0](https://github.com/glasshome/sync-layer/compare/v0.11.6...v0.12.0) (2026-10-11)
+
+
+### Features
+
+* **demo:** demo house runs on an injected clock ([347a2c8](https://github.com/glasshome/sync-layer/commit/347a2c8100bbab9bb0ccb16cc00b699d039060d8))
+
+
+### Bug Fixes
+
+* **deps:** widget-contract 0.4.0, for the clock ([9b43dc8](https://github.com/glasshome/sync-layer/commit/9b43dc8d1649e834fe4ccd90cfbf806283148e3a))
+* **worker:** heartbeat clears its ping deadline ([184afb7](https://github.com/glasshome/sync-layer/commit/184afb7ea3dbd12197ad68043217e14408143c44))
+
 ## [0.11.6](https://github.com/glasshome/sync-layer/compare/v0.11.5...v0.11.6) (2026-10-04)
 
 
