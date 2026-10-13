@@ -12,4 +12,5 @@ export default defineConfig({
   clean: true,
   fixedExtension: false,
   external: ["@glasshome/sync-layer"],
+  tsconfig: "tsconfig.build.json",
 });

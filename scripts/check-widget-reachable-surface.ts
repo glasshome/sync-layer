@@ -51,8 +51,8 @@ const failures: string[] = [];
 
 // tsdown emits a single `export { a as b, c }` list on the entry.
 const names = new Set<string>();
-for (const block of source.matchAll(/export\s*\{([^}]*)\}/g)) {
-  for (const part of block[1].split(",")) {
+for (const [, list = ""] of source.matchAll(/export\s*\{([^}]*)\}/g)) {
+  for (const part of list.split(",")) {
     const alias = part.trim().split(/\s+as\s+/);
     const exported = (alias[1] ?? alias[0])?.trim();
     if (exported) names.add(exported);
