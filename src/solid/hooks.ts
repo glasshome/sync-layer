@@ -14,7 +14,7 @@
 import { privilegedConn } from "../core/privileged-conn";
 import type { HassConfig, HassUnitSystem } from "@glasshome/ha-types";
 import type { Accessor, Resource } from "solid-js";
-import { createEffect, createMemo, createResource, onCleanup } from "solid-js";
+import { createEffect, createMemo, createResource, mapArray, onCleanup } from "solid-js";
 import type {
   AreaView,
   CameraStreamData,
@@ -91,23 +91,13 @@ export function useEntities(entityIds: Accessor<string[]>): Accessor<EntityView[
     });
   });
 
-  return createMemo(
-    () => {
-      return entityIds()
-        .map((id) => getEntityView(id))
-        .filter((v): v is EntityView => v !== undefined);
-    },
-    undefined,
-    {
-      equals: (a, b) => {
-        if (a.length !== b.length) return false;
-        for (let i = 0; i < a.length; i++) {
-          if (!entityViewEquals(a[i], b[i])) return false;
-        }
-        return true;
-      },
-    },
+  // A view per id, so one entity changing rebuilds its view and none of the others.
+  const views = mapArray(entityIds, (id) =>
+    createMemo(() => getEntityView(id), undefined, { equals: entityViewEquals }),
   );
+  return createMemo(() => views().flatMap((view) => view() ?? []), undefined, {
+    equals: (a, b) => a.length === b.length && a.every((view, i) => view === b[i]),
+  });
 }
 
 /**
