@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.12.2](https://github.com/glasshome/sync-layer/compare/v0.12.1...v0.12.2) (2026-10-18)
+
+
+### Bug Fixes
+
+* **entities:** entity views for sealed widgets ([5a1e098](https://github.com/glasshome/sync-layer/commit/5a1e0983573836f2637a2f6c117b0610c8284746))
+* **entities:** views hand out nested values as store proxies, never raw store objects ([96d060d](https://github.com/glasshome/sync-layer/commit/96d060d35fd49ba4be07ace68c5153524d675883))
+
+
+### Performance Improvements
+
+* **entities:** views read each entity once and useEntities rebuilds only the view that changed ([bf46887](https://github.com/glasshome/sync-layer/commit/bf46887efaeacc9126250676f55068b6b6eb516e))
+
 ## [0.12.1](https://github.com/glasshome/sync-layer/compare/v0.12.0...v0.12.1) (2026-10-14)
 
 
