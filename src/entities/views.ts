@@ -112,7 +112,21 @@ export function getEntityView(entityId: EntityId): EntityView | undefined {
   // and a store read per field costs a signal each.
   trackDeep(entity);
   trackDeep(registry);
-  return buildEntityView(unwrap(entity), registry && unwrap(registry));
+  const view = buildEntityView(unwrap(entity), registry && unwrap(registry));
+  // Nested values stay store proxies: a widget cannot mutate the store through them, and one
+  // that tracks them itself still sees in-place changes.
+  const attributes = view.attributes as Record<string, unknown>;
+  for (const key in attributes) {
+    const value = attributes[key];
+    if (value !== null && typeof value === "object") {
+      attributes[key] = (entity.attributes as Record<string, unknown>)[key];
+    }
+  }
+  if (registry) {
+    view.labels = registry.labels ?? [];
+    view.aliases = registry.aliases ?? [];
+  }
+  return view;
 }
 
 function trackDeep(value: unknown): void {
