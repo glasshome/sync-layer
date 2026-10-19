@@ -248,12 +248,14 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
       return;
     }
 
-    conn.addEventListener("disconnected", () =>
-      post({ k: "conn", state: "disconnected", ...(lastClose ? { close: lastClose } : {}) }),
-    );
+    conn.addEventListener("disconnected", () => {
+      stopHeartbeat();
+      post({ k: "conn", state: "disconnected", ...(lastClose ? { close: lastClose } : {}) });
+    });
     conn.addEventListener("reconnect-error", (_c, err) => post(reconnectErrorMessage(err)));
     let everReady = false;
     conn.addEventListener("ready", () => {
+      startHeartbeat(conn as Connection);
       post({ k: "conn", state: "connected" });
       loadRegistryMirror(conn as Connection).catch(() => {});
       if (everReady) post({ k: "ready_after_reconnect" });

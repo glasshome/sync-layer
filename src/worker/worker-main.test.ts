@@ -9,8 +9,12 @@ const HEARTBEAT_TIMEOUT_MS = 15_000;
 const pings: Array<() => Promise<unknown>> = [];
 const reconnects: number[] = [];
 
+const listeners = new Map<string, Array<() => void>>();
+const emit = (type: string) => listeners.get(type)?.forEach((fn) => fn());
+
 const fakeConnection = {
-  addEventListener: () => {},
+  addEventListener: (type: string, fn: () => void) =>
+    void listeners.set(type, [...(listeners.get(type) ?? []), fn]),
   sendMessagePromise: async () => [],
   subscribeEvents: async () => () => {},
   ping: () => (pings.shift() ?? (() => Promise.resolve("pong")))(),
@@ -27,6 +31,7 @@ void mock.module("home-assistant-js-websocket", () => ({
 const { runHaBridgeWorker } = await import("./worker-main");
 
 async function startWorker() {
+  listeners.clear();
   const clock = createManualClock(0);
   const posted: WorkerToMain[] = [];
   const scope = {
@@ -61,6 +66,20 @@ describe("worker heartbeat", () => {
     await clock.advance(HEARTBEAT_TIMEOUT_MS);
     expect(reconnects.length).toBe(1);
     expect(posted).toContainEqual({ k: "conn", state: "reconnecting", reason: "ping_timeout" });
+  });
+
+  test("a closed connection is not pinged; the heartbeat comes back when it is ready again", async () => {
+    reconnects.length = 0;
+    const { clock, posted } = await startWorker();
+    emit("disconnected");
+    pings.push(() => Promise.reject(new Error("closed")));
+    await clock.advance(HEARTBEAT_INTERVAL_MS * 10);
+    expect(clock.pending()).toBe(0);
+    expect(reconnects.length).toBe(0);
+    expect(posted).not.toContainEqual({ k: "conn", state: "reconnecting", reason: "ping_timeout" });
+    emit("ready");
+    await clock.advance(HEARTBEAT_INTERVAL_MS);
+    expect(reconnects.length).toBe(1);
   });
 
   test("a rejected ping reconnects", async () => {
