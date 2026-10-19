@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.3](https://github.com/glasshome/sync-layer/compare/v0.12.2...v0.12.3) (2026-10-19)
+
+
+### Bug Fixes
+
+* **worker:** ping only an open connection ([59e06f5](https://github.com/glasshome/sync-layer/commit/59e06f539b7f5a88ccc1d338ccc851cd0065718a))
+
 ## [0.12.2](https://github.com/glasshome/sync-layer/compare/v0.12.1...v0.12.2) (2026-10-18)
 
 
