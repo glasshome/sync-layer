@@ -279,5 +279,6 @@ describe("schedule", () => {
       }
     }
     expect(diffs).toEqual([]);
-  });
+    // test-change-ok 0.4 s alone, over 10 s when a CI runner shares its cores with the browser suites
+  }, 30_000);
 });
