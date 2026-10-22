@@ -62,7 +62,7 @@
     "check:dead": "fallow dead-code --fail-on-issues"
   },
   "dependencies": {
-    "@glasshome/widget-contract": "0.5.0",
+    "@glasshome/widget-contract": "0.5.1",
     "home-assistant-js-websocket": "^9.6.0"
   },
   "devDependencies": {
