@@ -230,6 +230,7 @@ describe("schedule", () => {
       for (const sp of spies) sp.mockRestore();
     }
   });
+  // test-change-ok 0.4 s alone, over 10 s when a CI runner shares its cores with the browser suites
   test("two hours at one-second and one-minute steps agree minute by minute", () => {
     const start = "2026-12-14T16:30:00Z";
     const end = Date.parse("2026-12-14T18:30:00Z");
@@ -279,6 +280,5 @@ describe("schedule", () => {
       }
     }
     expect(diffs).toEqual([]);
-    // test-change-ok 0.4 s alone, over 10 s when a CI runner shares its cores with the browser suites
   }, 30_000);
 });
