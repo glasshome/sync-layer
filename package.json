@@ -1,6 +1,6 @@
 {
   "name": "@glasshome/sync-layer",
-  "version": "0.12.6",
+  "version": "0.12.7",
   "description": "Type-safe, reactive state synchronization layer for Home Assistant",
   "keywords": [
     "home-assistant",
