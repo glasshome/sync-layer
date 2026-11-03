@@ -66,6 +66,12 @@ const CASES: ServiceCase[] = [
   {
     entityId: "light.living_room_main",
     service: "turn_on",
+    data: { brightness_pct: 0 },
+    expected: (e) => expect(e.state).toBe("off"),
+  },
+  {
+    entityId: "light.living_room_main",
+    service: "turn_on",
     data: { hs_color: [120, 60] },
     expected: (e) => expect(e.attributes.hs_color).toEqual([120, 60]),
   },
