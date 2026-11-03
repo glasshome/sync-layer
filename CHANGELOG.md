@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.12.7](https://github.com/glasshome/sync-layer/compare/v0.12.6...v0.12.7) (2026-11-03)
+
+
+### Bug Fixes
+
+* **demo:** a light asked for no brightness turns off, as in Home Assistant ([e55b8e3](https://github.com/glasshome/sync-layer/commit/e55b8e33304ea05293d93b1c393a18235b123d56))
+* **demo:** a light asked for no brightness turns off, as in Home Assistant ([bb5b7ae](https://github.com/glasshome/sync-layer/commit/bb5b7aec71d7aa3e9e5f957c7af3284ee0229165))
+* **deps:** pin @glasshome/widget-contract 0.6.1 ([6e373f3](https://github.com/glasshome/sync-layer/commit/6e373f3b7abdb7a383f6b1fb02388a6d397ea970))
+
 ## [0.12.6](https://github.com/glasshome/sync-layer/compare/v0.12.5...v0.12.6) (2026-10-23)
 
 
