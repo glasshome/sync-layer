@@ -56,6 +56,8 @@ function applyLightOn(s: LightState, data: Record<string, unknown>): LightState 
   } else if (data.brightness != null) {
     next.brightness = Number(data.brightness);
   }
+  // Home Assistant turns a light off when asked for no brightness, keeping the last level.
+  if (next.brightness === 0) return { ...s, on: false };
   if (data.color_temp_kelvin != null) {
     next.colorTempKelvin = Number(data.color_temp_kelvin);
     next.colorMode = "color_temp";
