@@ -5,7 +5,7 @@
     "": {
       "name": "@glasshome/sync-layer",
       "dependencies": {
-        "@glasshome/widget-contract": "0.6.1",
+        "@glasshome/widget-contract": "0.7.0",
         "home-assistant-js-websocket": "^9.6.0",
       },
       "devDependencies": {
@@ -47,7 +47,7 @@
 
     "@glasshome/ha-types": ["@glasshome/ha-types@0.2.0", "", {}, "sha512-HaN3op9lV/OZsnWbv4yW6MDzZxhjthqSXtFrUm86x12D1y4n0yz1C2j0b45KRs+4xMQrXMYuWvtOmecHlsmrlw=="],
 
-    "@glasshome/widget-contract": ["@glasshome/widget-contract@0.6.1", "", { "dependencies": { "es-module-lexer": "^2.3.2", "semver": "^7.7.0", "zod": "^4.4.3" } }, "sha512-x5Wb/v2jk3mMJeL0yLXljFgsoO2H57xGZqwhvwXmuV+lPVxOR6zTGAHNGq8M525AFiNuTpgjm1ibrueRuvHmuQ=="],
+    "@glasshome/widget-contract": ["@glasshome/widget-contract@0.7.0", "", { "dependencies": { "es-module-lexer": "^2.3.2", "semver": "^7.7.0", "zod": "^4.4.3" } }, "sha512-foUl/r6tY0lCm/dKzIoZN745BqEKZfXC50injWGIdbtpeiIQsi5LAh+73V5J7uFX15MiddJgsHLRRM1p3UYkgQ=="],
 
     "@oxc-project/types": ["@oxc-project/types@0.155.0", "", {}, "sha512-SeE8JPwW1xs1tHeNycjUtUBdhorRa8o4jlvjwk49R7/Z291i+4DQa7JJIgOm/TaYQZx+QrPQbVJ/9c8dMIZN8Q=="],
 
