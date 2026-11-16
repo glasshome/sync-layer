@@ -116,7 +116,8 @@ export interface GlassHomeState {
 // INITIAL STATE
 // ============================================
 
-const initialState: GlassHomeState = {
+// A fresh object per call: the store writes into the object it was created from.
+const emptyState = (): GlassHomeState => ({
   // Connection
   connectionState: "disconnected",
   connectionError: null,
@@ -149,7 +150,7 @@ const initialState: GlassHomeState = {
 
   // Camera Streams
   streams: {},
-};
+});
 
 // ============================================
 // STORE SINGLETON
@@ -191,7 +192,7 @@ if (globalThis.__GH_SYNC_LAYER_STORE__) {
 }
 globalThis.__GH_SYNC_LAYER_STORE__ = true;
 
-const storeTuple = createStore<GlassHomeState>(initialState);
+const storeTuple = createStore<GlassHomeState>(emptyState());
 export const state: Store<GlassHomeState> = storeTuple[0];
 export const setState: SetStoreFunction<GlassHomeState> = storeTuple[1];
 
@@ -203,5 +204,5 @@ export const setState: SetStoreFunction<GlassHomeState> = storeTuple[1];
  * Reset store to initial state
  */
 export function resetStore(): void {
-  setState(reconcile(initialState));
+  setState(reconcile(emptyState()));
 }
