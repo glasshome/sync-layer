@@ -8,6 +8,7 @@
 
 import type { EntityRegistryEntry, HassConfig } from "@glasshome/ha-types";
 import type { Auth, ConnectionOptions as HAConnectionOptions } from "home-assistant-js-websocket";
+import { batch } from "solid-js";
 import { produce } from "solid-js/store";
 import { bulkUpdateEntities, bulkUpdateEntityRegistry } from "../core/reducers";
 import { type HaLink, setState, state } from "../core/store";
@@ -118,52 +119,54 @@ export async function loadInitialData(conn: Pick<HaLink, "sendMessagePromise">):
       conn.sendMessagePromise<HassConfig>({ type: "get_config" }),
     ]);
 
-    // Use reducers for entities and entity registry
-    bulkUpdateEntities(states);
-    bulkUpdateEntityRegistry(entityRegistry);
-    setState("config", config);
+    // One home, one change: a reader sees entities with their registries or none of it.
+    batch(() => {
+      bulkUpdateEntities(states);
+      bulkUpdateEntityRegistry(entityRegistry);
+      setState("config", config);
 
-    // Update devices, areas, floors, labels
-    setState(
-      produce((s) => {
-        for (const device of deviceRegistry) {
-          s.devices[device.id] = device;
-        }
+      // Update devices, areas, floors, labels
+      setState(
+        produce((s) => {
+          for (const device of deviceRegistry) {
+            s.devices[device.id] = device;
+          }
 
-        for (const areaApi of areaRegistry) {
-          const area: AreaRegistryEntry = {
-            id: (areaApi.area_id || areaApi.id) ?? "",
-            name: areaApi.name,
-            normalized_name:
-              areaApi.normalized_name || areaApi.name.toLowerCase().replace(/\s+/g, "_"),
-            aliases: Array.isArray(areaApi.aliases) ? areaApi.aliases : [],
-            floor_id: areaApi.floor_id ?? null,
-            humidity_entity_id: areaApi.humidity_entity_id ?? null,
-            icon: areaApi.icon ?? null,
-            labels: Array.isArray(areaApi.labels) ? areaApi.labels : [],
-            picture: areaApi.picture ?? null,
-            temperature_entity_id: areaApi.temperature_entity_id ?? null,
-            created_at:
-              typeof areaApi.created_at === "number"
-                ? new Date(areaApi.created_at * 1000).toISOString()
-                : areaApi.created_at,
-            modified_at:
-              typeof areaApi.modified_at === "number"
-                ? new Date(areaApi.modified_at * 1000).toISOString()
-                : areaApi.modified_at,
-          };
-          s.areas[area.id] = area;
-        }
+          for (const areaApi of areaRegistry) {
+            const area: AreaRegistryEntry = {
+              id: (areaApi.area_id || areaApi.id) ?? "",
+              name: areaApi.name,
+              normalized_name:
+                areaApi.normalized_name || areaApi.name.toLowerCase().replace(/\s+/g, "_"),
+              aliases: Array.isArray(areaApi.aliases) ? areaApi.aliases : [],
+              floor_id: areaApi.floor_id ?? null,
+              humidity_entity_id: areaApi.humidity_entity_id ?? null,
+              icon: areaApi.icon ?? null,
+              labels: Array.isArray(areaApi.labels) ? areaApi.labels : [],
+              picture: areaApi.picture ?? null,
+              temperature_entity_id: areaApi.temperature_entity_id ?? null,
+              created_at:
+                typeof areaApi.created_at === "number"
+                  ? new Date(areaApi.created_at * 1000).toISOString()
+                  : areaApi.created_at,
+              modified_at:
+                typeof areaApi.modified_at === "number"
+                  ? new Date(areaApi.modified_at * 1000).toISOString()
+                  : areaApi.modified_at,
+            };
+            s.areas[area.id] = area;
+          }
 
-        for (const floor of floorRegistry) {
-          s.floors[floor.floor_id] = floor;
-        }
+          for (const floor of floorRegistry) {
+            s.floors[floor.floor_id] = floor;
+          }
 
-        for (const label of labelRegistry) {
-          s.labels[label.label_id] = label;
-        }
-      }),
-    );
+          for (const label of labelRegistry) {
+            s.labels[label.label_id] = label;
+          }
+        }),
+      );
+    });
   } catch (error) {
     console.error("Error loading initial data:", error);
     throw error;

@@ -9,6 +9,7 @@
 
 import type { EntityRegistryEntry } from "@glasshome/ha-types";
 import { type Clock, systemClock, type TimerHandle } from "@glasshome/widget-contract/clock";
+import { batch } from "solid-js";
 import { produce, reconcile } from "solid-js/store";
 import { setState } from "../core/store";
 import type { AreaRegistryEntry, DeviceRegistryEntry, HassEntity } from "../core/types";
@@ -416,16 +417,19 @@ export async function loadDemoHouse(opts: DemoHouseOptions): Promise<void> {
   }
 
   const { registry } = generated;
-  setState(
-    "entities",
-    reconcile(toEntities(generated, projections, new Date(clock.startMs).toISOString())),
-  );
-  setState("entityRegistry", reconcile(registry.entityRegistry));
-  setState("areas", reconcile(registry.areas));
-  setState("floors", reconcile(registry.floors));
-  setState("devices", reconcile(registry.devices));
-  setState("hassUrl", DEMO_HASS_URL);
-  setState("connectionState", "connected");
+  // One home, one change: a reader sees the whole demo home or none of it.
+  batch(() => {
+    setState(
+      "entities",
+      reconcile(toEntities(generated, projections, new Date(clock.startMs).toISOString())),
+    );
+    setState("entityRegistry", reconcile(registry.entityRegistry));
+    setState("areas", reconcile(registry.areas));
+    setState("floors", reconcile(registry.floors));
+    setState("devices", reconcile(registry.devices));
+    setState("hassUrl", DEMO_HASS_URL);
+    setState("connectionState", "connected");
+  });
 
   session = {
     generated,
@@ -448,13 +452,15 @@ export function unloadDemoData(): void {
   session = null;
   setWorld(worldFor("UTC", 1, 0));
 
-  setState("entities", reconcile({}));
-  setState("entityRegistry", reconcile({}));
-  setState("areas", reconcile({}));
-  setState("floors", reconcile({}));
-  setState("devices", reconcile({}));
-  setState("hassUrl", null);
-  setState("connectionState", "disconnected");
+  batch(() => {
+    setState("entities", reconcile({}));
+    setState("entityRegistry", reconcile({}));
+    setState("areas", reconcile({}));
+    setState("floors", reconcile({}));
+    setState("devices", reconcile({}));
+    setState("hassUrl", null);
+    setState("connectionState", "disconnected");
+  });
 }
 
 export async function resetDemo(): Promise<void> {
