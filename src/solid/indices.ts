@@ -10,6 +10,12 @@ import { extractDomain } from "../core/types";
 
 type EntityIdsBy = Record<string, string[]>;
 
+// Solid calls an accessor with its previous value; the shared computation would take that as a key.
+function sharedIndex(compute: () => EntityIdsBy): Accessor<EntityIdsBy> {
+  const shared = createShared<void, EntityIdsBy>(compute);
+  return () => shared();
+}
+
 function groupBy<T>(items: T[], keyFn: (item: T) => string | null): Record<string, T[]> {
   const result: Record<string, T[]> = {};
   for (const item of items) {
@@ -48,25 +54,25 @@ function groupByLabel(): EntityIdsBy {
 }
 
 /** Entity IDs grouped by domain (e.g., "light" -> ["light.living_room", ...]) */
-export const byDomain: Accessor<EntityIdsBy> = createShared<void, EntityIdsBy>(() =>
+export const byDomain: Accessor<EntityIdsBy> = sharedIndex(() =>
   groupBy(Object.keys(state.entities), (id) => extractDomain(id)),
 );
 
 /** Entity IDs grouped by area (via entity registry area_id) */
-export const byArea: Accessor<EntityIdsBy> = createShared<void, EntityIdsBy>(() =>
+export const byArea: Accessor<EntityIdsBy> = sharedIndex(() =>
   groupBy(Object.keys(state.entityRegistry), (id) => state.entityRegistry[id]?.area_id ?? null),
 );
 
 /** Entity IDs grouped by device (via entity registry device_id) */
-export const byDevice: Accessor<EntityIdsBy> = createShared<void, EntityIdsBy>(() =>
+export const byDevice: Accessor<EntityIdsBy> = sharedIndex(() =>
   groupBy(Object.keys(state.entityRegistry), (id) => state.entityRegistry[id]?.device_id ?? null),
 );
 
 /** Entity IDs grouped by floor (device -> area -> floor chain) */
-export const byFloor: Accessor<EntityIdsBy> = createShared<void, EntityIdsBy>(groupByFloor);
+export const byFloor: Accessor<EntityIdsBy> = sharedIndex(groupByFloor);
 
 /** Entity IDs grouped by label */
-export const byLabel: Accessor<EntityIdsBy> = createShared<void, EntityIdsBy>(groupByLabel);
+export const byLabel: Accessor<EntityIdsBy> = sharedIndex(groupByLabel);
 
 /** All entity IDs currently in the store */
 export const allEntityIds: Accessor<string[]> = () => Object.keys(state.entities);

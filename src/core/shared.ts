@@ -2,8 +2,8 @@
  * Shared derived values.
  *
  * A value derived from the store that belongs to the home (the entities of an
- * area, the view of one entity) is computed once and read by every consumer,
- * instead of once per consumer.
+ * area, the entity ids of a domain) is computed once and read by every
+ * consumer, instead of once per consumer.
  *
  * Contract for a `compute` passed here:
  * - it reads the store and nothing a single reader owns;
