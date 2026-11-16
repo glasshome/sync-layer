@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.9](https://github.com/glasshome/sync-layer/compare/v0.12.8...v0.12.9) (2026-11-16)
+
+
+### Performance Improvements
+
+* **entities:** readers of one area or index share one computation ([#35](https://github.com/glasshome/sync-layer/issues/35)) ([32b5312](https://github.com/glasshome/sync-layer/commit/32b5312177ef720bb19521e6c68a7d955ec47442))
+
 ## [0.12.8](https://github.com/glasshome/sync-layer/compare/v0.12.7...v0.12.8) (2026-11-05)
 
 
