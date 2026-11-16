@@ -1,9 +1,11 @@
 import type { EntityRegistryEntry } from "@glasshome/ha-types";
 import { afterEach, describe, expect, test } from "bun:test";
+import { createMemo, createRoot } from "solid-js";
 import { reconcile } from "solid-js/store";
 import { resetStore, setState } from "../core/store";
 import type { AreaRegistryEntry, DeviceRegistryEntry, HassEntity } from "../core/types";
 import { buildAreaView, getAreaViews } from "./area-views";
+import { getEntityView } from "./views";
 
 const now = "2026-01-01T00:00:00.000Z";
 
@@ -224,5 +226,103 @@ describe("area-views lazy entities", () => {
     expect(view.entities[0]?.state).toBe("off");
     setState("entities", "light.a", "state", "on");
     expect(view.entities[0]?.state).toBe("on");
+  });
+});
+
+function tracked<T>(read: () => T): { value: () => T; runs: () => number; dispose: () => void } {
+  let runs = 0;
+  return createRoot((dispose) => {
+    const value = createMemo(() => {
+      runs++;
+      return read();
+    });
+    return { value, runs: () => runs, dispose };
+  });
+}
+
+describe("views shared between readers", () => {
+  afterEach(() => resetStore());
+
+  test("a registry change in one area leaves a reader of another area still", () => {
+    seed({
+      areas: [makeArea("living", "Living"), makeArea("kitchen", "Kitchen")],
+      registry: [
+        makeRegistry("light.a", { area_id: "living" }),
+        makeRegistry("light.b", { area_id: "kitchen" }),
+      ],
+    });
+    const living = tracked(() => buildAreaView("living").entityIds);
+    const kitchen = tracked(() => buildAreaView("kitchen").entityIds);
+
+    setState("entityRegistry", "light.c", makeRegistry("light.c", { area_id: "kitchen" }));
+
+    expect(kitchen.value()).toEqual(["light.b", "light.c"]);
+    expect(kitchen.runs()).toBe(2);
+    expect(living.value()).toEqual(["light.a"]);
+    expect(living.runs()).toBe(1);
+    living.dispose();
+    kitchen.dispose();
+  });
+
+  test("an entity that moves areas leaves one reader and reaches the other", () => {
+    seed({
+      areas: [makeArea("living", "Living"), makeArea("kitchen", "Kitchen")],
+      registry: [makeRegistry("light.a", { area_id: "living" })],
+    });
+    const living = tracked(() => buildAreaView("living").entityIds);
+    const kitchen = tracked(() => buildAreaView("kitchen").entityIds);
+
+    setState("entityRegistry", "light.a", "area_id", "kitchen");
+
+    expect(living.value()).toEqual([]);
+    expect(kitchen.value()).toEqual(["light.a"]);
+    living.dispose();
+    kitchen.dispose();
+  });
+
+  test("a device that moves areas takes its entities along", () => {
+    seed({
+      areas: [makeArea("living", "Living"), makeArea("kitchen", "Kitchen")],
+      devices: [makeDevice("dev1", "living")],
+      registry: [makeRegistry("switch.b", { device_id: "dev1" })],
+    });
+    const kitchen = tracked(() => buildAreaView("kitchen").entityIds);
+
+    setState("devices", "dev1", "area_id", "kitchen");
+
+    expect(kitchen.value()).toEqual(["switch.b"]);
+    kitchen.dispose();
+  });
+
+  test("a nested attribute changed in place reaches a reader of the view", () => {
+    seed({
+      registry: [makeRegistry("light.a")],
+      entities: [
+        {
+          ...makeEntity("light.a", "on"),
+          attributes: { friendly_name: "A", rgb_color: [1, 2, 3] },
+        },
+      ],
+    });
+    const colour = tracked(() => {
+      const rgb = getEntityView("light.a")?.attributes.rgb_color as number[] | undefined;
+      return rgb?.join(",");
+    });
+
+    setState("entities", "light.a", "attributes", "rgb_color", 0, 255);
+
+    expect(colour.value()).toBe("255,2,3");
+    colour.dispose();
+  });
+
+  test("an entity that appears later reaches a reader that asked for it early", () => {
+    seed({ registry: [makeRegistry("light.late")] });
+    const late = tracked(() => getEntityView("light.late")?.state);
+    expect(late.value()).toBeUndefined();
+
+    setState("entities", "light.late", makeEntity("light.late", "on"));
+
+    expect(late.value()).toBe("on");
+    late.dispose();
   });
 });
