@@ -13,6 +13,7 @@
  * @packageDocumentation
  */
 
+import { createShared } from "../core/shared";
 import { state } from "../core/store";
 import type {
   AreaId,
@@ -64,18 +65,25 @@ function computeAreaMembership(): Map<AreaId, AreaMembership> {
   return byArea;
 }
 
-/** Membership for a single area, without indexing every other area. */
-function membershipFor(areaId: AreaId): AreaMembership {
-  const devices: DeviceRegistryEntry[] = [];
-  for (const device of Object.values(state.devices)) {
-    if (device.area_id === areaId) devices.push(device);
-  }
-  const entityIds: EntityId[] = [];
-  for (const [entityId, entry] of Object.entries(state.entityRegistry)) {
-    if (entityAreaId(entry) === areaId) entityIds.push(entityId);
-  }
-  return { devices, entityIds };
+const NO_MEMBERS: AreaMembership = { devices: [], entityIds: [] };
+
+function sameMembers(a: AreaMembership, b: AreaMembership): boolean {
+  return (
+    a.devices.length === b.devices.length &&
+    a.entityIds.length === b.entityIds.length &&
+    a.devices.every((device, i) => device === b.devices[i]) &&
+    a.entityIds.every((id, i) => id === b.entityIds[i])
+  );
 }
+
+/** The registry pass, shared: every area view of the home reads the same result. */
+const homeMembership = createShared<void, Map<AreaId, AreaMembership>>(computeAreaMembership);
+
+/** One area's membership. A registry change elsewhere in the home leaves it untouched. */
+const membershipFor = createShared(
+  (areaId: AreaId): AreaMembership => homeMembership().get(areaId) ?? NO_MEMBERS,
+  { equals: sameMembers },
+);
 
 // ============================================
 // DEVICE VIEW BUILDER
@@ -152,9 +160,9 @@ export function buildAreaView(areaId: AreaId): AreaView {
  * views stay lazy per area (see `assembleAreaView`).
  */
 export function getAreaViews(): AreaView[] {
-  const membership = computeAreaMembership();
+  const membership = homeMembership();
   return Object.keys(state.areas).map((areaId) =>
-    assembleAreaView(areaId, membership.get(areaId) ?? { devices: [], entityIds: [] }),
+    assembleAreaView(areaId, membership.get(areaId) ?? NO_MEMBERS),
   );
 }
 
