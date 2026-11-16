@@ -10,7 +10,6 @@
 import type { EntityRegistryEntry } from "@glasshome/ha-types";
 import { $TRACK } from "solid-js";
 import { unwrap } from "solid-js/store";
-import { createShared } from "../core/shared";
 import { state } from "../core/store";
 import type { AreaId, EntityId, EntityView, HassEntity } from "../core/types";
 import { extractDomain } from "../core/types";
@@ -101,13 +100,9 @@ export function buildEntityView(
 }
 
 /**
- * The view of one entity. Tracked readers of the same entity share one view,
- * rebuilt once per change; treat it as read-only.
+ * Get or build an EntityView
  */
-export const getEntityView: (entityId: EntityId) => EntityView | undefined =
-  createShared(buildLiveEntityView);
-
-function buildLiveEntityView(entityId: EntityId): EntityView | undefined {
+export function getEntityView(entityId: EntityId): EntityView | undefined {
   const entity = state.entities[entityId];
   if (!entity) {
     return undefined;

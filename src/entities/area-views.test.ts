@@ -294,23 +294,6 @@ describe("views shared between readers", () => {
     kitchen.dispose();
   });
 
-  test("two readers of one entity hold the same view, before and after a change", () => {
-    seed({
-      registry: [makeRegistry("light.a")],
-      entities: [makeEntity("light.a", "off")],
-    });
-    const first = tracked(() => getEntityView("light.a"));
-    const second = tracked(() => getEntityView("light.a"));
-    expect(first.value()).toBe(second.value());
-
-    setState("entities", "light.a", "state", "on");
-
-    expect(first.value()?.state).toBe("on");
-    expect(first.value()).toBe(second.value());
-    first.dispose();
-    second.dispose();
-  });
-
   test("a nested attribute changed in place reaches a reader of the view", () => {
     seed({
       registry: [makeRegistry("light.a")],
