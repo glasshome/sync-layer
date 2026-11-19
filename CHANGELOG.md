@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.11](https://github.com/glasshome/sync-layer/compare/v0.12.10...v0.12.11) (2026-11-19)
+
+
+### Performance Improvements
+
+* **demo:** history replay ticks only the devices a call or projection reaches ([4d937c5](https://github.com/glasshome/sync-layer/commit/4d937c568a953f2b94537edb1500bb3147f6221e))
+
 ## [0.12.10](https://github.com/glasshome/sync-layer/compare/v0.12.9...v0.12.10) (2026-11-19)
 
 
