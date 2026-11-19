@@ -33,7 +33,7 @@ const WEEKDAYS: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 
 type Parts = ReturnType<typeof readParts>;
 
 // One projection asks every entity about the same few instants; formatToParts is what costs.
-const RECENT_LIMIT = 256;
+const RECENT_LIMIT = 2048;
 const recent = new Map<string, Parts>();
 
 function parts(ms: number, timeZone: string): Parts {

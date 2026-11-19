@@ -51,16 +51,22 @@ export function createDemoModel(
     stepMs?: number;
     log?: (msg: string) => void;
     driver?: () => Driver;
+    /** A device runs the ticks it missed only when a call or a projection reaches it (history replay). */
+    lazyTicks?: boolean;
   },
 ): DemoModel {
   const stepMs = opts.stepMs ?? 1000;
   const log = opts.log ?? (() => {});
   let nowMs = opts.startMs;
-  const ctx = (): SimContext => ({
-    nowMs,
+  const ctxAt = (atMs: number): SimContext => ({
+    nowMs: atMs,
     world: opts.world,
     noise: (k) => noise(opts.world.seed, k),
   });
+  const ctx = (): SimContext => ctxAt(nowMs);
+  const lazy = opts.lazyTicks === true;
+  const ticks: { atMs: number; dtMs: number }[] = [];
+  const tickCursor = new Map<string, number>();
   const byKey = new Map(devices.map((d) => [d.key, d]));
   const byEntity = new Map<string, DeviceSpec>();
   const states = new Map<string, unknown>();
@@ -71,12 +77,28 @@ export function createDemoModel(
 
   for (const d of devices) {
     for (const seed of kinds[d.kind].entities(d)) byEntity.set(seed.entityId, d);
-    states.set(d.key, kinds[d.kind].apply(undefined, { type: "init" }, d, ctx()));
+    if (!lazy) states.set(d.key, kinds[d.kind].apply(undefined, { type: "init" }, d, ctx()));
+  }
+
+  function stateOf(d: DeviceSpec): unknown {
+    if (!lazy) return states.get(d.key);
+    const kind = kinds[d.kind];
+    let s = states.has(d.key)
+      ? states.get(d.key)
+      : kind.apply(undefined, { type: "init" }, d, ctxAt(opts.startMs));
+    let i = tickCursor.get(d.key) ?? 0;
+    for (; i < ticks.length; i++) {
+      const t = ticks[i];
+      if (t) s = kind.apply(s, { type: "tick", dtMs: t.dtMs }, d, ctxAt(t.atMs));
+    }
+    tickCursor.set(d.key, i);
+    states.set(d.key, s);
+    return s;
   }
 
   function applyTo(d: DeviceSpec, event: SimEvent, depth: number): void {
     const kind = kinds[d.kind];
-    const next = kind.apply(states.get(d.key), event, d, ctx());
+    const next = kind.apply(stateOf(d), event, d, ctx());
     states.set(d.key, next);
     if (depth >= MAX_EFFECT_DEPTH || !kind.effects) return;
     for (const call of kind.effects(next, event, d)) dispatchAt(call, depth + 1);
@@ -119,7 +141,8 @@ export function createDemoModel(
         const prev = nowMs;
         nowMs += dtMs;
         // Physics covers (prev, now] before events landing at now, so coarse steps never age a fresh event.
-        for (const d of devices) applyTo(d, { type: "tick", dtMs }, MAX_EFFECT_DEPTH);
+        if (lazy) ticks.push({ atMs: nowMs, dtMs });
+        else for (const d of devices) applyTo(d, { type: "tick", dtMs }, MAX_EFFECT_DEPTH);
         flushDue();
         driver?.step(model, prev, nowMs);
         flushDue();
@@ -127,13 +150,12 @@ export function createDemoModel(
     },
     project() {
       const out: Record<string, Projection> = {};
-      for (const d of devices)
-        Object.assign(out, kinds[d.kind].project(states.get(d.key), d, ctx()));
+      for (const d of devices) Object.assign(out, kinds[d.kind].project(stateOf(d), d, ctx()));
       return out;
     },
     projectDevice(key) {
       const d = byKey.get(key);
-      return d ? kinds[d.kind].project(states.get(d.key), d, ctx()) : {};
+      return d ? kinds[d.kind].project(stateOf(d), d, ctx()) : {};
     },
     deviceOf: (entityId) => byEntity.get(entityId),
     hold: (entityId, until) => void holds.set(entityId, until),

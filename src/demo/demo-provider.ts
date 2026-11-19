@@ -112,7 +112,7 @@ export function demoCallLog(): readonly LoggedCall[] {
 export function demoReplayModel(startMs: number): DemoModel | null {
   const s = session;
   if (!s) return null;
-  return buildModel(s.generated, startMs, getWorld());
+  return buildModel(s.generated, startMs, getWorld(), true);
 }
 
 /** Internal: apply the provider's visitor-hold mapping to a model, for history replay of logged calls. */
@@ -246,10 +246,16 @@ function nextContext(): HassEntity["context"] {
   return { id: `demo-${contextCounter}`, parent_id: null, user_id: null };
 }
 
-function buildModel(generated: GeneratedHouse, startMs: number, world: World): DemoModel {
+function buildModel(
+  generated: GeneratedHouse,
+  startMs: number,
+  world: World,
+  lazyTicks = false,
+): DemoModel {
   return createDemoModel(generated.devices, KINDS, {
     startMs,
     world,
+    lazyTicks,
     driver: () => createDriver(HOUSE, generated, world),
   });
 }
