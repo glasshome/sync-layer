@@ -8,6 +8,7 @@ import {
   unloadDemoData,
 } from "../demo-provider";
 import { KINDS } from "../kinds";
+import type { DeviceSpec, SimEvent } from "../kinds/types";
 import { demoHistory } from "./history";
 
 const demoEntityHistory = (id: string, startMs: number, endMs: number) =>
@@ -70,18 +71,42 @@ describe("demo history", () => {
       projections = 0;
       for (const sp of applies) sp.mockClear();
       demoEntityHistory("light.living_room_main", END - hours * 3_600_000, END);
+      const trackedKey = must(must(provider.demoModel()).deviceOf("light.living_room_main")).key;
+      const calls = applies.flatMap(
+        (sp) => sp.mock.calls as unknown as [unknown, SimEvent, DeviceSpec][],
+      );
+      const ticksByDevice = new Map<string, number>();
+      for (const [, event, device] of calls) {
+        if (event.type === "tick")
+          ticksByDevice.set(device.key, (ticksByDevice.get(device.key) ?? 0) + 1);
+      }
       return {
         steps,
         projections,
-        applies: applies.reduce((n, sp) => n + sp.mock.calls.length, 0),
+        applies: calls.length,
+        calls: calls.filter(([, event]) => event.type === "call").length,
+        maxTicks: Math.max(0, ...ticksByDevice.values()),
+        trackedTicks: ticksByDevice.get(trackedKey) ?? 0,
       };
     };
     try {
       const half = measure(6);
       const full = measure(12);
-      for (const key of ["steps", "projections", "applies"] as const) {
+      for (const key of ["steps", "projections"] as const) {
         expect(half[key]).toBeGreaterThan(0);
         expect(full[key] / half[key]).toBeLessThanOrEqual(2.1);
+      }
+      const deviceCount = new Set(
+        Object.keys(must(provider.demoModel()).project()).map(
+          (id) => must(must(provider.demoModel()).deviceOf(id)).key,
+        ),
+      ).size;
+      for (const m of [half, full]) {
+        // The queried light is projected every step, so its ticks are every tick the replay ran.
+        // Ticking every device every tick is the eager ceiling; init and calls come on top.
+        expect(m.applies).toBeGreaterThan(0);
+        expect(m.applies).toBeLessThanOrEqual(deviceCount * m.trackedTicks + deviceCount + m.calls);
+        expect(m.maxTicks).toBeLessThanOrEqual(m.trackedTicks);
       }
     } finally {
       spy.mockRestore();
