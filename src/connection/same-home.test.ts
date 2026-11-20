@@ -213,6 +213,55 @@ describe("entity views", () => {
       entityViewEquals(getEntityView("climate.bedroom"), getEntityView("climate.bedroom")),
     ).toBe(true);
   });
+
+  test("a row changed and changed back reads equal to the first, by value", async () => {
+    await connect({ entities: ["climate.bedroom"] });
+    const first = getEntityView("climate.bedroom");
+    const attributes = home.states.get("climate.bedroom")?.attributes ?? {};
+    home.set("climate.bedroom", { attributes: { ...attributes, hvac_modes: ["off"] } });
+    await settle();
+    home.set("climate.bedroom", { attributes });
+    await settle();
+
+    const again = getEntityView("climate.bedroom");
+    expect(unwrap(again?.attributes.hvac_modes)).not.toBe(unwrap(first?.attributes.hvac_modes));
+    expect(entityViewEquals(first, again)).toBe(true);
+  });
+});
+
+describe("a value changed inside a row", () => {
+  test("a light's new colour reaches its useEntity reader", async () => {
+    const r = await connect({ entities: ["light.sofa"] });
+    const attributes = home.states.get("light.sofa")?.attributes ?? {};
+
+    home.set("light.sofa", { attributes: { ...attributes, rgb_color: [0, 255, 0] } });
+    await settle();
+
+    expect(r.ran()["useEntity light.sofa"]).toBe(1);
+    expect(state.entities["light.sofa"]?.attributes.rgb_color).toEqual([0, 255, 0]);
+  });
+
+  test("an entity's new labels reach its useEntity reader", async () => {
+    const r = await connect({ entities: ["light.sofa"] });
+    home.entityRegistry = home.entityRegistry.map((e) =>
+      e.entity_id === "light.sofa" ? { ...e, labels: ["night"] } : e,
+    );
+
+    home.fire("entity_registry_updated", { action: "update", entity_id: "light.sofa" });
+    await settle();
+
+    expect(r.ran()["useEntity light.sofa"]).toBe(1);
+  });
+
+  test("an area's new labels reach its useArea reader", async () => {
+    const r = await connect({ areas: ["living"] });
+    home.areas = home.areas.map((a) => (a.area_id === "living" ? { ...a, labels: ["cozy"] } : a));
+
+    home.fire("area_registry_updated", { action: "update", area_id: "living" });
+    await settle();
+
+    expect(r.ran()["useArea living"]).toBe(1);
+  });
 });
 
 describe("calendars across a reconnect", () => {

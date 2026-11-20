@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import fc from "fast-check";
 import { resetCalendarTracking, trackCalendarEvents } from "../calendar/track";
+import { deepEqual } from "../core/equal";
 import { resetStore, state } from "../core/store";
 import { applyDiff, decodeCompressed, decodeState } from "../core/wire";
 import { trackEntityHistory, untrackEntityHistory } from "../history/query";
@@ -222,6 +223,7 @@ describe("a home replayed to the dashboard", () => {
         const { home, readers: r } = await connected(initial);
         const ids = Object.keys(initial);
         const id = ids[pick % ids.length] ?? "";
+        const before = decodeState(asDict(home.states.get(id) as HaState));
         r.reset();
 
         home.set(id, change);
@@ -229,7 +231,43 @@ describe("a home replayed to the dashboard", () => {
 
         const others = Object.keys(r.ran()).filter((name) => !name.endsWith(` ${id}`));
         expect(others.filter((name) => name !== "useEntities")).toEqual([]);
+        const after = decodeState(asDict(home.states.get(id) as HaState));
+        const read =
+          before?.state !== after?.state || !deepEqual(before?.attributes, after?.attributes);
+        if (read) expect(r.ran()[`useEntity ${id}`]).toBe(1);
       }),
+      RUNS,
+    );
+  });
+
+  test("(c) a value changed inside an attribute reaches the entity's view", async () => {
+    const nested = fc.oneof(
+      fc.array(primitive, { minLength: 1, maxLength: 4 }),
+      fc.dictionary(fc.constantFrom("a", "b", "c"), primitive, { minKeys: 1 }),
+      fc.array(fc.dictionary(fc.constantFrom("id", "name"), primitive, { minKeys: 1 }), {
+        minLength: 1,
+        maxLength: 3,
+      }),
+    );
+    await fc.assert(
+      fc.asyncProperty(
+        fc.constantFrom(...UNIVERSE),
+        fc.constantFrom(...KEYS),
+        nested,
+        nested,
+        async (id, key, from, to) => {
+          fc.pre(!deepEqual(from, to));
+          const { home, readers: r } = await connected({
+            [id]: { state: "on", attributes: { [key]: from } },
+          });
+          r.reset();
+
+          home.set(id, { attributes: { [key]: to } });
+          await settle();
+
+          expect(r.ran()[`useEntity ${id}`]).toBe(1);
+        },
+      ),
       RUNS,
     );
   });
