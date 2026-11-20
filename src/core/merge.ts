@@ -12,11 +12,12 @@ import type { EntityId, HassEntity } from "./types";
 // One loose writer for the generic paths below; the signatures around it keep callers typed.
 const write = setState as unknown as (...path: unknown[]) => void;
 
-// Same state, same last_changed, same attributes: a heartbeat, kept out so no reader wakes for it.
+// The same write seen again; a new context alone always comes with a new last_updated.
 function sameReading(stored: HassEntity, next: HassEntity): boolean {
   return (
     stored.state === next.state &&
     stored.last_changed === next.last_changed &&
+    stored.last_updated === next.last_updated &&
     deepEqual(stored.attributes, next.attributes)
   );
 }

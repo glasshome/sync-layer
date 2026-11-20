@@ -7,6 +7,7 @@ import type { EntityRegistryEntry, HassConfig } from "@glasshome/ha-types";
 import * as z from "zod/mini";
 import type { CalendarEvent } from "../calendar/types";
 import { preferLocalPicture } from "../media/local-picture";
+import { deepEqual } from "./equal";
 import type { WeatherForecast } from "../weather/types";
 import type {
   AreaRegistryEntry,
@@ -178,7 +179,14 @@ export function applyDiff(prev: HassEntity, raw: unknown): HassEntity | null {
   }
   for (const key of parsed.data["-"]?.a ?? []) delete next.attributes[key];
   preferLocalPicture(next.attributes);
-  return next;
+  // A new remote picture behind a held local copy changes nothing this row shows.
+  const unseen =
+    add?.a !== undefined &&
+    add.s === undefined &&
+    add.lc === undefined &&
+    parsed.data["-"] === undefined &&
+    deepEqual(next.attributes, prev.attributes);
+  return unseen ? prev : next;
 }
 
 /** A `subscribe_entities` message, its parts still raw for the per-entity decoders. */
