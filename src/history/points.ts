@@ -29,8 +29,9 @@ export function appendHistoryPoint(
   lastChanged?: number,
 ): void {
   setLocalState(
-    produce((s) => {
-      const history = s.history[entityId];
+    "history",
+    produce((map) => {
+      const history = map[entityId];
       if (!history) return;
 
       const point = { s: stateValue, a: attributes, lu: lastUpdated, lc: lastChanged };
@@ -53,10 +54,11 @@ export function appendHistoryPoint(
 export function bulkAppendHistoryPoints(points: HistoryPoint[]): void {
   if (points.length === 0) return;
   setLocalState(
-    produce((s) => {
+    "history",
+    produce((map) => {
       const touched = new Set<EntityId>();
       for (const { entityId, stateValue, attributes, lastUpdated, lastChanged } of points) {
-        const history = s.history[entityId];
+        const history = map[entityId];
         if (!history) continue;
 
         history.entityHistory.push({
@@ -77,7 +79,7 @@ export function bulkAppendHistoryPoints(points: HistoryPoint[]): void {
 
       // Trim oldest points from the front so each timeline keeps the cap.
       for (const entityId of touched) {
-        const history = s.history[entityId];
+        const history = map[entityId];
         if (!history) continue;
         if (history.entityHistory.length > MAX_HISTORY_POINTS) {
           history.entityHistory.splice(0, history.entityHistory.length - MAX_HISTORY_POINTS);

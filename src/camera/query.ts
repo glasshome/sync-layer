@@ -36,8 +36,9 @@ export async function getStream(
       void fetchStreamData(entityId, { format, autoRefresh, refreshInterval }).then(
         (streamData) => {
           setLocalState(
-            produce((s) => {
-              s.streams[entityId] = streamData;
+            "streams",
+            produce((map) => {
+              map[entityId] = streamData;
             }),
           );
         },
@@ -49,8 +50,9 @@ export async function getStream(
   const streamData = await fetchStreamData(entityId, { format, autoRefresh, refreshInterval });
 
   setLocalState(
-    produce((s) => {
-      s.streams[entityId] = streamData;
+    "streams",
+    produce((map) => {
+      map[entityId] = streamData;
     }),
   );
 
@@ -65,8 +67,9 @@ export async function refreshStream(
   format: StreamFormat = "hls",
 ): Promise<CameraStreamData> {
   setLocalState(
-    produce((s) => {
-      delete s.streams[entityId];
+    "streams",
+    produce((map) => {
+      delete map[entityId];
     }),
   );
 

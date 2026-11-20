@@ -16,9 +16,10 @@ export function bulkUpdateEntities(entities: HassEntity[]): void {
 
 export function updateStatisticsMetadata(metadata: StatisticMetadata[]): void {
   setLocalState(
-    produce((s) => {
+    "statisticsMetadata",
+    produce((map) => {
       for (const meta of metadata) {
-        s.statisticsMetadata[meta.statistic_id] = meta;
+        map[meta.statistic_id] = meta;
       }
     }),
   );

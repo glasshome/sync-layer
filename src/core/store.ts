@@ -1,6 +1,6 @@
 /** Central reactive state store for sync-layer using SolidJS createStore. */
 
-import type { SetStoreFunction, Store } from "solid-js/store";
+import type { SetStoreFunction, Store, StoreSetter } from "solid-js/store";
 import { createStore, reconcile } from "solid-js/store";
 
 import type { CalendarEventsData } from "../calendar/types";
@@ -191,8 +191,15 @@ type HaSlice =
   | "calendars"
   | "forecasts";
 
-/** The store's writer for state this package keeps itself; Home Assistant's slices are out of its type. */
-export const setLocalState = setState as unknown as SetStoreFunction<Omit<GlassHomeState, HaSlice>>;
+type LocalState = Omit<GlassHomeState, HaSlice>;
+
+/** Writes one key this package keeps itself; the root and Home Assistant's slices are out of reach. */
+export function setLocalState<K extends keyof LocalState>(
+  key: K,
+  setter: StoreSetter<LocalState[K], [K]>,
+): void {
+  (setState as unknown as (key: K, setter: StoreSetter<LocalState[K], [K]>) => void)(key, setter);
+}
 
 // ============================================
 // STORE UTILITIES

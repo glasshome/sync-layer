@@ -29,8 +29,9 @@ export async function trackEntityHistory(
   const historyData = await fetchEntityHistory(entityId, options);
 
   setLocalState(
-    produce((s) => {
-      s.history[entityId] = historyData;
+    "history",
+    produce((map) => {
+      map[entityId] = historyData;
     }),
   );
 
@@ -47,8 +48,9 @@ export function untrackEntityHistory(entityId: EntityId): void {
   trackedEntities.delete(entityId);
 
   setLocalState(
-    produce((s) => {
-      delete s.history[entityId];
+    "history",
+    produce((map) => {
+      delete map[entityId];
     }),
   );
 }

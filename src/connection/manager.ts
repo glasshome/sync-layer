@@ -8,7 +8,6 @@
 
 import type { Auth, ConnectionOptions as HAConnectionOptions } from "home-assistant-js-websocket";
 import { batch } from "solid-js";
-import { produce } from "solid-js/store";
 import { mergeConfig, mergeEntities, mergeSlice } from "../core/merge";
 import { setPrivilegedConn } from "../core/privileged-conn";
 import { type HaLink, setLocalState, state } from "../core/store";
@@ -49,12 +48,8 @@ export interface ConnectionOptions {
  * Disconnect from Home Assistant
  */
 export function disconnect(): void {
-  setLocalState(
-    produce((s) => {
-      setPrivilegedConn(null);
-      s.connectionState = "disconnected";
-    }),
-  );
+  setPrivilegedConn(null);
+  setLocalState("connectionState", "disconnected");
 }
 
 /**

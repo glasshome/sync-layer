@@ -1,4 +1,4 @@
-import { produce } from "solid-js/store";
+import { batch } from "solid-js";
 import { forceResubscribeCalendars } from "../calendar/track";
 import { forceResubscribeForecasts } from "../weather/track";
 import { setLocalState } from "../core/store";
@@ -21,15 +21,13 @@ export async function attachBridgeToStore(
   hassUrl: string,
   mediaProxyBase?: string,
 ): Promise<void> {
-  setLocalState(
-    produce((s) => {
-      setPrivilegedConn(bridge.conn);
-      s.hassUrl = hassUrl.replace(/\/$/, "");
-      s.mediaProxyBase = mediaProxyBase ?? null;
-      s.connectionState = "connected";
-      s.connectionError = null;
-    }),
-  );
+  setPrivilegedConn(bridge.conn);
+  batch(() => {
+    setLocalState("hassUrl", hassUrl.replace(/\/$/, ""));
+    setLocalState("mediaProxyBase", mediaProxyBase ?? null);
+    setLocalState("connectionState", "connected");
+    setLocalState("connectionError", null);
+  });
 
   await loadInitialData(bridge.conn);
   await subscribeToUpdates(bridge.conn);
@@ -40,12 +38,10 @@ export async function attachBridgeToStore(
 export function applyBridgeConnState(
   state: "connecting" | "connected" | "disconnected" | "reconnecting",
 ): void {
-  setLocalState(
-    produce((s) => {
-      s.connectionState = state;
-      if (state === "connected") s.connectionError = null;
-    }),
-  );
+  batch(() => {
+    setLocalState("connectionState", state);
+    if (state === "connected") setLocalState("connectionError", null);
+  });
 }
 
 /**
@@ -60,10 +56,6 @@ export async function reloadAfterBridgeReconnect(bridge: HaBridge): Promise<void
 
 /** Detach on shutdown; the caller terminates the worker itself. */
 export function detachBridgeFromStore(): void {
-  setLocalState(
-    produce((s) => {
-      setPrivilegedConn(null);
-      s.connectionState = "disconnected";
-    }),
-  );
+  setPrivilegedConn(null);
+  setLocalState("connectionState", "disconnected");
 }
