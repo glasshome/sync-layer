@@ -82,6 +82,11 @@ export function registerEntity(entityId: EntityId): () => void {
  * Set the connection reference used for resubscribing.
  */
 export function setManagerConnection(connection: SyncLayerConnection): void {
+  if (conn !== connection) {
+    // A subscription belongs to the link it was made on; a new link starts with none.
+    currentEntityUnsub = null;
+    subscribedIds = new Set();
+  }
   conn = connection;
   // If entities were registered before connection was ready, flush now
   if (refCounts.size > 0) {
