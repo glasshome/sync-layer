@@ -61,8 +61,11 @@ let onResubscribe:
 /** Delay before unregistered entities are actually removed from subscription */
 const UNREGISTER_DELAY_MS = 5000;
 
-/** Guard against concurrent flush() calls */
-let flushInFlight = false;
+/** The link a flush is running on; one flush per link at a time. */
+let flushing: SyncLayerConnection | null = null;
+
+/** A flush asked for while one ran on the same link; the running one goes again. */
+let flushAgain = false;
 
 // ============================================
 // PUBLIC API
@@ -84,6 +87,7 @@ export function registerEntity(entityId: EntityId): () => void {
 export function setManagerConnection(connection: SyncLayerConnection): void {
   if (conn !== connection) {
     // A subscription belongs to the link it was made on; a new link starts with none.
+    closeQuietly(currentEntityUnsub);
     currentEntityUnsub = null;
     subscribedIds = new Set();
   }
@@ -148,33 +152,60 @@ function logFlushError(error: unknown): void {
 }
 
 async function flush(): Promise<void> {
-  if (!conn || !onResubscribe) return;
-  if (flushInFlight) return; // Coalesce: next scheduled flush will catch any delta
-  flushInFlight = true;
-  try {
-    const newIds = new Set(refCounts.keys());
-
-    // Skip if the set hasn't changed
-    if (setsEqual(newIds, subscribedIds)) return;
-
-    // Unsubscribe old, subscribe new
-    const oldUnsub = currentEntityUnsub;
-    const entityIds = [...newIds];
-
-    currentEntityUnsub = await onResubscribe(conn, entityIds);
-    subscribedIds = newIds;
-
-    // Clean up old subscription after new one is active (no gap)
-    if (oldUnsub) {
-      try {
-        await oldUnsub();
-      } catch {
-        // Old subscription may already be dead (reconnect scenario)
-      }
-    }
-  } finally {
-    flushInFlight = false;
+  const link = conn;
+  if (!link || !onResubscribe) return;
+  if (flushing === link) {
+    flushAgain = true;
+    return;
   }
+  // A new link never waits on a subscribe still in flight on the old one.
+  flushing = link;
+  try {
+    do {
+      flushAgain = false;
+      await flushOnce(link);
+    } while (flushAgain && conn === link);
+  } finally {
+    if (flushing === link) flushing = null;
+  }
+}
+
+async function flushOnce(link: SyncLayerConnection): Promise<void> {
+  const newIds = new Set(refCounts.keys());
+  if (!onResubscribe || setsEqual(newIds, subscribedIds)) return;
+
+  let unsub: UnsubscribeFn;
+  try {
+    unsub = await onResubscribe(link, [...newIds]);
+  } catch (error) {
+    if (conn === link) throw error;
+    return;
+  }
+  if (conn !== link) {
+    closeQuietly(unsub);
+    return;
+  }
+
+  // The old subscription closes after the new one is live, so no change falls in a gap.
+  const oldUnsub = currentEntityUnsub;
+  currentEntityUnsub = unsub;
+  subscribedIds = newIds;
+  if (oldUnsub) {
+    try {
+      await oldUnsub();
+    } catch {
+      // Old subscription may already be dead (reconnect scenario)
+    }
+  }
+}
+
+function closeQuietly(unsub: UnsubscribeFn | null): void {
+  if (!unsub) return;
+  Promise.resolve()
+    .then(unsub)
+    .catch(() => {
+      // The link it was made on may already be gone.
+    });
 }
 
 function setsEqual(a: Set<string>, b: Set<string>): boolean {
