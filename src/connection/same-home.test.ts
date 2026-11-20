@@ -176,6 +176,18 @@ describe("one Home Assistant shape, one reading", () => {
   });
 });
 
+describe("config", () => {
+  test("a config without language, currency or version still loads the rest", async () => {
+    await connect({});
+    const { language: _language, currency: _currency, version: _version, ...rest } = home.config;
+    home.config = { ...rest, time_zone: "Europe/Paris" };
+
+    await loadInitialData(home.conn);
+
+    expect(state.config?.time_zone).toBe("Europe/Paris");
+  });
+});
+
 describe("one changed entity", () => {
   test("a reload where one entity changed notifies only that entity's readers", async () => {
     const r = await connect({ entities: SAMPLE_ENTITIES });
