@@ -357,9 +357,9 @@ const Config = z.looseObject({
     volume: z.string(),
   }),
   time_zone: z.string(),
-  language: z.string(),
-  currency: z.string(),
-  version: z.string(),
+  language: z.optional(z.string()),
+  currency: z.optional(z.string()),
+  version: z.optional(z.string()),
 });
 
 export function decodeConfig(raw: unknown): HassConfig | null {
