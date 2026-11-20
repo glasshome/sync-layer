@@ -101,7 +101,8 @@ export function appendMovedHistory(moved: HassEntity[]): void {
     points.push({
       entityId: entity.entity_id,
       stateValue: entity.state,
-      attributes: structuredClone(entity.attributes),
+      // Stored values never change in place, so the point holds the row's own attributes.
+      attributes: entity.attributes,
       lastUpdated,
       ...(Number.isNaN(lastChanged) ? {} : { lastChanged }),
     });
