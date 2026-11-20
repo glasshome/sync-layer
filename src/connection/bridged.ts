@@ -49,12 +49,13 @@ export function applyBridgeConnState(
 }
 
 /**
- * Re-sync after the worker reports a completed reconnect. The worker's client already sent every
- * subscription again, calendars and forecasts included, so only the lists are reloaded here.
+ * Re-sync after the worker reports a completed reconnect. The client's own resend of a calendar or
+ * forecast subscription fails silently when Home Assistant refuses it, so each is made again here.
  */
 export async function reloadAfterBridgeReconnect(bridge: HaBridge): Promise<void> {
   await loadInitialData(bridge.conn);
   await forceResubscribe();
+  await Promise.all([forceResubscribeCalendars(), forceResubscribeForecasts()]);
 }
 
 /** Detach on shutdown; the caller terminates the worker itself. */
