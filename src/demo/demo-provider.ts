@@ -411,7 +411,8 @@ export async function loadDemoHouse(opts: DemoHouseOptions): Promise<void> {
   const { registry } = generated;
   // One home, one change: a reader sees the whole demo home or none of it.
   batch(() => {
-    mergeEntities(toEntities(generated, projections, new Date(clock.startMs).toISOString()), true);
+    const house = toEntities(generated, projections, new Date(clock.startMs).toISOString());
+    mergeEntities(house, new Set(Object.keys(house)));
     mergeSlice("entityRegistry", registry.entityRegistry);
     mergeSlice("areas", registry.areas);
     mergeSlice("floors", registry.floors);
@@ -442,7 +443,7 @@ export function unloadDemoData(): void {
   setWorld(worldFor("UTC", 1, 0));
 
   batch(() => {
-    mergeEntities({}, true);
+    mergeEntities({}, new Set());
     mergeSlice("entityRegistry", {});
     mergeSlice("areas", {});
     mergeSlice("floors", {});

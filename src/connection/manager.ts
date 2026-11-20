@@ -91,10 +91,13 @@ export async function loadInitialData(conn: Pick<HaLink, "sendMessagePromise">):
     const [states, entityRegistry, devices, areas, floors, labels, config] = await Promise.all(
       LISTS.map((type) => conn.sendMessagePromise<unknown>({ type })),
     );
-    const entities = decodeStates(states);
+    const home = decodeStates(states);
+    const decodedConfig = decodeConfig(config);
+    // While Home Assistant starts, integrations not loaded yet list none of their entities.
+    const listed = decodedConfig?.state === "RUNNING" ? home?.listed : undefined;
     // One home, one change: a reader sees entities with their registries or none of it.
     batch(() => {
-      const moved = entities ? mergeEntities(entities, true) : [];
+      const moved = home ? mergeEntities(home.entities, listed) : [];
       const slices = {
         entityRegistry: decodeEntityRegistry(entityRegistry),
         devices: decodeDevices(devices),
@@ -107,7 +110,6 @@ export async function loadInitialData(conn: Pick<HaLink, "sendMessagePromise">):
       if (slices.areas) mergeSlice("areas", slices.areas);
       if (slices.floors) mergeSlice("floors", slices.floors);
       if (slices.labels) mergeSlice("labels", slices.labels);
-      const decodedConfig = decodeConfig(config);
       if (decodedConfig) mergeConfig(decodedConfig);
       appendMovedHistory(moved);
     });

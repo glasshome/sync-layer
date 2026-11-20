@@ -40,19 +40,18 @@ function writeFields(path: string[], stored: object | null | undefined, next: ob
 }
 
 /**
- * Entity rows by id; `null` removes one. With `complete`, `rows` is the whole home and any stored
- * entity missing from it is removed. Returns the stored rows that are new or whose state or
- * last_changed moved.
+ * Entity rows by id; `null` removes one. With `listed`, the ids of the whole home, a stored entity
+ * not in it is removed. Returns the stored rows that are new or whose state or last_changed moved.
  */
 export function mergeEntities(
   rows: Record<EntityId, HassEntity | null>,
-  complete = false,
+  listed?: ReadonlySet<EntityId>,
 ): HassEntity[] {
   const moved: EntityId[] = [];
   batch(() => {
     const gone = new Set(
-      Object.keys(unwrap(state.entities)).filter((id) =>
-        complete ? !rows[id] : rows[id] === null,
+      Object.keys(unwrap(state.entities)).filter(
+        (id) => rows[id] === null || (listed !== undefined && !listed.has(id)),
       ),
     );
     if (gone.size > 0)

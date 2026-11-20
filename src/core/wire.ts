@@ -233,17 +233,23 @@ function decodeList<T>(
 const field = (raw: unknown, key: string): unknown =>
   typeof raw === "object" && raw !== null ? (raw as Record<string, unknown>)[key] : undefined;
 
-export function decodeStates(raw: unknown): Record<string, HassEntity> | null {
+/** `get_states`; `listed` also holds the ids of rows that did not decode, so they are never taken as gone. */
+export function decodeStates(
+  raw: unknown,
+): { entities: Record<string, HassEntity>; listed: Set<string> } | null {
   if (!Array.isArray(raw)) {
     report("get_states", [{ path: [], message: "not a list" }]);
     return null;
   }
-  const out: Record<string, HassEntity> = {};
+  const entities: Record<string, HassEntity> = {};
+  const listed = new Set<string>();
   for (const row of raw) {
+    const id = field(row, "entity_id");
+    if (typeof id === "string") listed.add(id);
     const entity = decodeState(row);
-    if (entity) out[entity.entity_id] = entity;
+    if (entity) entities[entity.entity_id] = entity;
   }
-  return out;
+  return { entities, listed };
 }
 
 const Id = z.string().check(z.minLength(1));
