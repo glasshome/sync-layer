@@ -389,10 +389,22 @@ export class FakeHome {
     for (const push of this.eventSubs.get(eventType) ?? []) push(event);
   }
 
-  /** What home-assistant-js-websocket does on reconnect: every subscription is sent again and HA answers each with its snapshot. */
-  resubscribeAll(): void {
+  /**
+   * What home-assistant-js-websocket does on reconnect: every subscription is sent again and HA
+   * answers each with its snapshot. A type in `refused` errors, and the client drops it silently.
+   */
+  resubscribeAll(refused: string[] = []): void {
     for (const sub of this.entitySubs) if (sub.live) sub.push(this.snapshot(sub.ids));
-    for (const sub of this.messageSubs) if (sub.live) sub.push(this.messageSnapshot(sub.message));
+    for (const sub of this.messageSubs) {
+      if (!sub.live) continue;
+      if (refused.includes(String(sub.message.type))) sub.live = false;
+      else sub.push(this.messageSnapshot(sub.message));
+    }
+  }
+
+  /** Subscriptions of one message type Home Assistant is still answering. */
+  live(type: string): number {
+    return this.messageSubs.filter((sub) => sub.live && sub.message.type === type).length;
   }
 
   pushForecast(entityId: string): void {

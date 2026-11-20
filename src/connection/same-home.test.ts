@@ -344,7 +344,7 @@ describe("a value changed inside a row", () => {
 });
 
 describe("calendars across a reconnect", () => {
-  test("one subscribe per link, never loading again, no reader notified", async () => {
+  test("one live subscription, never loading again, no reader notified", async () => {
     const r = await connect({ calendars: ["calendar.family"] });
     cleanups.push(trackCalendarEvents("calendar.family"));
     await settle();
@@ -359,8 +359,23 @@ describe("calendars across a reconnect", () => {
 
     await reconnect();
 
-    expect(home.count("calendar/event/subscribe")).toBe(1);
+    expect(home.live("calendar/event/subscribe")).toBe(1);
     expect(loading).not.toContain(true);
+    expect(r.ran()).toEqual({});
+  });
+
+  test("a calendar Home Assistant refused to resubscribe is subscribed again", async () => {
+    const r = await connect({ calendars: ["calendar.family"] });
+    cleanups.push(trackCalendarEvents("calendar.family"));
+    await settle();
+    r.reset();
+
+    home.resubscribeAll(["calendar/event/subscribe"]);
+    await settle();
+    await reloadAfterBridgeReconnect(home.bridge());
+    await settle();
+
+    expect(home.live("calendar/event/subscribe")).toBe(1);
     expect(r.ran()).toEqual({});
   });
 });
@@ -376,6 +391,21 @@ describe("forecasts", () => {
     home.pushForecast("weather.home");
     await settle();
 
+    expect(r.ran()).toEqual({});
+  });
+
+  test("a forecast Home Assistant refused to resubscribe is subscribed again", async () => {
+    const r = await connect({ forecasts: ["weather.home"] });
+    cleanups.push(trackForecast("weather.home", "daily"));
+    await settle();
+    r.reset();
+
+    home.resubscribeAll(["weather/subscribe_forecast"]);
+    await settle();
+    await reloadAfterBridgeReconnect(home.bridge());
+    await settle();
+
+    expect(home.live("weather/subscribe_forecast")).toBe(1);
     expect(r.ran()).toEqual({});
   });
 
