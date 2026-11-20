@@ -235,6 +235,7 @@ describe("a home replayed to the dashboard", () => {
         const read =
           before?.state !== after?.state || !deepEqual(before?.attributes, after?.attributes);
         if (read) expect(r.ran()[`useEntity ${id}`]).toBe(1);
+        if (after?.last_updated !== before?.last_updated) expect(r.ran()[`entity ${id}`]).toBe(1);
       }),
       RUNS,
     );

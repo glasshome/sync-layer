@@ -5,7 +5,15 @@ import { resetCalendarTracking, trackCalendarEvents } from "../calendar/track";
 import { resetStore, state } from "../core/store";
 import { entityViewEquals, getEntityView } from "../entities/views";
 import { trackEntityHistory, untrackEntityHistory } from "../history/query";
-import { type FakeHome, SAMPLE_ENTITIES, sampleHome, settle } from "../testing/ha-wire";
+import { decodeState } from "../core/wire";
+import {
+  asDict,
+  type FakeHome,
+  type HaState,
+  SAMPLE_ENTITIES,
+  sampleHome,
+  settle,
+} from "../testing/ha-wire";
 import { mountReaders, type Readers, type Watched } from "../testing/readers";
 import { resetForecastTracking, trackForecast } from "../weather/track";
 import { attachBridgeToStore, detachBridgeFromStore, reloadAfterBridgeReconnect } from "./bridged";
@@ -193,6 +201,32 @@ describe("one changed entity", () => {
     await loadInitialData(home.conn);
 
     expect(state.entities["climate.bedroom"]).toBeUndefined();
+  });
+
+  test("a force_update write moves last_updated in the store", async () => {
+    await connect({ entities: ["sensor.temp"] });
+
+    home.set("sensor.temp", { forceUpdate: true });
+    await settle();
+
+    const sent = home.states.get("sensor.temp");
+    expect(state.entities["sensor.temp"]?.last_updated).toBe(
+      decodeState(asDict(sent as HaState))?.last_updated ?? "missing",
+    );
+  });
+
+  test("a force_update write missed while the link was down moves last_updated on reload", async () => {
+    await connect({ entities: ["sensor.temp"] });
+    home.offline = true;
+    home.set("sensor.temp", { forceUpdate: true });
+    home.offline = false;
+
+    await loadInitialData(home.conn);
+
+    const sent = home.states.get("sensor.temp");
+    expect(state.entities["sensor.temp"]?.last_updated).toBe(
+      decodeState(asDict(sent as HaState))?.last_updated ?? "missing",
+    );
   });
 
   test("a write that changes only the context leaves useEntity quiet", async () => {
