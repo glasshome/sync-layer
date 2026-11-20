@@ -4,10 +4,13 @@
  */
 
 import { batch } from "solid-js";
-import { produce, reconcile, unwrap } from "solid-js/store";
+import { produce, unwrap } from "solid-js/store";
 import { deepEqual } from "./equal";
 import { type GlassHomeState, setState, state } from "./store";
 import type { EntityId, HassEntity } from "./types";
+
+// One loose writer for the generic paths below; the signatures around it keep callers typed.
+const write = setState as unknown as (...path: unknown[]) => void;
 
 // Same state, same last_changed, same attributes: a heartbeat, kept out so no reader wakes for it.
 function sameReading(stored: HassEntity, next: HassEntity): boolean {
@@ -18,15 +21,33 @@ function sameReading(stored: HassEntity, next: HassEntity): boolean {
   );
 }
 
+// A stored value never changes in place: a changed field takes the new value and an equal one keeps
+// the stored value, so identity means unchanged for every value under a row.
+function writeFields(path: string[], stored: object | null | undefined, next: object): boolean {
+  if (!stored) {
+    write(...path, next);
+    return true;
+  }
+  const held = stored as Record<string, unknown>;
+  const patch: Record<string, unknown> = {};
+  for (const key of Object.keys(held)) if (!Object.hasOwn(next, key)) patch[key] = undefined;
+  for (const [key, value] of Object.entries(next))
+    if (!deepEqual(held[key], value)) patch[key] = value;
+  if (Object.keys(patch).length === 0) return false;
+  write(...path, patch);
+  return true;
+}
+
 /**
  * Entity rows by id; `null` removes one. With `complete`, `rows` is the whole home and any stored
- * entity missing from it is removed. Returns the new rows and those whose state or last_changed moved.
+ * entity missing from it is removed. Returns the stored rows that are new or whose state or
+ * last_changed moved.
  */
 export function mergeEntities(
   rows: Record<EntityId, HassEntity | null>,
   complete = false,
 ): HassEntity[] {
-  const moved: HassEntity[] = [];
+  const moved: EntityId[] = [];
   batch(() => {
     const gone = new Set(
       Object.keys(unwrap(state.entities)).filter((id) =>
@@ -45,11 +66,12 @@ export function mergeEntities(
       const stored = unwrap(state.entities)[id];
       if (stored && sameReading(stored, next)) continue;
       if (!stored || stored.state !== next.state || stored.last_changed !== next.last_changed)
-        moved.push(next);
-      setState("entities", id, stored ? reconcile(next) : next);
+        moved.push(id);
+      writeFields(["entities", id], stored, next);
     }
   });
-  return moved;
+  const stored = unwrap(state.entities);
+  return moved.flatMap((id) => stored[id] ?? []);
 }
 
 type Slice =
@@ -62,12 +84,20 @@ type Slice =
   | "forecasts";
 type Row<K extends Slice> = GlassHomeState[K][string];
 
-// One loose writer for the generic slice paths below; the signatures around it keep callers typed.
-const write = setState as unknown as (...path: unknown[]) => void;
-
 /** A whole slice as Home Assistant lists it: rows merge by value, rows it no longer lists go. */
 export function mergeSlice<K extends Slice>(slice: K, rows: Record<string, Row<K>>): void {
-  write(slice, reconcile(rows));
+  batch(() => {
+    const gone = Object.keys(unwrap(state[slice])).filter((id) => !Object.hasOwn(rows, id));
+    if (gone.length > 0)
+      write(
+        slice,
+        produce((map: Record<string, unknown>) => {
+          for (const id of gone) delete map[id];
+        }),
+      );
+    for (const [id, row] of Object.entries(rows))
+      writeFields([slice, id], storedRow(slice, id), row);
+  });
 }
 
 /** One row by value; `null` removes it. */
@@ -80,7 +110,7 @@ export function mergeRow<K extends Slice>(slice: K, id: string, row: Row<K> | nu
       );
     return;
   }
-  write(slice, id, reconcile(row));
+  writeFields([slice, id], storedRow(slice, id), row);
 }
 
 /** The stored row of a slice, unwrapped, for building the next one from. */
@@ -89,5 +119,5 @@ export function storedRow<K extends Slice>(slice: K, id: string): Row<K> | undef
 }
 
 export function mergeConfig(config: NonNullable<GlassHomeState["config"]>): void {
-  setState("config", reconcile(config));
+  writeFields(["config"], unwrap(state.config), config);
 }
