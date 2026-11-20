@@ -82,7 +82,14 @@ describe("subscribe_entities", () => {
 
   async function playing() {
     push({
-      a: { [ID]: { s: "playing", a: { entity_picture: REMOTE, entity_picture_local: LOCAL } } },
+      a: {
+        [ID]: {
+          s: "playing",
+          c: "ctx",
+          lc: 1_790_000_000,
+          a: { entity_picture: REMOTE, entity_picture_local: LOCAL },
+        },
+      },
     });
     await settle();
   }
@@ -117,7 +124,14 @@ describe("subscribe_entities", () => {
     await playing();
     const nextLocal = `/api/media_player_proxy/${ID}?token=abc&cache=333`;
     push({
-      a: { [ID]: { s: "playing", a: { entity_picture: REMOTE, entity_picture_local: nextLocal } } },
+      a: {
+        [ID]: {
+          s: "playing",
+          c: "ctx",
+          lc: 1_790_000_000,
+          a: { entity_picture: REMOTE, entity_picture_local: nextLocal },
+        },
+      },
     });
     await settle();
     expect(picture()).toBe(nextLocal);
