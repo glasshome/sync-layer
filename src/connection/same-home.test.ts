@@ -392,3 +392,19 @@ describe("registry events", () => {
     expect(home.count("config/entity_registry/get")).toBe(0);
   });
 });
+
+describe("history", () => {
+  test("a point shares the stored row's attributes, never a copy", async () => {
+    await connect({ entities: ["climate.bedroom"] });
+    await trackEntityHistory("climate.bedroom", {
+      startTime: new Date(Date.parse("2026-11-19T00:00:00Z")),
+    });
+    cleanups.push(() => untrackEntityHistory("climate.bedroom"));
+
+    home.set("climate.bedroom", { state: "off" });
+    await settle();
+
+    const point = unwrap(state.history["climate.bedroom"])?.timeline[0];
+    expect(point?.attributes).toBe(unwrap(state.entities["climate.bedroom"])?.attributes);
+  });
+});
