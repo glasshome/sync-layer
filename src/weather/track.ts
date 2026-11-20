@@ -1,7 +1,8 @@
-import { produce } from "solid-js/store";
+import { deepEqual } from "../core/equal";
+import { mergeRow, storedRow } from "../core/merge";
 import { privilegedConn } from "../core/privileged-conn";
-import { setState } from "../core/store";
 import type { EntityId } from "../core/types";
+import { decodeForecast } from "../core/wire";
 import { isDemoMode } from "../demo/demo-provider";
 import { buildDemoForecast } from "./fetch";
 import type { ForecastType, WeatherForecast } from "./types";
@@ -101,23 +102,15 @@ function write(
   forecast: WeatherForecast[] | null,
   error: Error | null,
 ) {
-  setState(
-    produce((s) => {
-      const rec = (s.forecasts[entityId] ??= {
-        entityId,
-        forecasts: {},
-        loading: {},
-        errors: {},
-        lastFetched: {},
-      });
-      if (forecast) {
-        rec.forecasts[type] = forecast;
-        rec.lastFetched[type] = Date.now();
-      }
-      rec.loading[type] = false;
-      rec.errors[type] = error;
-    }),
-  );
+  const held = storedRow("forecasts", entityId);
+  const changed = forecast !== null && !deepEqual(held?.forecasts[type], forecast);
+  mergeRow("forecasts", entityId, {
+    entityId,
+    forecasts: { ...held?.forecasts, ...(forecast ? { [type]: forecast } : {}) },
+    loading: { ...held?.loading, [type]: false },
+    errors: { ...held?.errors, [type]: error },
+    lastFetched: { ...held?.lastFetched, ...(changed ? { [type]: Date.now() } : {}) },
+  });
 }
 
 async function runReconcile(key: Key): Promise<void> {
@@ -148,8 +141,11 @@ async function runReconcile(key: Key): Promise<void> {
   const entry = { unsub: null as (() => void | Promise<void>) | null };
   active.set(key, entry);
   try {
-    entry.unsub = await conn.subscribeMessage<{ forecast: WeatherForecast[] | null }>(
-      (msg) => write(entityId, type, Array.isArray(msg?.forecast) ? msg.forecast : [], null),
+    entry.unsub = await conn.subscribeMessage<unknown>(
+      (msg) => {
+        const forecast = decodeForecast(msg);
+        if (forecast) write(entityId, type, forecast, null);
+      },
       { type: "weather/subscribe_forecast", entity_id: entityId, forecast_type: type },
     );
   } catch (err) {

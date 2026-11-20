@@ -1,6 +1,6 @@
-import { produce } from "solid-js/store";
-import { setState } from "../core/store";
-import type { EntityId } from "../core/types";
+import { produce, unwrap } from "solid-js/store";
+import { setLocalState, state } from "../core/store";
+import type { EntityId, HassEntity } from "../core/types";
 
 // ============================================
 // TYPES
@@ -28,7 +28,7 @@ export function appendHistoryPoint(
   lastUpdated: number,
   lastChanged?: number,
 ): void {
-  setState(
+  setLocalState(
     produce((s) => {
       const history = s.history[entityId];
       if (!history) return;
@@ -47,12 +47,12 @@ export function appendHistoryPoint(
 }
 
 /**
- * Append multiple history points in a single setState(produce(...)).
+ * Append multiple history points in one store write.
  * Called by the rAF-batched subscription flush.
  */
 export function bulkAppendHistoryPoints(points: HistoryPoint[]): void {
   if (points.length === 0) return;
-  setState(
+  setLocalState(
     produce((s) => {
       const touched = new Set<EntityId>();
       for (const { entityId, stateValue, attributes, lastUpdated, lastChanged } of points) {
@@ -88,4 +88,23 @@ export function bulkAppendHistoryPoints(points: HistoryPoint[]): void {
       }
     }),
   );
+}
+
+/** A point per tracked entity whose state or last_changed moved, stamped with Home Assistant's own times. */
+export function appendMovedHistory(moved: HassEntity[]): void {
+  const points: HistoryPoint[] = [];
+  for (const entity of moved) {
+    if (!unwrap(state.history)[entity.entity_id]) continue;
+    const lastUpdated = Date.parse(entity.last_updated) / 1000;
+    const lastChanged = Date.parse(entity.last_changed) / 1000;
+    if (Number.isNaN(lastUpdated)) continue;
+    points.push({
+      entityId: entity.entity_id,
+      stateValue: entity.state,
+      attributes: structuredClone(entity.attributes),
+      lastUpdated,
+      ...(Number.isNaN(lastChanged) ? {} : { lastChanged }),
+    });
+  }
+  bulkAppendHistoryPoints(points);
 }

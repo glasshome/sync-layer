@@ -1,8 +1,8 @@
-import { produce } from "solid-js/store";
+import { mergeRow, storedRow } from "../core/merge";
 import { privilegedConn } from "../core/privileged-conn";
-import { setState } from "../core/store";
 import type { EntityId } from "../core/types";
-import type { CalendarEvent, CalendarWindowOptions } from "./types";
+import { decodeCalendarEvents } from "../core/wire";
+import type { CalendarEventsData, CalendarWindowOptions } from "./types";
 
 /**
  * Ref-counted live calendar tracking, the per-entity analog of
@@ -165,11 +165,7 @@ async function runReconcile(entityId: EntityId): Promise<void> {
       }
     }
     chains.delete(entityId);
-    setState(
-      produce((s) => {
-        delete s.calendars[entityId];
-      }),
-    );
+    mergeRow("calendars", entityId, null);
     return;
   }
 
@@ -179,47 +175,34 @@ async function runReconcile(entityId: EntityId): Promise<void> {
   const win = windowFor(list);
   if (current?.unsub && current.start === win.start && current.end === win.end) return;
 
-  setState(
-    produce((s) => {
-      s.calendars[entityId] = {
-        entityId,
-        events: s.calendars[entityId]?.events ?? [],
-        loading: true,
-        error: null,
-        start: win.start,
-        end: win.end,
-      };
-    }),
-  );
+  const held = storedRow("calendars", entityId);
+  const loaded = held !== undefined && !held.loading && held.error === null;
+  mergeRow("calendars", entityId, {
+    entityId,
+    events: held?.events ?? [],
+    loading: !loaded,
+    error: null,
+    start: win.start,
+    end: win.end,
+  });
 
   const old = current?.unsub ?? null;
   const entry: ActiveSub = { start: win.start, end: win.end, unsub: null };
   active.set(entityId, entry);
   try {
-    entry.unsub = await conn.subscribeMessage<{ events: CalendarEvent[] }>(
+    entry.unsub = await conn.subscribeMessage<unknown>(
       (msg) => {
-        setState(
-          produce((s) => {
-            const rec = s.calendars[entityId];
-            if (!rec) return;
-            rec.events = msg.events ?? [];
-            rec.loading = false;
-            rec.error = null;
-          }),
-        );
+        const events = decodeCalendarEvents(msg);
+        if (events) amend(entityId, { events, loading: false, error: null });
       },
       { type: "calendar/event/subscribe", entity_id: entityId, start: win.start, end: win.end },
     );
   } catch (err) {
     active.delete(entityId);
-    setState(
-      produce((s) => {
-        const rec = s.calendars[entityId];
-        if (!rec) return;
-        rec.loading = false;
-        rec.error = err instanceof Error ? err : new Error(String(err));
-      }),
-    );
+    amend(entityId, {
+      loading: false,
+      error: err instanceof Error ? err : new Error(String(err)),
+    });
   }
   if (old) {
     try {
@@ -228,6 +211,11 @@ async function runReconcile(entityId: EntityId): Promise<void> {
       // Old subscription may already be dead.
     }
   }
+}
+
+function amend(entityId: EntityId, change: Partial<CalendarEventsData>): void {
+  const held = storedRow("calendars", entityId);
+  if (held) mergeRow("calendars", entityId, { ...held, ...change });
 }
 
 /** One timer for the whole module: at local midnight the day-quantized

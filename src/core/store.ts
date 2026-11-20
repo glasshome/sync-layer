@@ -157,26 +157,9 @@ const emptyState = (): GlassHomeState => ({
 // ============================================
 
 /**
- * Module-level SolidJS createStore singleton
- *
- * `state` is a read-only reactive proxy.
- * `setState` is used for mutations via produce() or direct path setting.
- *
- * @example
- * ```typescript
- * import { state, setState } from '@glasshome/sync-layer/core/store';
- *
- * // Read state (auto-tracked in SolidJS reactive contexts)
- * const entities = state.entities;
- *
- * // Mutate via produce
- * setState(produce((s) => {
- *   s.entities['light.living_room'] = newEntity;
- * }));
- *
- * // Bulk replace
- * setState("entities", reconcile(newEntities));
- * ```
+ * Module-level SolidJS createStore singleton. `state` is the read-only proxy. Package code writes
+ * Home Assistant's slices through `core/merge.ts` and its own state through `setLocalState`;
+ * `setState` stays exported for tests and the realm guest, which seed a store directly.
  */
 declare global {
   // eslint-disable-next-line no-var
@@ -195,6 +178,21 @@ globalThis.__GH_SYNC_LAYER_STORE__ = true;
 const storeTuple = createStore<GlassHomeState>(emptyState());
 export const state: Store<GlassHomeState> = storeTuple[0];
 export const setState: SetStoreFunction<GlassHomeState> = storeTuple[1];
+
+/** What Home Assistant sends; only `core/merge.ts` writes these, by key and value. */
+type HaSlice =
+  | "entities"
+  | "entityRegistry"
+  | "devices"
+  | "areas"
+  | "floors"
+  | "labels"
+  | "config"
+  | "calendars"
+  | "forecasts";
+
+/** The store's writer for state this package keeps itself; Home Assistant's slices are out of its type. */
+export const setLocalState = setState as unknown as SetStoreFunction<Omit<GlassHomeState, HaSlice>>;
 
 // ============================================
 // STORE UTILITIES

@@ -5,7 +5,7 @@
  */
 
 import { produce } from "solid-js/store";
-import { setState, state } from "../core/store";
+import { setLocalState, state } from "../core/store";
 import type { EntityId } from "../core/types";
 import { fetchStreamData } from "./fetch";
 import type { CameraStreamData, EntityStreamQueryOptions, StreamFormat } from "./types";
@@ -35,7 +35,7 @@ export async function getStream(
     if (autoRefresh && needsStreamRefresh(cached, refreshInterval)) {
       void fetchStreamData(entityId, { format, autoRefresh, refreshInterval }).then(
         (streamData) => {
-          setState(
+          setLocalState(
             produce((s) => {
               s.streams[entityId] = streamData;
             }),
@@ -48,7 +48,7 @@ export async function getStream(
 
   const streamData = await fetchStreamData(entityId, { format, autoRefresh, refreshInterval });
 
-  setState(
+  setLocalState(
     produce((s) => {
       s.streams[entityId] = streamData;
     }),
@@ -64,7 +64,7 @@ export async function refreshStream(
   entityId: EntityId,
   format: StreamFormat = "hls",
 ): Promise<CameraStreamData> {
-  setState(
+  setLocalState(
     produce((s) => {
       delete s.streams[entityId];
     }),

@@ -6,6 +6,8 @@ import {
   withDeadline,
 } from "@glasshome/widget-contract/clock";
 import { type Connection, createConnection, createSocket } from "home-assistant-js-websocket";
+import { coalesce } from "../core/coalesce";
+import { decodeDevices, decodeEntityRegistry } from "../core/wire";
 import { enforceServiceCall, RegistryMirror } from "./enforcement";
 import type {
   MainToWorker,
@@ -103,22 +105,16 @@ export function runHaBridgeWorker(scope: WorkerScope): void {
 
   async function loadRegistryMirror(c: Connection): Promise<void> {
     const [entityRegistry, deviceRegistry] = await Promise.all([
-      c.sendMessagePromise<
-        { entity_id: string; device_id: string | null; area_id: string | null; labels?: string[] }[]
-      >({ type: "config/entity_registry/list" }),
-      c.sendMessagePromise<{ id: string; area_id: string | null; labels?: string[] }[]>({
-        type: "config/device_registry/list",
-      }),
+      c.sendMessagePromise<unknown>({ type: "config/entity_registry/list" }),
+      c.sendMessagePromise<unknown>({ type: "config/device_registry/list" }),
     ]);
-    registry.replace(entityRegistry, deviceRegistry);
+    const entities = decodeEntityRegistry(entityRegistry);
+    const devices = decodeDevices(deviceRegistry);
+    if (entities && devices) registry.replace(Object.values(entities), Object.values(devices));
   }
 
   function watchRegistryMirror(c: Connection): void {
-    const refresh = () => {
-      loadRegistryMirror(c).catch(() => {
-        // Transient; the next registry event or reconnect retries.
-      });
-    };
+    const refresh = coalesce(() => loadRegistryMirror(c));
     const watchFailed = (err: unknown) => console.error("registry mirror watch failed:", err);
     c.subscribeEvents(refresh, "entity_registry_updated").catch(watchFailed);
     c.subscribeEvents(refresh, "device_registry_updated").catch(watchFailed);

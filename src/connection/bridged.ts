@@ -1,6 +1,7 @@
 import { produce } from "solid-js/store";
 import { forceResubscribeCalendars } from "../calendar/track";
-import { setState } from "../core/store";
+import { forceResubscribeForecasts } from "../weather/track";
+import { setLocalState } from "../core/store";
 import type { HaBridge } from "../worker/bridge-client";
 import { loadInitialData } from "./manager";
 import { forceResubscribe } from "./subscription-manager";
@@ -20,7 +21,7 @@ export async function attachBridgeToStore(
   hassUrl: string,
   mediaProxyBase?: string,
 ): Promise<void> {
-  setState(
+  setLocalState(
     produce((s) => {
       setPrivilegedConn(bridge.conn);
       s.hassUrl = hassUrl.replace(/\/$/, "");
@@ -32,14 +33,14 @@ export async function attachBridgeToStore(
 
   await loadInitialData(bridge.conn);
   await subscribeToUpdates(bridge.conn);
-  await forceResubscribeCalendars();
+  await Promise.all([forceResubscribeCalendars(), forceResubscribeForecasts()]);
 }
 
 /** Map worker connection-state messages onto the store. */
 export function applyBridgeConnState(
   state: "connecting" | "connected" | "disconnected" | "reconnecting",
 ): void {
-  setState(
+  setLocalState(
     produce((s) => {
       s.connectionState = state;
       if (state === "connected") s.connectionError = null;
@@ -47,16 +48,18 @@ export function applyBridgeConnState(
   );
 }
 
-/** Re-sync after the worker reports a completed reconnect. */
+/**
+ * Re-sync after the worker reports a completed reconnect. The worker's client already sent every
+ * subscription again, calendars and forecasts included, so only the lists are reloaded here.
+ */
 export async function reloadAfterBridgeReconnect(bridge: HaBridge): Promise<void> {
   await loadInitialData(bridge.conn);
   await forceResubscribe();
-  await forceResubscribeCalendars();
 }
 
 /** Detach on shutdown; the caller terminates the worker itself. */
 export function detachBridgeFromStore(): void {
-  setState(
+  setLocalState(
     produce((s) => {
       setPrivilegedConn(null);
       s.connectionState = "disconnected";

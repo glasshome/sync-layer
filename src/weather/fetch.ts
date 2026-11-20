@@ -4,6 +4,7 @@
  * @packageDocumentation
  */
 
+import { decodeForecast } from "../core/wire";
 import { privilegedConn } from "../core/privileged-conn";
 import { state } from "../core/store";
 import type { EntityId } from "../core/types";
@@ -136,8 +137,7 @@ export async function fetchForecast(
           if (event && typeof event === "object" && "forecast" in event) {
             resolved = true;
             clearTimeout(timeout);
-            const forecast = event.forecast;
-            const forecastArray = Array.isArray(forecast) ? forecast : [];
+            const forecastArray = decodeForecast(event) ?? [];
             if (unsubscribe) {
               unsubscribe()
                 .then(() => resolve(forecastArray))

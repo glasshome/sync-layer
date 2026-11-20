@@ -10,8 +10,9 @@
 import type { EntityRegistryEntry } from "@glasshome/ha-types";
 import { type Clock, systemClock, type TimerHandle } from "@glasshome/widget-contract/clock";
 import { batch } from "solid-js";
-import { produce, reconcile } from "solid-js/store";
-import { setState } from "../core/store";
+import { unwrap } from "solid-js/store";
+import { mergeEntities, mergeSlice } from "../core/merge";
+import { setLocalState, state } from "../core/store";
 import type { AreaRegistryEntry, DeviceRegistryEntry, HassEntity } from "../core/types";
 import { extractDomain } from "../core/types";
 import { bulkAppendHistoryPoints, type HistoryPoint } from "../history/points";
@@ -316,43 +317,28 @@ function publish(s: DemoSession, force: ReadonlySet<string>): void {
   const iso = new Date(simMs).toISOString();
   const luSeconds = Math.round(timeMapOf(s).toWall(simMs) / 1000);
   const points: HistoryPoint[] = [];
-  setState(
-    produce((st) => {
-      for (const [entityId, p] of due) {
-        const attributes = attributesOf(s.generated, entityId, p);
-        const e = st.entities[entityId];
-        const changed = e?.state !== p.state;
-        if (!e) {
-          st.entities[entityId] = {
-            entity_id: entityId,
-            state: p.state,
-            attributes,
-            last_changed: iso,
-            last_updated: iso,
-            context: nextContext(),
-          };
-        } else {
-          if (changed) e.last_changed = iso;
-          e.state = p.state;
-          for (const key of Object.keys(e.attributes))
-            if (!(key in attributes)) delete e.attributes[key];
-          for (const [key, value] of Object.entries(attributes)) {
-            if (!sameValue(e.attributes[key], value)) e.attributes[key] = value;
-          }
-          e.last_updated = iso;
-          e.context = nextContext();
-        }
-        s.published.set(entityId, { projection: p, wallMs });
-        points.push({
-          entityId,
-          stateValue: p.state,
-          attributes: p.attributes,
-          lastUpdated: luSeconds,
-          ...(changed ? { lastChanged: luSeconds } : {}),
-        });
-      }
-    }),
-  );
+  const rows: Record<string, HassEntity> = {};
+  for (const [entityId, p] of due) {
+    const e = unwrap(state.entities)[entityId];
+    const changed = e?.state !== p.state;
+    rows[entityId] = {
+      entity_id: entityId,
+      state: p.state,
+      attributes: attributesOf(s.generated, entityId, p),
+      last_changed: e && !changed ? e.last_changed : iso,
+      last_updated: iso,
+      context: nextContext(),
+    };
+    s.published.set(entityId, { projection: p, wallMs });
+    points.push({
+      entityId,
+      stateValue: p.state,
+      attributes: p.attributes,
+      lastUpdated: luSeconds,
+      ...(changed ? { lastChanged: luSeconds } : {}),
+    });
+  }
+  mergeEntities(rows);
   bulkAppendHistoryPoints(points);
 }
 
@@ -425,16 +411,13 @@ export async function loadDemoHouse(opts: DemoHouseOptions): Promise<void> {
   const { registry } = generated;
   // One home, one change: a reader sees the whole demo home or none of it.
   batch(() => {
-    setState(
-      "entities",
-      reconcile(toEntities(generated, projections, new Date(clock.startMs).toISOString())),
-    );
-    setState("entityRegistry", reconcile(registry.entityRegistry));
-    setState("areas", reconcile(registry.areas));
-    setState("floors", reconcile(registry.floors));
-    setState("devices", reconcile(registry.devices));
-    setState("hassUrl", DEMO_HASS_URL);
-    setState("connectionState", "connected");
+    mergeEntities(toEntities(generated, projections, new Date(clock.startMs).toISOString()), true);
+    mergeSlice("entityRegistry", registry.entityRegistry);
+    mergeSlice("areas", registry.areas);
+    mergeSlice("floors", registry.floors);
+    mergeSlice("devices", registry.devices);
+    setLocalState("hassUrl", DEMO_HASS_URL);
+    setLocalState("connectionState", "connected");
   });
 
   session = {
@@ -459,13 +442,13 @@ export function unloadDemoData(): void {
   setWorld(worldFor("UTC", 1, 0));
 
   batch(() => {
-    setState("entities", reconcile({}));
-    setState("entityRegistry", reconcile({}));
-    setState("areas", reconcile({}));
-    setState("floors", reconcile({}));
-    setState("devices", reconcile({}));
-    setState("hassUrl", null);
-    setState("connectionState", "disconnected");
+    mergeEntities({}, true);
+    mergeSlice("entityRegistry", {});
+    mergeSlice("areas", {});
+    mergeSlice("floors", {});
+    mergeSlice("devices", {});
+    setLocalState("hassUrl", null);
+    setLocalState("connectionState", "disconnected");
   });
 }
 
