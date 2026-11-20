@@ -203,6 +203,39 @@ describe("one changed entity", () => {
     expect(state.entities["climate.bedroom"]).toBeUndefined();
   });
 
+  test("a row Home Assistant sends unreadable keeps the last good one", async () => {
+    await connect({ entities: SAMPLE_ENTITIES });
+    const held = row("climate.bedroom");
+    const conn = {
+      sendMessagePromise: async <T>(message: { type: string }): Promise<T> => {
+        const reply = await home.conn.sendMessagePromise<unknown>(message);
+        if (message.type !== "get_states") return reply as T;
+        return (reply as { entity_id: string }[]).map((r) =>
+          r.entity_id === "climate.bedroom" ? { ...r, state: 21 } : r,
+        ) as T;
+      },
+    };
+
+    await loadInitialData(conn);
+
+    expect(row("climate.bedroom")).toEqual(held);
+  });
+
+  test("while Home Assistant starts, a reload removes nothing it does not list yet", async () => {
+    await connect({ entities: SAMPLE_ENTITIES });
+    home.offline = true;
+    home.remove("climate.bedroom");
+    home.config = { ...home.config, state: "NOT_RUNNING" };
+    home.offline = false;
+
+    await loadInitialData(home.conn);
+    expect(state.entities["climate.bedroom"]).toBeDefined();
+
+    home.config = { ...home.config, state: "RUNNING" };
+    await loadInitialData(home.conn);
+    expect(state.entities["climate.bedroom"]).toBeUndefined();
+  });
+
   test("a force_update write moves last_updated in the store", async () => {
     await connect({ entities: ["sensor.temp"] });
 
