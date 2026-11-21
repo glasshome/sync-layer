@@ -13,6 +13,7 @@
  * @packageDocumentation
  */
 
+import { deepEqual } from "../core/equal";
 import { createShared } from "../core/shared";
 import { state } from "../core/store";
 import type {
@@ -112,6 +113,20 @@ export function buildDeviceView(device: DeviceRegistryEntry): DeviceView {
 // AREA VIEW BUILDER
 // ============================================
 
+const settledKeys = (view: AreaView) => Object.keys(view).filter((key) => key !== "entities");
+
+/** Equal when every field but the lazy `entities` is equal by value; comparing never reads entity state. */
+export function areaViewEquals(a: AreaView | undefined, b: AreaView | undefined): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const keys = settledKeys(a);
+  const pick = (view: AreaView, key: string) => (view as unknown as Record<string, unknown>)[key];
+  return (
+    keys.length === settledKeys(b).length &&
+    keys.every((key) => deepEqual(pick(a, key), pick(b, key)))
+  );
+}
+
 /** Assemble an AreaView from pre-resolved membership. `entities` is a lazy
  *  getter: materializing live EntityViews reads entity state, so deferring it
  *  keeps callers that only need names/ids/counts off the per-state-tick
@@ -137,8 +152,8 @@ function assembleAreaView(areaId: AreaId, membership: AreaMembership): AreaView 
     labels: Array.isArray(area.labels) ? area.labels : [],
     temperatureEntityId: area.temperature_entity_id ?? null,
     humidityEntityId: area.humidity_entity_id ?? null,
-    createdAt: area.created_at ?? new Date().toISOString(),
-    modifiedAt: area.modified_at ?? new Date().toISOString(),
+    createdAt: area.created_at ?? "",
+    modifiedAt: area.modified_at ?? "",
     devices,
     entityIds,
     deviceIds: devices.map((d) => d.id),

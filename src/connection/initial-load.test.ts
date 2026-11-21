@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createMemo, createRoot } from "solid-js";
 import { resetStore, state } from "../core/store";
+import { configWire } from "../testing/ha-wire";
 import { loadInitialData } from "./manager";
 
 const now = "2026-01-01T00:00:00.000Z";
@@ -23,7 +24,7 @@ const answers: Record<string, unknown> = {
   ],
   "config/floor_registry/list": [{ floor_id: "ground", name: "Ground" }],
   "config/label_registry/list": [{ label_id: "fav", name: "Favourite" }],
-  get_config: { language: "en" },
+  get_config: configWire(),
 };
 
 const home = {

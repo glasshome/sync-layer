@@ -12,11 +12,20 @@ const reconnects: number[] = [];
 const listeners = new Map<string, Array<() => void>>();
 const emit = (type: string) => listeners.get(type)?.forEach((fn) => fn());
 
+const sent: string[] = [];
+const haEvents = new Map<string, Array<() => void>>();
+
 const fakeConnection = {
   addEventListener: (type: string, fn: () => void) =>
     void listeners.set(type, [...(listeners.get(type) ?? []), fn]),
-  sendMessagePromise: async () => [],
-  subscribeEvents: async () => () => {},
+  sendMessagePromise: async (message: { type: string }) => {
+    sent.push(message.type);
+    return [];
+  },
+  subscribeEvents: async (fn: () => void, type: string) => {
+    haEvents.set(type, [...(haEvents.get(type) ?? []), fn]);
+    return () => {};
+  },
   ping: () => (pings.shift() ?? (() => Promise.resolve("pong")))(),
   reconnect: () => void reconnects.push(1),
   close: () => {},
@@ -32,6 +41,7 @@ const { runHaBridgeWorker } = await import("./worker-main");
 
 async function startWorker() {
   listeners.clear();
+  haEvents.clear();
   const clock = createManualClock(0);
   const posted: WorkerToMain[] = [];
   const scope = {
@@ -88,5 +98,25 @@ describe("worker heartbeat", () => {
     pings.push(() => Promise.reject(new Error("closed")));
     await clock.advance(HEARTBEAT_INTERVAL_MS);
     expect(reconnects.length).toBe(1);
+  });
+});
+
+describe("worker registry mirror", () => {
+  test("a burst of registry events costs one fetch of each list", async () => {
+    await startWorker();
+    for (let i = 0; i < 50; i++) await null;
+    sent.length = 0;
+
+    for (let i = 0; i < 5; i++)
+      for (const type of [
+        "entity_registry_updated",
+        "device_registry_updated",
+        "area_registry_updated",
+      ])
+        for (const fire of haEvents.get(type) ?? []) fire();
+    for (let i = 0; i < 50; i++) await null;
+
+    expect(sent.filter((t) => t === "config/entity_registry/list")).toHaveLength(1);
+    expect(sent.filter((t) => t === "config/device_registry/list")).toHaveLength(1);
   });
 });

@@ -4,11 +4,44 @@
  * @packageDocumentation
  */
 
-import { produce } from "solid-js/store";
-import { setState, state } from "../core/store";
+import { mergeRow, storedRow } from "../core/merge";
+import { state } from "../core/store";
 import type { EntityId } from "../core/types";
 import { fetchForecastData, fetchForecasts } from "./fetch";
 import type { ForecastType, WeatherForecastData, WeatherForecastsData } from "./types";
+
+type Entry = Pick<WeatherForecastData, "forecast" | "loading" | "error" | "lastFetched">;
+
+/** Sets, or with `null` drops, the given forecast types of one entity, leaving the others as stored. */
+function writeTypes(
+  entityId: EntityId,
+  entries: Partial<Record<ForecastType, Entry | null>>,
+): void {
+  const held = storedRow("forecasts", entityId);
+  if (!held && Object.values(entries).every((e) => e === null)) return;
+  const next: WeatherForecastsData = {
+    entityId,
+    forecasts: { ...held?.forecasts },
+    loading: { ...held?.loading },
+    errors: { ...held?.errors },
+    lastFetched: { ...held?.lastFetched },
+  };
+  for (const [key, entry] of Object.entries(entries)) {
+    const type = key as ForecastType;
+    if (entry) {
+      next.forecasts[type] = entry.forecast;
+      next.loading[type] = entry.loading;
+      next.errors[type] = entry.error;
+      next.lastFetched[type] = entry.lastFetched;
+    } else {
+      delete next.forecasts[type];
+      delete next.loading[type];
+      delete next.errors[type];
+      delete next.lastFetched[type];
+    }
+  }
+  mergeRow("forecasts", entityId, next);
+}
 
 /**
  * Get forecast for a single entity and type
@@ -31,24 +64,7 @@ export async function getForecast(
   }
 
   const forecastData = await fetchForecastData(entityId, type);
-
-  setState(
-    produce((s) => {
-      if (!s.forecasts[entityId]) {
-        s.forecasts[entityId] = {
-          entityId,
-          forecasts: {},
-          loading: {},
-          errors: {},
-          lastFetched: {},
-        };
-      }
-      s.forecasts[entityId].forecasts[type] = forecastData.forecast;
-      s.forecasts[entityId].loading[type] = forecastData.loading;
-      s.forecasts[entityId].errors[type] = forecastData.error;
-      s.forecasts[entityId].lastFetched[type] = forecastData.lastFetched;
-    }),
-  );
+  writeTypes(entityId, { [type]: forecastData });
 
   return forecastData;
 }
@@ -84,24 +100,19 @@ export async function getForecasts(
   if (typesToFetch.length > 0) {
     fetchedData = await fetchForecasts(entityId, typesToFetch);
 
-    setState(
-      produce((s) => {
-        if (!s.forecasts[entityId]) {
-          s.forecasts[entityId] = {
-            entityId,
-            forecasts: {},
-            loading: {},
-            errors: {},
-            lastFetched: {},
-          };
-        }
-        for (const type of typesToFetch) {
-          s.forecasts[entityId].forecasts[type] = fetchedData.forecasts[type] ?? [];
-          s.forecasts[entityId].loading[type] = fetchedData.loading[type] ?? false;
-          s.forecasts[entityId].errors[type] = fetchedData.errors[type] ?? null;
-          s.forecasts[entityId].lastFetched[type] = fetchedData.lastFetched[type] ?? null;
-        }
-      }),
+    writeTypes(
+      entityId,
+      Object.fromEntries(
+        typesToFetch.map((type) => [
+          type,
+          {
+            forecast: fetchedData.forecasts[type] ?? [],
+            loading: fetchedData.loading[type] ?? false,
+            error: fetchedData.errors[type] ?? null,
+            lastFetched: fetchedData.lastFetched[type] ?? null,
+          },
+        ]),
+      ),
     );
 
     for (const type of types) {
@@ -135,16 +146,7 @@ export async function refreshForecast(
   entityId: EntityId,
   type: ForecastType,
 ): Promise<WeatherForecastData> {
-  setState(
-    produce((s) => {
-      if (s.forecasts[entityId]) {
-        delete s.forecasts[entityId].forecasts[type];
-        delete s.forecasts[entityId].loading[type];
-        delete s.forecasts[entityId].errors[type];
-        delete s.forecasts[entityId].lastFetched[type];
-      }
-    }),
-  );
+  writeTypes(entityId, { [type]: null });
 
   return getForecast(entityId, type);
 }
@@ -156,18 +158,7 @@ export async function refreshForecasts(
   entityId: EntityId,
   types: ForecastType[],
 ): Promise<WeatherForecastsData> {
-  setState(
-    produce((s) => {
-      if (s.forecasts[entityId]) {
-        for (const type of types) {
-          delete s.forecasts[entityId].forecasts[type];
-          delete s.forecasts[entityId].loading[type];
-          delete s.forecasts[entityId].errors[type];
-          delete s.forecasts[entityId].lastFetched[type];
-        }
-      }
-    }),
-  );
+  writeTypes(entityId, Object.fromEntries(types.map((type) => [type, null])));
 
   return getForecasts(entityId, types);
 }

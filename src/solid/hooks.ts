@@ -35,7 +35,7 @@ import type {
 // has a runtime detector for exactly this (`__GH_SYNC_LAYER_STORE__`) and it
 // fires the moment one module reaches the store relatively. Same class as
 // finding 45, inside the package this time. Reach your own modules by path.
-import { buildAreaView, getAreaViews } from "../entities/area-views";
+import { areaViewEquals, buildAreaView, getAreaViews } from "../entities/area-views";
 import { entityViewEquals, getEntityView } from "../entities/views";
 import { callService, toggle, turnOff, turnOn } from "../commands/service";
 import { registerEntity } from "../connection/subscription-manager";
@@ -240,15 +240,19 @@ export function useAreas(): Accessor<AreaView[]> {
 export function useArea(areaId: Accessor<string> | string): Accessor<AreaView | undefined> {
   const getId = typeof areaId === "function" ? areaId : () => areaId;
 
-  const view = createMemo(() => {
-    const id = getId();
-    if (!id || !state.areas[id]) return undefined;
-    try {
-      return buildAreaView(id);
-    } catch {
-      return undefined;
-    }
-  });
+  const view = createMemo(
+    () => {
+      const id = getId();
+      if (!id || !state.areas[id]) return undefined;
+      try {
+        return buildAreaView(id);
+      } catch {
+        return undefined;
+      }
+    },
+    undefined,
+    { equals: areaViewEquals },
+  );
 
   // Register resolved entity IDs from the area
   createEffect(() => {

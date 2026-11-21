@@ -2,6 +2,7 @@
  * every tracked reader (see `core/shared.ts`); treat the returned records as read-only. */
 
 import type { Accessor } from "solid-js";
+import { deepEqual } from "../core/equal";
 import { createShared } from "../core/shared";
 // Relative for the same reason as solid/hooks.ts: a value import from this
 // package's own entry loads a second copy of the store.
@@ -12,7 +13,7 @@ type EntityIdsBy = Record<string, string[]>;
 
 // Solid calls an accessor with its previous value; the shared computation would take that as a key.
 function sharedIndex(compute: () => EntityIdsBy): Accessor<EntityIdsBy> {
-  const shared = createShared<void, EntityIdsBy>(compute);
+  const shared = createShared<void, EntityIdsBy>(compute, { equals: deepEqual });
   return () => shared();
 }
 

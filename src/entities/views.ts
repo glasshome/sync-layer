@@ -10,6 +10,7 @@
 import type { EntityRegistryEntry } from "@glasshome/ha-types";
 import { $TRACK } from "solid-js";
 import { unwrap } from "solid-js/store";
+import { deepEqual } from "../core/equal";
 import { state } from "../core/store";
 import type { AreaId, EntityId, EntityView, HassEntity } from "../core/types";
 import { extractDomain } from "../core/types";
@@ -161,24 +162,11 @@ export function getAllEntityViews(): EntityView[] {
   return getEntityViews(Object.keys(state.entities));
 }
 
-/**
- * Shallow equality check for EntityView.
- * Compares fields that affect rendering; skips lastUpdated (heartbeat noise).
- */
+/** Equal when everything a reader renders is equal by value; lastUpdated and context are heartbeat noise. */
 export function entityViewEquals(a: EntityView | undefined, b: EntityView | undefined): boolean {
   if (a === b) return true;
   if (!a || !b) return false;
-  return (
-    a.id === b.id &&
-    a.state === b.state &&
-    a.lastChanged.getTime() === b.lastChanged.getTime() &&
-    a.name === b.name &&
-    a.friendlyName === b.friendlyName &&
-    a.areaId === b.areaId &&
-    a.deviceId === b.deviceId &&
-    a.icon === b.icon &&
-    a.isDisabled === b.isDisabled &&
-    a.isHidden === b.isHidden &&
-    a.attributes === b.attributes
-  );
+  const { lastChanged: changedA, lastUpdated: _updatedA, context: _contextA, ...restA } = a;
+  const { lastChanged: changedB, lastUpdated: _updatedB, context: _contextB, ...restB } = b;
+  return Object.is(changedA.getTime(), changedB.getTime()) && deepEqual(restA, restB);
 }

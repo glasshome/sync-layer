@@ -7,97 +7,31 @@
  * @packageDocumentation
  */
 
-import type { AreaEntry, EntityRegistryEntry, HassConfig, HAEvent } from "@glasshome/ha-types";
-import { produce } from "solid-js/store";
+import type { HAEvent } from "@glasshome/ha-types";
+import { unwrap } from "solid-js/store";
+import { coalesce } from "../core/coalesce";
+import { mergeConfig, mergeEntities, mergeSlice } from "../core/merge";
+import { privilegedConn } from "../core/privileged-conn";
+import { updateStatisticsMetadata } from "../core/reducers";
+import { state } from "../core/store";
+import type { EntityId, HassEntity, StatisticMetadata } from "../core/types";
 import {
-  removeArea,
-  removeDevice,
-  removeEntityRegistry,
-  removeFloor,
-  removeLabel,
-  updateArea,
-  updateDevice,
-  updateEntityRegistry,
-  updateFloor,
-  updateLabel,
-  updateStatisticsMetadata,
-} from "../core/reducers";
-import { setState } from "../core/store";
-import type {
-  DeviceRegistryEntry,
-  EntityId,
-  FloorRegistryEntry,
-  LabelRegistryEntry,
-  StatisticMetadata,
-} from "../core/types";
-import { bulkAppendHistoryPoints, type HistoryPoint } from "../history/points";
-import { isHistoryTracked } from "../history/query";
-import { preferLocalPicture } from "../media/local-picture";
+  applyDiff,
+  decodeAreas,
+  decodeCompressed,
+  decodeConfig,
+  decodeDevices,
+  decodeEntitiesMessage,
+  decodeEntityRegistry,
+  decodeFloors,
+  decodeLabels,
+} from "../core/wire";
+import { appendMovedHistory } from "../history/points";
 import { setManagerConnection, setResubscribeHandler } from "./subscription-manager";
 import type { SyncLayerConnection } from "./types";
-import { privilegedConn } from "../core/privileged-conn";
-
-// ============================================
-// EVENT DATA TYPES
-// ============================================
-
-interface RegistryUpdateData {
-  action: "create" | "update" | "remove";
-  entity_id: string;
-}
-
-interface DeviceRegistryUpdateData {
-  action: "create" | "update" | "remove";
-  device_id: string;
-}
-
-interface AreaRegistryUpdateData {
-  action: "create" | "update" | "remove";
-  area_id: string;
-}
-
-interface FloorRegistryUpdateData {
-  action: "create" | "update" | "remove";
-  floor_id: string;
-}
-
-interface LabelRegistryUpdateData {
-  action: "create" | "update" | "remove";
-  label_id: string;
-}
 
 interface StatisticsUpdateData {
   statistic_ids?: string[];
-}
-
-// ============================================
-// SUBSCRIBE_ENTITIES MESSAGE TYPES
-// ============================================
-
-interface SubscribeEntitiesMessage {
-  a?: Record<string, CompressedEntityState>;
-  c?: Record<string, EntityStateDiff>;
-  r?: string[];
-}
-
-interface CompressedEntityState {
-  s?: string;
-  state?: string;
-  a?: Record<string, unknown>;
-  attributes?: Record<string, unknown>;
-  c?: { id: string; parent_id: string | null; user_id: string | null };
-  context?: { id: string; parent_id: string | null; user_id: string | null };
-  lc?: number;
-  last_changed?: string;
-  lu?: number;
-  last_updated?: string;
-}
-
-interface EntityStateDiff {
-  "+"?: Partial<CompressedEntityState>;
-  "-"?: {
-    a?: string[];
-  };
 }
 
 // ============================================
@@ -112,10 +46,10 @@ let registrySubscriptions: (() => Promise<void> | void)[] = [];
 // ============================================
 
 /** Buffered messages waiting for next animation frame */
-let messageBuffer: SubscribeEntitiesMessage[] = [];
+let messageBuffer: unknown[] = [];
 let rafScheduled = false;
 
-function bufferMessage(message: SubscribeEntitiesMessage): void {
+function bufferMessage(message: unknown): void {
   messageBuffer.push(message);
   if (!rafScheduled) {
     rafScheduled = true;
@@ -132,48 +66,23 @@ function flushMessageBuffer(): void {
   messageBuffer = [];
   if (messages.length === 0) return;
 
-  // Single setState(produce) for all buffered messages
-  setState(
-    produce((s) => {
-      for (const message of messages) {
-        if (message.a) {
-          for (const [entityId, compressedState] of Object.entries(message.a)) {
-            applyCompressedState(s, entityId, compressedState);
-          }
-        }
-        if (message.c) {
-          for (const [entityId, diff] of Object.entries(message.c)) {
-            applyStateDiff(s, entityId, diff);
-          }
-        }
-        if (message.r) {
-          for (const entityId of message.r) {
-            delete s.entities[entityId];
-          }
-        }
-      }
-    }),
-  );
-
-  // Batch history appends
-  const historyPoints: HistoryPoint[] = [];
-  for (const message of messages) {
-    if (message.a) {
-      for (const [entityId, compressedState] of Object.entries(message.a)) {
-        collectHistoryFromCompressed(historyPoints, entityId, compressedState);
-      }
+  const rows: Record<EntityId, HassEntity | null> = {};
+  const current = (id: EntityId) => (id in rows ? rows[id] : unwrap(state.entities)[id]);
+  for (const raw of messages) {
+    const message = decodeEntitiesMessage(raw);
+    if (!message) continue;
+    for (const [id, added] of Object.entries(message.a ?? {})) {
+      const entity = decodeCompressed(id, added);
+      if (entity) rows[id] = entity;
     }
-    if (message.c) {
-      for (const [entityId, diff] of Object.entries(message.c)) {
-        if (diff["+"]) {
-          collectHistoryFromDiff(historyPoints, entityId, diff["+"]);
-        }
-      }
+    for (const [id, diff] of Object.entries(message.c ?? {})) {
+      const prev = current(id);
+      const entity = prev && applyDiff(prev, diff);
+      if (entity) rows[id] = entity;
     }
+    for (const id of message.r ?? []) rows[id] = null;
   }
-  if (historyPoints.length > 0) {
-    bulkAppendHistoryPoints(historyPoints);
-  }
+  appendMovedHistory(mergeEntities(rows));
 }
 
 // ============================================
@@ -195,7 +104,7 @@ async function subscribeEntities(
     subscribeMsg.entity_ids = entityIds;
   }
 
-  const unsub = await connection.subscribeMessage((message: SubscribeEntitiesMessage) => {
+  const unsub = await connection.subscribeMessage((message: unknown) => {
     bufferMessage(message);
   }, subscribeMsg);
   return unsub;
@@ -216,47 +125,15 @@ export async function subscribeToUpdates(conn: SyncLayerConnection): Promise<voi
   setManagerConnection(conn);
   setResubscribeHandler(subscribeEntities);
 
-  // Subscribe to registry_updated events
-  const registryUpdatedSub = await conn.subscribeEvents((event) => {
-    void handleRegistryUpdate(event as HAEvent<RegistryUpdateData>);
-  }, "entity_registry_updated");
-  registrySubscriptions.push(() => registryUpdatedSub());
+  for (const [eventType, refresh] of Object.entries(REFRESH)) {
+    const unsub = await conn.subscribeEvents(refresh, eventType);
+    registrySubscriptions.push(() => unsub());
+  }
 
-  // Subscribe to device registry updates
-  const deviceRegistrySub = await conn.subscribeEvents((event) => {
-    void handleDeviceRegistryUpdate(event as HAEvent<DeviceRegistryUpdateData>);
-  }, "device_registry_updated");
-  registrySubscriptions.push(() => deviceRegistrySub());
-
-  // Subscribe to area registry updates
-  const areaRegistrySub = await conn.subscribeEvents((event) => {
-    void handleAreaRegistryUpdate(event as HAEvent<AreaRegistryUpdateData>);
-  }, "area_registry_updated");
-  registrySubscriptions.push(() => areaRegistrySub());
-
-  // Subscribe to floor registry updates
-  const floorRegistrySub = await conn.subscribeEvents((event) => {
-    void handleFloorRegistryUpdate(event as HAEvent<FloorRegistryUpdateData>);
-  }, "floor_registry_updated");
-  registrySubscriptions.push(() => floorRegistrySub());
-
-  // Subscribe to label registry updates
-  const labelRegistrySub = await conn.subscribeEvents((event) => {
-    void handleLabelRegistryUpdate(event as HAEvent<LabelRegistryUpdateData>);
-  }, "label_registry_updated");
-  registrySubscriptions.push(() => labelRegistrySub());
-
-  // Subscribe to statistics updates
   const statisticsSub = await conn.subscribeEvents((event) => {
     void handleStatisticsUpdate(event as HAEvent<StatisticsUpdateData>);
   }, "recorder_5min_statistics_generated");
   registrySubscriptions.push(() => statisticsSub());
-
-  // Refresh core config (unit system, locale, currency) when HA Region settings change
-  const coreConfigSub = await conn.subscribeEvents(() => {
-    void handleCoreConfigUpdate();
-  }, "core_config_updated");
-  registrySubscriptions.push(() => coreConfigSub());
 }
 
 /**
@@ -276,139 +153,40 @@ async function cleanupSubscriptions(): Promise<void> {
 // EVENT HANDLERS
 // ============================================
 
-async function handleCoreConfigUpdate(): Promise<void> {
-  const conn = privilegedConn();
-  if (!conn) return;
-
-  try {
-    const config = await conn.sendMessagePromise<HassConfig>({ type: "get_config" });
-    if (config) {
-      setState("config", config);
-    }
-  } catch (error) {
-    console.error("Error refreshing core config:", error);
-  }
-}
-
-async function handleRegistryUpdate(event: HAEvent<RegistryUpdateData>): Promise<void> {
-  const { action, entity_id } = event.data;
-
-  if (action === "create" || action === "update") {
+/** A list reload for one registry: every event of a burst shares one fetch, and the list carries removals too. */
+function listRefresh<T>(
+  type: string,
+  decode: (raw: unknown) => T | null,
+  merge: (decoded: T) => void,
+): () => void {
+  return coalesce(async () => {
     const conn = privilegedConn();
     if (!conn) return;
-
-    try {
-      const entry = await conn.sendMessagePromise<EntityRegistryEntry>({
-        type: "config/entity_registry/get",
-        entity_id,
-      });
-
-      if (entry) {
-        updateEntityRegistry(entry);
-      }
-    } catch (error) {
-      console.error("Error fetching registry entry:", error);
-    }
-  } else if (action === "remove") {
-    removeEntityRegistry(entity_id);
-  }
+    const decoded = decode(await conn.sendMessagePromise<unknown>({ type }));
+    if (decoded) merge(decoded);
+  });
 }
 
-async function handleDeviceRegistryUpdate(event: HAEvent<DeviceRegistryUpdateData>): Promise<void> {
-  const { action, device_id } = event.data;
-
-  if (action === "create" || action === "update") {
-    const conn = privilegedConn();
-    if (!conn) return;
-
-    try {
-      const devices = await conn.sendMessagePromise<DeviceRegistryEntry[]>({
-        type: "config/device_registry/list",
-      });
-
-      const device = devices.find((d) => d.id === device_id);
-      if (device) {
-        updateDevice(device);
-      }
-    } catch (error) {
-      console.error("Error fetching device:", error);
-    }
-  } else if (action === "remove") {
-    removeDevice(device_id);
-  }
-}
-
-async function handleAreaRegistryUpdate(event: HAEvent<AreaRegistryUpdateData>): Promise<void> {
-  const { action, area_id } = event.data;
-
-  if (action === "create" || action === "update") {
-    const conn = privilegedConn();
-    if (!conn) return;
-
-    try {
-      const areas = await conn.sendMessagePromise<AreaEntry[]>({
-        type: "config/area_registry/list",
-      });
-
-      const area = areas.find((a) => a.id === area_id);
-      if (area) {
-        updateArea(area);
-      }
-    } catch (error) {
-      console.error("Error fetching area:", error);
-    }
-  } else if (action === "remove") {
-    removeArea(area_id);
-  }
-}
-
-async function handleFloorRegistryUpdate(event: HAEvent<FloorRegistryUpdateData>): Promise<void> {
-  const { action, floor_id } = event.data;
-
-  if (action === "create" || action === "update") {
-    const conn = privilegedConn();
-    if (!conn) return;
-
-    try {
-      const floors = await conn.sendMessagePromise<FloorRegistryEntry[]>({
-        type: "config/floor_registry/list",
-      });
-
-      const floor = floors.find((f) => f.floor_id === floor_id);
-      if (floor) {
-        updateFloor(floor);
-      }
-    } catch (error) {
-      console.error("Error fetching floor:", error);
-    }
-  } else if (action === "remove") {
-    removeFloor(floor_id);
-  }
-}
-
-async function handleLabelRegistryUpdate(event: HAEvent<LabelRegistryUpdateData>): Promise<void> {
-  const { action, label_id } = event.data;
-
-  if (action === "create" || action === "update") {
-    const conn = privilegedConn();
-    if (!conn) return;
-
-    try {
-      const labels = await conn.sendMessagePromise<LabelRegistryEntry[]>({
-        type: "config/label_registry/list",
-      });
-
-      const label = labels.find((l) => l.label_id === label_id);
-      if (label) {
-        updateLabel(label);
-      }
-    } catch (error) {
-      console.error("Error fetching label:", error);
-    }
-  } else if (action === "remove") {
-    removeLabel(label_id);
-  }
-}
+const REFRESH: Record<string, () => void> = {
+  entity_registry_updated: listRefresh(
+    "config/entity_registry/list",
+    decodeEntityRegistry,
+    (rows) => mergeSlice("entityRegistry", rows),
+  ),
+  device_registry_updated: listRefresh("config/device_registry/list", decodeDevices, (rows) =>
+    mergeSlice("devices", rows),
+  ),
+  area_registry_updated: listRefresh("config/area_registry/list", decodeAreas, (rows) =>
+    mergeSlice("areas", rows),
+  ),
+  floor_registry_updated: listRefresh("config/floor_registry/list", decodeFloors, (rows) =>
+    mergeSlice("floors", rows),
+  ),
+  label_registry_updated: listRefresh("config/label_registry/list", decodeLabels, (rows) =>
+    mergeSlice("labels", rows),
+  ),
+  core_config_updated: listRefresh("get_config", decodeConfig, mergeConfig),
+};
 
 async function handleStatisticsUpdate(event: HAEvent<StatisticsUpdateData>): Promise<void> {
   const { statistic_ids } = event.data;
@@ -429,164 +207,4 @@ async function handleStatisticsUpdate(event: HAEvent<StatisticsUpdateData>): Pro
   } catch (error) {
     console.error("Error fetching statistics metadata:", error);
   }
-}
-
-// ============================================
-// COMPRESSED STATE HELPERS
-// ============================================
-
-function timestampToIso(timestamp: number | string | undefined): string {
-  if (timestamp === undefined) {
-    return new Date().toISOString();
-  }
-  if (typeof timestamp === "string") {
-    return timestamp;
-  }
-  return new Date(timestamp * 1000).toISOString();
-}
-
-function collectHistoryFromCompressed(
-  points: HistoryPoint[],
-  entityId: string,
-  compressed: CompressedEntityState,
-): void {
-  if (!isHistoryTracked(entityId)) return;
-  const stateVal = compressed.s ?? compressed.state ?? "unknown";
-  const attributes = (compressed.a ?? compressed.attributes ?? {}) as Record<string, unknown>;
-  const lu =
-    compressed.lu ??
-    (compressed.last_updated
-      ? new Date(compressed.last_updated as string).getTime() / 1000
-      : Date.now() / 1000);
-  const lc =
-    compressed.lc ??
-    (compressed.last_changed
-      ? new Date(compressed.last_changed as string).getTime() / 1000
-      : undefined);
-  points.push({ entityId, stateValue: stateVal, attributes, lastUpdated: lu, lastChanged: lc });
-}
-
-function collectHistoryFromDiff(
-  points: HistoryPoint[],
-  entityId: string,
-  additions: Partial<CompressedEntityState>,
-): void {
-  if (!isHistoryTracked(entityId)) return;
-  // Use diff data directly — the store has already been mutated by produce(),
-  // so reading state.entities[entityId] would give post-update values
-  const stateVal = additions.s ?? additions.state;
-  if (stateVal === undefined) return; // No state change in this diff, skip history
-  const lu = additions.lu ?? Date.now() / 1000;
-  const lc = additions.lc;
-  const attributes = (additions.a ?? additions.attributes ?? {}) as Record<string, unknown>;
-  points.push({
-    entityId,
-    stateValue: stateVal,
-    attributes,
-    lastUpdated: lu,
-    lastChanged: lc,
-  });
-}
-
-function shallowEqualAttributes(
-  existing: Record<string, unknown>,
-  incoming: Record<string, unknown>,
-): boolean {
-  const incomingKeys = Object.keys(incoming);
-  for (const key of incomingKeys) {
-    if (existing[key] !== incoming[key]) return false;
-  }
-  return true;
-}
-
-function applyCompressedState(
-  s: import("../core/store").GlassHomeState,
-  entityId: string,
-  compressed: CompressedEntityState,
-): void {
-  const stateVal = compressed.s ?? compressed.state ?? "unknown";
-  const attributes = (compressed.a ?? compressed.attributes ?? {}) as Record<string, unknown>;
-  preferLocalPicture(attributes);
-  const context = compressed.c ?? compressed.context ?? { id: "", parent_id: null, user_id: null };
-  const lastChanged = timestampToIso(compressed.lc ?? compressed.last_changed);
-  const lastUpdated = timestampToIso(compressed.lu ?? compressed.last_updated);
-
-  const existing = s.entities[entityId];
-  if (existing) {
-    // Capture change flags before mutating
-    const stateChanged = existing.state !== stateVal;
-    const changedAt = existing.last_changed !== lastChanged;
-    if (stateChanged) existing.state = stateVal;
-    if (changedAt) existing.last_changed = lastChanged;
-    // Only write last_updated when state or last_changed actually changed, not on heartbeats
-    if (stateChanged || changedAt) {
-      existing.last_updated = lastUpdated;
-    }
-    if (!shallowEqualAttributes(existing.attributes, attributes)) {
-      Object.assign(existing.attributes, attributes);
-    }
-    if (existing.context.id !== context.id) {
-      existing.context = context;
-    }
-  } else {
-    s.entities[entityId] = {
-      entity_id: entityId,
-      state: stateVal,
-      attributes,
-      last_changed: lastChanged,
-      last_updated: lastUpdated,
-      context,
-    };
-  }
-}
-
-function applyStateDiff(
-  s: import("../core/store").GlassHomeState,
-  entityId: string,
-  diff: EntityStateDiff,
-): void {
-  const existing = s.entities[entityId];
-  if (!existing) return;
-
-  const additions = diff["+"];
-  if (additions) {
-    let stateChanged = false;
-
-    if (additions.s !== undefined && existing.state !== additions.s) {
-      existing.state = additions.s;
-      stateChanged = true;
-    }
-    if (additions.a) {
-      preferLocalPicture(additions.a, existing.attributes.entity_picture_local);
-      // Only assign attributes that actually differ
-      for (const [key, value] of Object.entries(additions.a)) {
-        if (existing.attributes[key] !== value) {
-          existing.attributes[key] = value;
-          stateChanged = true;
-        }
-      }
-    }
-    if (additions.lc !== undefined) {
-      const lcIso = timestampToIso(additions.lc);
-      if (existing.last_changed !== lcIso) {
-        existing.last_changed = lcIso;
-        stateChanged = true;
-      }
-    }
-    // Only write last_updated when something meaningful changed
-    if (additions.lu !== undefined && stateChanged) {
-      existing.last_updated = timestampToIso(additions.lu);
-    }
-    if (additions.c && existing.context.id !== additions.c.id) {
-      existing.context = additions.c;
-    }
-  }
-
-  const removals = diff["-"];
-  if (removals?.a) {
-    for (const key of removals.a) {
-      delete existing.attributes[key];
-    }
-  }
-  preferLocalPicture(existing.attributes);
 }
