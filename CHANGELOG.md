@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.12.12](https://github.com/glasshome/sync-layer/compare/v0.12.11...v0.12.12) (2026-11-21)
+
+
+### Bug Fixes
+
+* **connection:** a new link starts with no entity subscription ([dc07230](https://github.com/glasshome/sync-layer/commit/dc07230c2b8af908e141a4f76f1d82dc3d22580c))
+* **connection:** an entity subscribe answers only for the link it was made on ([d146e15](https://github.com/glasshome/sync-layer/commit/d146e1549d36abc3b9405ec001c76f91d583d5ec))
+* **history:** a point holds the row's attributes, not a copy ([455054d](https://github.com/glasshome/sync-layer/commit/455054d4f85201b85788004cc1713f8a5d6cbe4e))
+* **sync:** a config without language, currency or version is not dropped ([6b5f112](https://github.com/glasshome/sync-layer/commit/6b5f11267939de66c545a70bc36e8ddeda4d9d57))
+* **sync:** a force_update write is a change, its last_updated reaches the store ([1d37bc4](https://github.com/glasshome/sync-layer/commit/1d37bc4472b15603d9eddf5abf4164df63e8dbb8))
+* **sync:** a reconnect delivers only real changes, every message parsed by one decoder ([8aaeaf4](https://github.com/glasshome/sync-layer/commit/8aaeaf4a4b8c02bbc4b3d4ed5bfa2f72a0705759))
+* **sync:** a reload removes only entities a running Home Assistant no longer lists ([5233d9c](https://github.com/glasshome/sync-layer/commit/5233d9c06f241acf8ac37c81ea3fc290f6d1353d))
+* **sync:** a stored value never changes in place ([6e926a5](https://github.com/glasshome/sync-layer/commit/6e926a5301aaa9cc0a2ca8027a5e05a513ec83a9))
+* **sync:** calendars and forecasts subscribe again after a reconnect ([59c5a55](https://github.com/glasshome/sync-layer/commit/59c5a5535929bad70834d1f8fa3815491beb77c6))
+* **sync:** one reading per Home Assistant shape, one door into the store ([b8b8124](https://github.com/glasshome/sync-layer/commit/b8b8124aa8607f70fa1a2ba2606fbc823b866b02))
+* **sync:** the package's own writer takes one of its own keys ([6a13f30](https://github.com/glasshome/sync-layer/commit/6a13f30e86df69370aae8abb544d8955c09c7b83))
+
 ## [0.12.11](https://github.com/glasshome/sync-layer/compare/v0.12.10...v0.12.11) (2026-11-19)
 
 
