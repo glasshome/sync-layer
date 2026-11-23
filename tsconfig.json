@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "types": ["bun"],
-    "lib": ["ESNext", "DOM"],
+    "lib": ["ES2024", "ES2025.Collection", "DOM"],
     "target": "ESNext",
     "module": "Preserve",
     "moduleDetection": "force",
