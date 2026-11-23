@@ -247,6 +247,8 @@ export interface EntityView {
   deviceId: DeviceId | null;
   /** Platform/integration that provides this entity */
   platform: string;
+  /** Home Assistant's translation key for this entity, which names its state texts */
+  translationKey?: string | null;
   /** Unique ID from integration */
   uniqueId: string | null;
 
