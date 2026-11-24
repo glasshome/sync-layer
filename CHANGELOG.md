@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.13](https://github.com/glasshome/sync-layer/compare/v0.12.12...v0.12.13) (2026-11-24)
+
+
+### Bug Fixes
+
+* **deps:** pin @glasshome/widget-contract 0.9.0 ([e3fcf13](https://github.com/glasshome/sync-layer/commit/e3fcf1324192e977515788c2854d3ecb5b529b38))
+* **deps:** pin @glasshome/widget-contract 0.9.0 ([3b3a8ef](https://github.com/glasshome/sync-layer/commit/3b3a8ef9d68d648ab08fda45d6e2d5286471e637))
+
 ## [0.12.12](https://github.com/glasshome/sync-layer/compare/v0.12.11...v0.12.12) (2026-11-21)
 
 
