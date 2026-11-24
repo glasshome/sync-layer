@@ -56,7 +56,7 @@
   "scripts": {
     "build": "tsdown && tsc --noEmit && bun scripts/check-widget-reachable-surface.ts",
     "dev": "tsdown --watch",
-    "test": "bun test --conditions=browser",
+    "test": "bun test --isolate --conditions=browser",
     "lint": "oxlint --type-aware . && oxfmt --check . && tsc --noEmit",
     "gen:demo-ids": "bun scripts/gen-demo-ids.ts",
     "check:dead": "fallow dead-code --fail-on-issues"
