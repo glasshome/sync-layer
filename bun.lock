@@ -5,7 +5,7 @@
     "": {
       "name": "@glasshome/sync-layer",
       "dependencies": {
-        "@glasshome/widget-contract": "0.8.0",
+        "@glasshome/widget-contract": "0.9.0",
         "home-assistant-js-websocket": "^9.6.0",
         "zod": "^4.4.3",
       },
@@ -47,9 +47,13 @@
 
     "@fallow-cli/win32-x64-msvc": ["@fallow-cli/win32-x64-msvc@3.17.0", "", { "os": "win32", "cpu": "x64" }, "sha512-/OcyxHuCKabzQ9hKIjM/CFJ9fr30n0Mw5MK6nzi5rn26mbYUgh073UZq4FONOpPJ/FqHtC726rxpgBtR4qS+gg=="],
 
+    "@formatjs/icu-messageformat-parser": ["@formatjs/icu-messageformat-parser@3.5.22", "", { "dependencies": { "@formatjs/icu-skeleton-parser": "2.1.12" } }, "sha512-YuwN+dDKgssfuYwtOyGQD0CSn7K46g9cv1Fp0VgKpjZDDFvv8b8crzP990IcJhRPWHhKzCGsbUSJVIguyyFA5A=="],
+
+    "@formatjs/icu-skeleton-parser": ["@formatjs/icu-skeleton-parser@2.1.12", "", {}, "sha512-ca7tZMLpfHX3sUD7hP6gE/qr6Iq89EDd3ZLeRhbsB7r0UD55DGJq+tmFLzrGrnx5StahUevQmQQVtbDRHsfDHA=="],
+
     "@glasshome/ha-types": ["@glasshome/ha-types@0.2.0", "", {}, "sha512-HaN3op9lV/OZsnWbv4yW6MDzZxhjthqSXtFrUm86x12D1y4n0yz1C2j0b45KRs+4xMQrXMYuWvtOmecHlsmrlw=="],
 
-    "@glasshome/widget-contract": ["@glasshome/widget-contract@0.8.0", "", { "dependencies": { "es-module-lexer": "^2.3.2", "semver": "^7.7.0", "zod": "^4.4.3" } }, "sha512-5m1vSPfOXdJymYPTZ2/7bUJC427C6vX6KJP4UJ0m5AxA4L1sJ2+J6x+mS5RMq7N7GyPDgpJDOawd9rGhoTWU/g=="],
+    "@glasshome/widget-contract": ["@glasshome/widget-contract@0.9.0", "", { "dependencies": { "@formatjs/icu-messageformat-parser": "3.5.22", "es-module-lexer": "^2.3.2", "semver": "^7.7.0", "zod": "^4.4.3" } }, "sha512-cAcLkgRIQeKhMRuEzq1gybAUcZ9QbALPIbVfXcuqYiN/JrPy7CzK8R5kLLWh2juU0d3lQv2bFLKc3G7/1qPrYQ=="],
 
     "@oxc-project/types": ["@oxc-project/types@0.155.0", "", {}, "sha512-SeE8JPwW1xs1tHeNycjUtUBdhorRa8o4jlvjwk49R7/Z291i+4DQa7JJIgOm/TaYQZx+QrPQbVJ/9c8dMIZN8Q=="],
 
