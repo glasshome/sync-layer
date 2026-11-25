@@ -16,8 +16,6 @@ const demoEntityHistory = (id: string, startMs: number, endMs: number) =>
 
 const END = Date.parse("2026-12-14T21:00:00Z");
 const time = createManualClock(END);
-beforeAll(() => loadDemoHouse({ clock: { pinned: "2026-12-14T21:00:00Z", seed: 3 }, time }));
-afterAll(() => unloadDemoData());
 
 function must<T>(value: T | null | undefined): T {
   if (value == null) throw new Error("expected a value");
@@ -25,6 +23,12 @@ function must<T>(value: T | null | undefined): T {
 }
 
 describe("demo history", () => {
+  beforeAll(() => {
+    time.setNow(END);
+    return loadDemoHouse({ clock: { pinned: "2026-12-14T21:00:00Z", seed: 3 }, time });
+  });
+  afterAll(unloadDemoData);
+
   test("a room light switches during the day", () => {
     const h = demoEntityHistory("light.living_room_main", END - 24 * 3_600_000, END);
     expect(new Set(h.map((p) => p.s))).toEqual(new Set(["on", "off"]));
@@ -134,7 +138,6 @@ describe("demo history: a hold from before the window", () => {
   const NIGHT_END = Date.parse("2026-12-15T03:00:00Z");
 
   beforeAll(() => {
-    unloadDemoData();
     return loadDemoHouse({ clock: { pinned: "2026-12-15T00:00:00Z", seed: 3 } }).then(() => {
       // Everyone's asleep 00:00-03:00 local, so no household transition clears the
       // "boundary" hold this domain gets, and the light stays off the whole window.
@@ -142,10 +145,7 @@ describe("demo history: a hold from before the window", () => {
       advanceDemoTo(NIGHT_END);
     });
   });
-  afterAll(() => {
-    unloadDemoData();
-    return loadDemoHouse({ clock: { pinned: "2026-12-14T21:00:00Z", seed: 3 } });
-  });
+  afterAll(unloadDemoData);
 
   test("the light shows off throughout the queried hour, no spurious on-then-snap", () => {
     const h = demoEntityHistory("light.living_room_main", NIGHT_END - 3_600_000, NIGHT_END);
@@ -156,10 +156,10 @@ describe("demo history: a hold from before the window", () => {
 
 describe("demo history: wall-clock windows", () => {
   beforeAll(() => {
-    unloadDemoData();
     time.setNow(Date.parse("2026-06-21T21:00:00Z"));
     return loadDemoHouse({ clock: { pinned: "2026-06-21T21:00:00Z", seed: 1 }, time });
   });
+  afterAll(unloadDemoData);
 
   test("fetch.ts maps a wall-clock window onto the pinned house", async () => {
     const { fetchHistory } = await import("../../history/fetch");

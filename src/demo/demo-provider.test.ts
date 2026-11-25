@@ -1,5 +1,5 @@
 import { createManualClock } from "@glasshome/widget-contract/clock";
-import { afterAll, afterEach, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { state } from "../core/store";
 import { extractDomain } from "../core/types";
 import {
@@ -31,11 +31,16 @@ function memoryLocalStorage(): Storage {
   };
 }
 
-// Every service an official widget sends must change demo state, or its optimistic UI snaps back.
-interface ServiceCase {
-  entityId: string;
+interface ServiceCall {
   service: string;
   data?: Record<string, unknown>;
+}
+
+// Every service an official widget sends must change demo state, or its optimistic UI snaps back.
+interface ServiceCase extends ServiceCall {
+  entityId: string;
+  /** Calls on the same entity that set the state the case starts from, in a fresh house. */
+  given?: ServiceCall[];
   /** Sim time to run after the call, for devices that travel. */
   settleMs?: number;
   expected: (e: (typeof state.entities)[string]) => void;
@@ -55,6 +60,7 @@ const CASES: ServiceCase[] = [
   {
     entityId: "switch.coffee_machine",
     service: "toggle",
+    given: [{ service: "turn_off" }],
     expected: (e) => expect(e.state).toBe("on"),
   },
   {
@@ -122,6 +128,7 @@ const CASES: ServiceCase[] = [
   {
     entityId: "cover.living_room_blinds",
     service: "toggle",
+    given: [{ service: "open_cover" }],
     settleMs: 10_000,
     expected: (e) => expect(e.state).toBe("closed"),
   },
@@ -202,6 +209,7 @@ const CASES: ServiceCase[] = [
   {
     entityId: "fan.bedroom_ceiling",
     service: "toggle",
+    given: [{ service: "set_percentage", data: { percentage: 0 } }],
     expected: (e) => expect(e.state).toBe("on"),
   },
   {
@@ -252,6 +260,7 @@ const CASES: ServiceCase[] = [
   {
     entityId: "media_player.living_room_speaker",
     service: "media_play_pause",
+    given: [{ service: "media_play" }],
     expected: (e) => expect(e.state).toBe("paused"),
   },
   {
@@ -262,6 +271,7 @@ const CASES: ServiceCase[] = [
   {
     entityId: "media_player.living_room_speaker",
     service: "media_previous_track",
+    given: [{ service: "media_next_track" }],
     expected: (e) => expect(e.attributes.media_title).toBe("Lo-fi Beats"),
   },
   {
@@ -273,20 +283,19 @@ const CASES: ServiceCase[] = [
 ];
 
 describe("applyDemoServiceCall covers every widget service", () => {
-  beforeAll(async () => {
+  beforeEach(async () => {
     await loadDemoHouse({ clock: { pinned: "2026-06-21T18:00:00Z", seed: 1 } });
   });
-  afterAll(() => {
-    unloadDemoData();
-  });
+  afterEach(unloadDemoData);
 
   for (const c of CASES) {
     test(`${extractDomain(c.entityId)}.${c.service}`, () => {
-      applyDemoServiceCall(extractDomain(c.entityId), c.service, c.data ?? {}, {
-        entity_id: c.entityId,
-      });
-      const model = demoModel();
-      if (c.settleMs && model) advanceDemoTo(model.nowMs + c.settleMs);
+      const domain = extractDomain(c.entityId);
+      for (const call of [...(c.given ?? []), c]) {
+        applyDemoServiceCall(domain, call.service, call.data ?? {}, { entity_id: c.entityId });
+        const model = demoModel();
+        if (c.settleMs && model) advanceDemoTo(model.nowMs + c.settleMs);
+      }
       const entity = state.entities[c.entityId];
       expect(entity).toBeDefined();
       if (entity) c.expected(entity);
