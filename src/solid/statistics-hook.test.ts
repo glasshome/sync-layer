@@ -112,6 +112,27 @@ describe("useEntityStatistics", () => {
     expect(stats()?.map((b) => b.sum)).toEqual([24]);
   });
 
+  test("names its fetch state the way a Solid 1 resource did", async () => {
+    const [period, setPeriod] = createSignal<"hour" | "day">("hour");
+    const stats = mount(period);
+    flush();
+    expect(stats.state).toBe("pending");
+
+    home.asks[0]?.answer([bucket(0, 1)]);
+    await settle();
+    flush();
+    expect(stats.state).toBe("ready");
+
+    setPeriod("day");
+    flush();
+    expect(stats.state).toBe("refreshing");
+
+    home.asks[1]?.fail(new Error("recorder down"));
+    await settle();
+    flush();
+    expect(stats.state).toBe("errored");
+  });
+
   test("a failed fetch reads as the error, and the next answer clears it", async () => {
     const [period, setPeriod] = createSignal<"hour" | "day">("hour");
     const stats = mount(period);

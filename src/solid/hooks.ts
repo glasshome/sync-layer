@@ -59,6 +59,7 @@ export interface StatisticsResource {
   readonly loading: boolean;
   readonly error: unknown;
   readonly latest: StatisticValue[] | undefined;
+  readonly state: "pending" | "ready" | "refreshing" | "errored";
 }
 
 // ============================================
@@ -338,6 +339,12 @@ export function useEntityStatistics(
     loading: { get: loading },
     error: { get: () => error()?.cause },
     latest: { get: value },
+    state: {
+      get: () => {
+        if (loading()) return value() === undefined ? "pending" : "refreshing";
+        return error() ? "errored" : "ready";
+      },
+    },
   }) as StatisticsResource;
 }
 
