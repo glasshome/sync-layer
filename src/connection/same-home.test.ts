@@ -302,7 +302,7 @@ describe("entity views", () => {
     await settle();
 
     const again = getEntityView("climate.bedroom");
-    expect(unwrap(again?.attributes.hvac_modes)).not.toBe(unwrap(first?.attributes.hvac_modes));
+    expect(snapshot(again?.attributes.hvac_modes)).not.toBe(snapshot(first?.attributes.hvac_modes));
     expect(entityViewEquals(first, again)).toBe(true);
   });
 });
@@ -482,6 +482,6 @@ describe("history", () => {
     await settle();
 
     const point = snapshot(state.history["climate.bedroom"])?.timeline[0];
-    expect(point?.attributes).toBe(unwrap(state.entities["climate.bedroom"])?.attributes);
+    expect(point?.attributes).toBe(snapshot(state.entities["climate.bedroom"])?.attributes);
   });
 });
