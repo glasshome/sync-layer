@@ -77,7 +77,9 @@ export function useEntity(entityId: Accessor<string> | string): Accessor<EntityV
 
   createEffect(
     () => getId(),
-    (id) => (id ? registerEntity(id) : undefined),
+    (id) => {
+      if (id) return registerEntity(id);
+    },
   );
 
   return createMemo(
@@ -119,7 +121,9 @@ export function useEntityState(
 
   createEffect(
     () => getId(),
-    (id) => (id ? registerEntity(id) : undefined),
+    (id) => {
+      if (id) return registerEntity(id);
+    },
   );
 
   return createMemo(() => state.entities[getId()]);
@@ -393,7 +397,9 @@ export function useCalendarEvents(
   const getId = typeof entityId === "function" ? entityId : () => entityId;
   createEffect(
     () => getId(),
-    (id) => (id ? trackCalendarEvents(id, options) : undefined),
+    (id) => {
+      if (id) return trackCalendarEvents(id, options);
+    },
   );
   return createMemo(() => state.calendars[getId()]);
 }
