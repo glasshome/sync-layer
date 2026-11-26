@@ -38,7 +38,6 @@ const FORBIDDEN: Record<string, string> = {
     "opens an upstream calendar subscription directly, bypassing the useCalendarEvents hook",
   loadDemoHouse: "replaces the whole store with the demo house",
   resetDemo: "wipes the visitor's demo log and reloads the store",
-  loadDemoData: "replaces the whole store with the demo house",
   unloadDemoData: "empties the store every dashboard surface reads",
   advanceDemoTo: "drives the demo clock and rewrites the store",
   demoModel: "hands out the mutable demo model behind the store",

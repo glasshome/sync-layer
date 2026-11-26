@@ -7,13 +7,12 @@
  * @packageDocumentation
  */
 
-import type { EntityRegistryEntry } from "@glasshome/ha-types";
 import { type Clock, systemClock, type TimerHandle } from "@glasshome/widget-contract/clock";
 import { batch } from "solid-js";
 import { unwrap } from "solid-js/store";
 import { mergeEntities, mergeSlice } from "../core/merge";
 import { setLocalState, state } from "../core/store";
-import type { AreaRegistryEntry, DeviceRegistryEntry, HassEntity } from "../core/types";
+import type { HassEntity } from "../core/types";
 import { extractDomain } from "../core/types";
 import { bulkAppendHistoryPoints, type HistoryPoint } from "../history/points";
 import { generateHouse, type GeneratedHouse } from "./house/generate";
@@ -32,13 +31,6 @@ export interface DemoHouseOptions {
   clock: DemoClockOption;
   search?: string;
   time?: Clock;
-}
-
-interface DemoFixtures {
-  entities: Record<string, HassEntity>;
-  entityRegistry: Record<string, EntityRegistryEntry>;
-  areas: Record<string, AreaRegistryEntry>;
-  devices: Record<string, DeviceRegistryEntry>;
 }
 
 export type { LoggedCall };
@@ -459,11 +451,6 @@ export async function resetDemo(): Promise<void> {
   await loadDemoHouse({ clock: "live" });
 }
 
-/** @deprecated since 0.10.0, use loadDemoHouse({ clock: "live" }) */
-export async function loadDemoData(): Promise<void> {
-  await loadDemoHouse({ clock: "live" });
-}
-
 // ============================================
 // TICKER
 // ============================================
@@ -473,13 +460,7 @@ function startTicker(time: Clock): void {
   ticker = { handle: time.setInterval(tick, TICK_MS), time };
 }
 
-/** @deprecated since 0.10.0, the demo ticker starts with loadDemoHouse */
-export function startDemoEnergyTicker(): void {
-  if (session?.live) startTicker(session.time);
-}
-
-/** @deprecated since 0.10.0, the demo ticker stops with unloadDemoData */
-export function stopDemoEnergyTicker(): void {
+function stopDemoEnergyTicker(): void {
   if (ticker !== null) {
     ticker.time.clearInterval(ticker.handle);
     ticker = null;
@@ -495,7 +476,6 @@ function targetIds(target: { entity_id?: string | string[] }): string[] {
   return target.entity_id ? [target.entity_id] : [];
 }
 
-/** @deprecated since 0.10.0, service calls reach the demo through callService */
 export function applyDemoServiceCall(
   domain: string,
   service: string,
@@ -514,28 +494,4 @@ export function applyDemoServiceCall(
   appendCapped(s.log, entry);
   if (s.persist) appendLog(demoStorage(), HOUSE.version, entry, s.time.now());
   publish(s, new Set(entityIds));
-}
-
-// ============================================
-// FIXTURES
-// ============================================
-
-/** @deprecated since 0.10.0, use loadDemoHouse */
-export function createDemoFixtures(): DemoFixtures {
-  const nowMs = systemClock.now();
-  const iso = new Date(nowMs).toISOString();
-  const generated = generateHouse(HOUSE, iso);
-  const world = worldFor("UTC", 1, nowMs);
-  const savedWorld = getWorld();
-  const savedCounter = contextCounter;
-  setWorld(world);
-  contextCounter = 0;
-  try {
-    const entities = toEntities(generated, buildModel(generated, nowMs, world).project(), iso);
-    const { entityRegistry, areas, devices } = generated.registry;
-    return { entities, entityRegistry, areas, devices };
-  } finally {
-    setWorld(savedWorld);
-    contextCounter = savedCounter;
-  }
 }

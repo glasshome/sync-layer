@@ -6,7 +6,6 @@
  * @packageDocumentation
  */
 
-import type { Auth, ConnectionOptions as HAConnectionOptions } from "home-assistant-js-websocket";
 import { batch } from "solid-js";
 import { mergeConfig, mergeEntities, mergeSlice } from "../core/merge";
 import { setPrivilegedConn } from "../core/privileged-conn";
@@ -21,24 +20,6 @@ import {
   decodeStates,
 } from "../core/wire";
 import { appendMovedHistory } from "../history/points";
-import type { OAuthOptions } from "./auth";
-
-// ============================================
-// CONNECTION OPTIONS
-// ============================================
-
-/**
- * @deprecated Nothing reads these options since the worker bridge became the only connection. Removed in 2.0.0.
- */
-export interface ConnectionOptions {
-  url: string;
-  auth: Auth | string | OAuthOptions;
-  createSocket?: HAConnectionOptions["createSocket"];
-  onConnect?: () => void;
-  onDisconnect?: () => void;
-  onReconnect?: () => void;
-  onError?: (error: Error) => void;
-}
 
 // ============================================
 // CONNECTION STATE

@@ -85,14 +85,9 @@ simulateStateChange("light.test", { state: "on" });
 Demo mode provider for loading fixture data without a real backend.
 
 ```typescript
-import {
-  loadDemoData,
-  unloadDemoData,
-  isDemoMode,
-  applyDemoServiceCall,
-} from "@glasshome/sync-layer/demo";
+import { loadDemoHouse, unloadDemoData, isDemoMode } from "@glasshome/sync-layer/demo";
 
-await loadDemoData(); // Populates store with demo entities
+await loadDemoHouse({ clock: "live" }); // Populates store with demo entities
 ```
 
 ## Peer Dependencies

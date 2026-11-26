@@ -21,7 +21,6 @@
 // CONNECTION MANAGEMENT
 // ============================================
 
-export type { ConnectionOptions } from "./connection/manager";
 export { getConnectionState, isConnected } from "./connection/manager";
 export { registerEntity } from "./connection/subscription-manager";
 export type { SyncLayerConnection } from "./connection/types";
@@ -193,13 +192,7 @@ export type {
 // DEMO MODE
 // ============================================
 
-export {
-  applyDemoServiceCall,
-  createDemoFixtures,
-  isDemoMode,
-  startDemoEnergyTicker,
-  stopDemoEnergyTicker,
-} from "./demo/demo-provider";
+export { isDemoMode } from "./demo/demo-provider";
 export type { DemoClockOption, DemoHouseOptions } from "./demo/demo-provider";
 
 // ============================================
