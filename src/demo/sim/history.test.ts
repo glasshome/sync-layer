@@ -1,5 +1,6 @@
 import { createManualClock } from "@glasshome/widget-contract/clock";
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
+import { flush } from "solid-js";
 import * as provider from "../demo-provider";
 import {
   advanceDemoTo,
@@ -48,6 +49,7 @@ describe("demo history", () => {
   test("history agrees with live state at the end", async () => {
     const { state } = await import("../../core/store");
     const h = demoEntityHistory("light.living_room_main", END - 3_600_000, END);
+    flush();
     expect(h.at(-1)?.s).toBe(state.entities["light.living_room_main"]?.state);
   });
   test("replay work scales linearly with the window", () => {
@@ -193,6 +195,7 @@ describe("demo history: wall-clock windows", () => {
       expect(fetched).toBeGreaterThan(0);
       const lastFetchedLu = state.history[id]?.entityHistory.at(-1)?.lu ?? Number.POSITIVE_INFINITY;
       applyDemoServiceCall("light", "toggle", {}, { entity_id: id });
+      flush();
       const points = state.history[id]?.entityHistory ?? [];
       expect(points.length).toBe(fetched + 1);
       const appended = points.at(-1)?.lu ?? 0;
@@ -214,6 +217,7 @@ describe("demo history: wall-clock windows", () => {
       endTime,
       entityIds: [id],
     });
+    flush();
     expect(result[id]?.at(-1)?.s).toBe(state.entities[id]?.state);
   });
 });

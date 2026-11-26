@@ -34,6 +34,7 @@ export {
   useTurnOn,
   useUnitSystem,
 } from "./hooks";
+export type { StatisticsResource } from "./hooks";
 
 // ============================================
 // DERIVED INDICES

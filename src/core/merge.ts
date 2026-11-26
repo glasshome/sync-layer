@@ -3,14 +3,12 @@
  * reader is notified only for what changed, and a complete reload removes what is gone.
  */
 
-import { batch } from "solid-js";
-import { produce, unwrap } from "solid-js/store";
+import { snapshot } from "solid-js";
 import { deepEqual } from "./equal";
 import { type GlassHomeState, setState, state } from "./store";
 import type { EntityId, HassEntity } from "./types";
 
-// One loose writer for the generic paths below; the signatures around it keep callers typed.
-const write = setState as unknown as (...path: unknown[]) => void;
+type Rows = Record<string, unknown>;
 
 // The same write seen again; a new context alone always comes with a new last_updated.
 function sameReading(stored: HassEntity, next: HassEntity): boolean {
@@ -24,19 +22,19 @@ function sameReading(stored: HassEntity, next: HassEntity): boolean {
 
 // A stored value never changes in place: a changed field takes the new value and an equal one keeps
 // the stored value, so identity means unchanged for every value under a row.
-function writeFields(path: string[], stored: object | null | undefined, next: object): boolean {
-  if (!stored) {
-    write(...path, next);
-    return true;
+function writeFields(parent: Rows, key: string, next: object): void {
+  const held = parent[key] as Rows | null | undefined;
+  if (!held) {
+    parent[key] = next;
+    return;
   }
-  const held = stored as Record<string, unknown>;
-  const patch: Record<string, unknown> = {};
-  for (const key of Object.keys(held)) if (!Object.hasOwn(next, key)) patch[key] = undefined;
-  for (const [key, value] of Object.entries(next))
-    if (!deepEqual(held[key], value)) patch[key] = value;
-  if (Object.keys(patch).length === 0) return false;
-  write(...path, patch);
-  return true;
+  for (const field of Object.keys(held)) if (!Object.hasOwn(next, field)) delete held[field];
+  for (const [field, value] of Object.entries(next))
+    if (!deepEqual(held[field], value)) held[field] = value;
+}
+
+function removeGone(map: Rows, gone: (id: string) => boolean): void {
+  for (const id of Object.keys(map)) if (gone(id)) delete map[id];
 }
 
 /**
@@ -47,31 +45,25 @@ export function mergeEntities(
   rows: Record<EntityId, HassEntity | null>,
   listed?: ReadonlySet<EntityId>,
 ): HassEntity[] {
-  const moved: EntityId[] = [];
-  batch(() => {
-    const gone = new Set(
-      Object.keys(unwrap(state.entities)).filter(
-        (id) => rows[id] === null || (listed !== undefined && !listed.has(id)),
-      ),
-    );
-    if (gone.size > 0)
-      setState(
-        "entities",
-        produce((map) => {
-          for (const id of gone) delete map[id];
-        }),
-      );
+  const moved: HassEntity[] = [];
+  setState((draft) => {
+    const map = draft.entities;
+    removeGone(map, (id) => rows[id] === null || (listed !== undefined && !listed.has(id)));
+    const changed: EntityId[] = [];
     for (const [id, next] of Object.entries(rows)) {
       if (!next) continue;
-      const stored = unwrap(state.entities)[id];
+      const stored = map[id];
       if (stored && sameReading(stored, next)) continue;
       if (!stored || stored.state !== next.state || stored.last_changed !== next.last_changed)
-        moved.push(id);
-      writeFields(["entities", id], stored, next);
+        changed.push(id);
+      writeFields(map, id, next);
+    }
+    for (const id of changed) {
+      const row = map[id];
+      if (row) moved.push(snapshot(row));
     }
   });
-  const stored = unwrap(state.entities);
-  return moved.flatMap((id) => stored[id] ?? []);
+  return moved;
 }
 
 type Slice =
@@ -86,38 +78,27 @@ type Row<K extends Slice> = GlassHomeState[K][string];
 
 /** A whole slice as Home Assistant lists it: rows merge by value, rows it no longer lists go. */
 export function mergeSlice<K extends Slice>(slice: K, rows: Record<string, Row<K>>): void {
-  batch(() => {
-    const gone = Object.keys(unwrap(state[slice])).filter((id) => !Object.hasOwn(rows, id));
-    if (gone.length > 0)
-      write(
-        slice,
-        produce((map: Record<string, unknown>) => {
-          for (const id of gone) delete map[id];
-        }),
-      );
-    for (const [id, row] of Object.entries(rows))
-      writeFields([slice, id], storedRow(slice, id), row);
+  setState((draft) => {
+    const map = draft[slice] as Rows;
+    removeGone(map, (id) => !Object.hasOwn(rows, id));
+    for (const [id, row] of Object.entries(rows)) writeFields(map, id, row);
   });
 }
 
 /** One row by value; `null` removes it. */
 export function mergeRow<K extends Slice>(slice: K, id: string, row: Row<K> | null): void {
-  if (row === null) {
-    if (storedRow(slice, id) !== undefined)
-      write(
-        slice,
-        produce((map: Record<string, unknown>) => void delete map[id]),
-      );
-    return;
-  }
-  writeFields([slice, id], storedRow(slice, id), row);
+  setState((draft) => {
+    const map = draft[slice] as Rows;
+    if (row === null) delete map[id];
+    else writeFields(map, id, row);
+  });
 }
 
-/** The stored row of a slice, unwrapped, for building the next one from. */
+/** The stored row of a slice, as a plain value, for building the next one from. */
 export function storedRow<K extends Slice>(slice: K, id: string): Row<K> | undefined {
-  return (unwrap(state[slice]) as Record<string, Row<K>>)[id];
+  return (snapshot(state[slice]) as Record<string, Row<K>>)[id];
 }
 
 export function mergeConfig(config: NonNullable<GlassHomeState["config"]>): void {
-  writeFields(["config"], unwrap(state.config), config);
+  setState((draft) => writeFields(draft as unknown as Rows, "config", config));
 }

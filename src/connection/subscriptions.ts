@@ -8,7 +8,7 @@
  */
 
 import type { HAEvent } from "@glasshome/ha-types";
-import { unwrap } from "solid-js/store";
+import { snapshot } from "solid-js";
 import { coalesce } from "../core/coalesce";
 import { mergeConfig, mergeEntities, mergeSlice } from "../core/merge";
 import { privilegedConn } from "../core/privileged-conn";
@@ -67,7 +67,7 @@ function flushMessageBuffer(): void {
   if (messages.length === 0) return;
 
   const rows: Record<EntityId, HassEntity | null> = {};
-  const current = (id: EntityId) => (id in rows ? rows[id] : unwrap(state.entities)[id]);
+  const current = (id: EntityId) => (id in rows ? rows[id] : snapshot(state.entities[id]));
   for (const raw of messages) {
     const message = decodeEntitiesMessage(raw);
     if (!message) continue;

@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { flush } from "solid-js";
 import { setPrivilegedConn } from "../core/privileged-conn";
 import { resetStore, state } from "../core/store";
 import { forceResubscribeForecasts, resetForecastTracking, trackForecast } from "./track";
@@ -69,8 +70,10 @@ describe("trackForecast", () => {
     trackForecast(W, "daily");
     await settle();
     conn.subs[0]?.push({ forecast: [{ datetime: "2026-09-23", temperature: 20 }] });
+    flush();
     expect(state.forecasts[W]?.forecasts.daily?.[0]?.temperature).toBe(20);
     conn.subs[0]?.push({ forecast: [{ datetime: "2026-09-24", temperature: 12 }] });
+    flush();
     expect(state.forecasts[W]?.forecasts.daily?.[0]?.temperature).toBe(12);
   });
 

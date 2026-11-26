@@ -1,5 +1,6 @@
 import { createManualClock } from "@glasshome/widget-contract/clock";
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
+import { flush } from "solid-js";
 import { state } from "../core/store";
 import { extractDomain } from "../core/types";
 import {
@@ -296,6 +297,7 @@ describe("applyDemoServiceCall covers every widget service", () => {
         const model = demoModel();
         if (c.settleMs && model) advanceDemoTo(model.nowMs + c.settleMs);
       }
+      flush();
       const entity = state.entities[c.entityId];
       expect(entity).toBeDefined();
       if (entity) c.expected(entity);
@@ -436,6 +438,7 @@ describe("demo house provider", () => {
       applyDemoServiceCall("lock", "unlock", {}, { entity_id: lock });
 
       advanceDemoTo(targetMs);
+      flush();
       expect(demoModel()?.nowMs).toBe(targetMs);
       expect(demoModel()?.isHeld(lock)).toBe(true);
       expect(state.entities[lock]?.state).toBe("unlocked");
@@ -465,6 +468,7 @@ describe("demo house provider", () => {
       const time = createManualClock(NOW);
       await loadDemoHouse({ clock: "live", search: "", time });
       applyDemoServiceCall("light", "turn_off", {}, { entity_id: "light.hallway" });
+      flush();
       unloadDemoData();
       await loadDemoHouse({ clock: "live", search: "", time });
       expect(state.entities["light.hallway"]?.state).toBe("off");

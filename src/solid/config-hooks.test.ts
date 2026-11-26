@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 // Internal path on purpose: the package entry no longer exports store writers,
 // because the host serves that entry to widget bundles (finding 46).
 import { resetStore, setState } from "../core/store";
-import { createRoot } from "solid-js";
+import { createRoot, flush } from "solid-js";
 import { useCurrency, useHassConfig, useLocale, useTemperatureUnit, useUnitSystem } from "./hooks";
 
 function makeConfig(overrides: Partial<HassConfig>): HassConfig {
@@ -29,7 +29,10 @@ function makeConfig(overrides: Partial<HassConfig>): HassConfig {
 }
 
 describe("config localization hooks", () => {
-  afterEach(() => resetStore());
+  afterEach(() => {
+    resetStore();
+    flush();
+  });
 
   test("default to °C / en / USD when no config is loaded", () => {
     createRoot((dispose) => {
@@ -43,15 +46,15 @@ describe("config localization hooks", () => {
   });
 
   test("reflect a Fahrenheit / German / Euro config", () => {
+    setState((s) => {
+      s.config = makeConfig({
+        unit_system: { length: "mi", mass: "lb", temperature: "°F", volume: "gal" },
+        language: "de",
+        currency: "EUR",
+      });
+    });
+    flush();
     createRoot((dispose) => {
-      setState(
-        "config",
-        makeConfig({
-          unit_system: { length: "mi", mass: "lb", temperature: "°F", volume: "gal" },
-          language: "de",
-          currency: "EUR",
-        }),
-      );
       expect(useTemperatureUnit()()).toBe("°F");
       expect(useLocale()()).toBe("de");
       expect(useCurrency()()).toBe("EUR");

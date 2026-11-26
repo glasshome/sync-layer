@@ -22,10 +22,11 @@ import {
   type Accessor,
   createMemo,
   createRoot,
-  getListener,
+  getObserver,
   getOwner,
   type MemoOptions,
   onCleanup,
+  runWithOwner,
 } from "solid-js";
 
 interface Held<T> {
@@ -50,13 +51,12 @@ export function createShared<K, T>(
     const existing = held.get(key);
     if (existing) return existing;
     // Detached: the first reader's owner must not own, or be kept alive by, what every reader shares.
-    const created = createRoot(
-      (dispose) => ({
-        read: createMemo(() => compute(key), undefined, options),
+    const created = runWithOwner(null, () =>
+      createRoot((dispose) => ({
+        read: createMemo(() => compute(key), options),
         dispose,
         readers: 0,
-      }),
-      null,
+      })),
     );
     held.set(key, created);
     return created;
@@ -74,7 +74,8 @@ export function createShared<K, T>(
   }
 
   return (key) => {
-    if (!getListener() || !getOwner()) return compute(key);
+    // A tracking computation that owns its cleanups; anything else reads once and holds nothing.
+    if (!getObserver() || !getOwner()) return compute(key);
     const entry = hold(key);
     entry.readers++;
     onCleanup(() => release(key, entry));

@@ -1,4 +1,3 @@
-import { produce } from "solid-js/store";
 import { preferLocalPicture } from "../media/local-picture";
 import { mergeEntities } from "./merge";
 import { setLocalState } from "./store";
@@ -15,12 +14,9 @@ export function bulkUpdateEntities(entities: HassEntity[]): void {
 }
 
 export function updateStatisticsMetadata(metadata: StatisticMetadata[]): void {
-  setLocalState(
-    "statisticsMetadata",
-    produce((map) => {
-      for (const meta of metadata) {
-        map[meta.statistic_id] = meta;
-      }
-    }),
-  );
+  setLocalState("statisticsMetadata", (map) => {
+    for (const meta of metadata) {
+      map[meta.statistic_id] = meta;
+    }
+  });
 }

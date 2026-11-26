@@ -7,9 +7,8 @@
  * @packageDocumentation
  */
 
+import { snapshot } from "solid-js";
 import { type Clock, systemClock, type TimerHandle } from "@glasshome/widget-contract/clock";
-import { batch } from "solid-js";
-import { unwrap } from "solid-js/store";
 import { mergeEntities, mergeSlice } from "../core/merge";
 import { setLocalState, state } from "../core/store";
 import type { HassEntity } from "../core/types";
@@ -311,7 +310,7 @@ function publish(s: DemoSession, force: ReadonlySet<string>): void {
   const points: HistoryPoint[] = [];
   const rows: Record<string, HassEntity> = {};
   for (const [entityId, p] of due) {
-    const e = unwrap(state.entities)[entityId];
+    const e = snapshot(state.entities[entityId]);
     const changed = e?.state !== p.state;
     rows[entityId] = {
       entity_id: entityId,
@@ -402,16 +401,14 @@ export async function loadDemoHouse(opts: DemoHouseOptions): Promise<void> {
 
   const { registry } = generated;
   // One home, one change: a reader sees the whole demo home or none of it.
-  batch(() => {
-    const house = toEntities(generated, projections, new Date(clock.startMs).toISOString());
-    mergeEntities(house, new Set(Object.keys(house)));
-    mergeSlice("entityRegistry", registry.entityRegistry);
-    mergeSlice("areas", registry.areas);
-    mergeSlice("floors", registry.floors);
-    mergeSlice("devices", registry.devices);
-    setLocalState("hassUrl", DEMO_HASS_URL);
-    setLocalState("connectionState", "connected");
-  });
+  const house = toEntities(generated, projections, new Date(clock.startMs).toISOString());
+  mergeEntities(house, new Set(Object.keys(house)));
+  mergeSlice("entityRegistry", registry.entityRegistry);
+  mergeSlice("areas", registry.areas);
+  mergeSlice("floors", registry.floors);
+  mergeSlice("devices", registry.devices);
+  setLocalState("hassUrl", DEMO_HASS_URL);
+  setLocalState("connectionState", "connected");
 
   session = {
     generated,
@@ -434,15 +431,13 @@ export function unloadDemoData(): void {
   session = null;
   setWorld(worldFor("UTC", 1, 0));
 
-  batch(() => {
-    mergeEntities({}, new Set());
-    mergeSlice("entityRegistry", {});
-    mergeSlice("areas", {});
-    mergeSlice("floors", {});
-    mergeSlice("devices", {});
-    setLocalState("hassUrl", null);
-    setLocalState("connectionState", "disconnected");
-  });
+  mergeEntities({}, new Set());
+  mergeSlice("entityRegistry", {});
+  mergeSlice("areas", {});
+  mergeSlice("floors", {});
+  mergeSlice("devices", {});
+  setLocalState("hassUrl", null);
+  setLocalState("connectionState", "disconnected");
 }
 
 export async function resetDemo(): Promise<void> {

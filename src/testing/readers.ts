@@ -35,10 +35,12 @@ export function mountReaders(watched: Watched): Readers {
   const counts: Record<string, number> = {};
   const reader = (name: string, read: () => unknown) => {
     counts[name] = 0;
-    createEffect(() => {
-      read();
-      counts[name] = (counts[name] ?? 0) + 1;
-    });
+    createEffect(
+      () => void read(),
+      () => {
+        counts[name] = (counts[name] ?? 0) + 1;
+      },
+    );
   };
   const deep = (value: unknown) => JSON.stringify(value);
 

@@ -8,8 +8,7 @@
  */
 
 import type { EntityRegistryEntry } from "@glasshome/ha-types";
-import { $TRACK } from "solid-js";
-import { unwrap } from "solid-js/store";
+import { deep } from "solid-js";
 import { deepEqual } from "../core/equal";
 import { state } from "../core/store";
 import type { AreaId, EntityId, EntityView, HassEntity } from "../core/types";
@@ -109,11 +108,9 @@ export function getEntityView(entityId: EntityId): EntityView | undefined {
     return undefined;
   }
   const registry = state.entityRegistry[entityId];
-  // One subscription per object, then plain reads: the view is rebuilt whole on any change anyway,
+  // One subscription per record, then plain reads: the view is rebuilt whole on any change anyway,
   // and a store read per field costs a signal each.
-  trackDeep(entity);
-  trackDeep(registry);
-  const view = buildEntityView(unwrap(entity), registry && unwrap(registry));
+  const view = buildEntityView(deep(entity), registry && deep(registry));
   // Nested values stay store proxies: a widget cannot mutate the store through them, and one
   // that tracks them itself still sees in-place changes.
   const attributes = view.attributes as Record<string, unknown>;
@@ -128,17 +125,6 @@ export function getEntityView(entityId: EntityId): EntityView | undefined {
     view.aliases = registry.aliases ?? [];
   }
   return view;
-}
-
-function trackDeep(value: unknown): void {
-  if (value === null || typeof value !== "object") return;
-  const proxy = value as Record<PropertyKey, unknown>;
-  void proxy[$TRACK];
-  const raw = unwrap(proxy) as Record<string, unknown>;
-  for (const key in raw) {
-    const child = raw[key];
-    if (child !== null && typeof child === "object") trackDeep(proxy[key]);
-  }
 }
 
 /**

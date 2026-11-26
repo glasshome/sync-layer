@@ -13,8 +13,8 @@
 
 import { privilegedConn } from "../core/privileged-conn";
 import type { HassConfig, HassUnitSystem } from "@glasshome/ha-types";
-import type { Accessor, Resource } from "solid-js";
-import { createEffect, createMemo, createResource, mapArray, onCleanup } from "solid-js";
+import type { Accessor } from "solid-js";
+import { createEffect, createMemo, createSignal, mapArray } from "solid-js";
 import type {
   AreaView,
   CameraStreamData,
@@ -46,6 +46,21 @@ import { isDemoMode } from "../demo/demo-provider";
 import { fetchStatisticsDuringPeriod } from "../history/statistics";
 import { state } from "../core/store";
 
+function registerAll(ids: readonly string[]): () => void {
+  const unregisters = ids.map((id) => registerEntity(id));
+  return () => {
+    for (const unregister of unregisters) unregister();
+  };
+}
+
+/** Long-term statistics: the value accessor, which throws the last error, with its fetch state. */
+export interface StatisticsResource {
+  (): StatisticValue[] | undefined;
+  readonly loading: boolean;
+  readonly error: unknown;
+  readonly latest: StatisticValue[] | undefined;
+}
+
 // ============================================
 // ENTITY HOOKS
 // ============================================
@@ -59,12 +74,10 @@ import { state } from "../core/store";
 export function useEntity(entityId: Accessor<string> | string): Accessor<EntityView | undefined> {
   const getId = typeof entityId === "function" ? entityId : () => entityId;
 
-  createEffect(() => {
-    const id = getId();
-    if (!id) return;
-    const unregister = registerEntity(id);
-    onCleanup(unregister);
-  });
+  createEffect(
+    () => getId(),
+    (id) => (id ? registerEntity(id) : undefined),
+  );
 
   return createMemo(
     () => {
@@ -72,7 +85,6 @@ export function useEntity(entityId: Accessor<string> | string): Accessor<EntityV
       if (!id) return undefined;
       return getEntityView(id);
     },
-    undefined,
     { equals: entityViewEquals },
   );
 }
@@ -83,19 +95,13 @@ export function useEntity(entityId: Accessor<string> | string): Accessor<EntityV
  * Registers all entity IDs for live updates via the subscription manager.
  */
 export function useEntities(entityIds: Accessor<string[]>): Accessor<EntityView[]> {
-  createEffect(() => {
-    const ids = entityIds();
-    const unregisters = ids.map((id) => registerEntity(id));
-    onCleanup(() => {
-      for (const unreg of unregisters) unreg();
-    });
-  });
+  createEffect(() => entityIds(), registerAll);
 
   // A view per id, so one entity changing rebuilds its view and none of the others.
   const views = mapArray(entityIds, (id) =>
-    createMemo(() => getEntityView(id), undefined, { equals: entityViewEquals }),
+    createMemo(() => getEntityView(id), { equals: entityViewEquals }),
   );
-  return createMemo(() => views().flatMap((view) => view() ?? []), undefined, {
+  return createMemo(() => views().flatMap((view) => view() ?? []), {
     equals: (a, b) => a.length === b.length && a.every((view, i) => view === b[i]),
   });
 }
@@ -110,12 +116,10 @@ export function useEntityState(
 ): Accessor<HassEntity | undefined> {
   const getId = typeof entityId === "function" ? entityId : () => entityId;
 
-  createEffect(() => {
-    const id = getId();
-    if (!id) return;
-    const unregister = registerEntity(id);
-    onCleanup(unregister);
-  });
+  createEffect(
+    () => getId(),
+    (id) => (id ? registerEntity(id) : undefined),
+  );
 
   return createMemo(() => state.entities[getId()]);
 }
@@ -209,7 +213,6 @@ export function useAreas(): Accessor<AreaView[]> {
     // state (AreaView.entities is a lazy getter), so this memo recomputes on
     // registry changes, not on every entity state tick.
     () => getAreaViews(),
-    undefined,
     {
       equals: (a, b) => {
         if (a.length !== b.length) return false;
@@ -250,19 +253,11 @@ export function useArea(areaId: Accessor<string> | string): Accessor<AreaView | 
         return undefined;
       }
     },
-    undefined,
     { equals: areaViewEquals },
   );
 
   // Register resolved entity IDs from the area
-  createEffect(() => {
-    const v = view();
-    if (!v) return;
-    const unregisters = v.entityIds.map((id) => registerEntity(id));
-    onCleanup(() => {
-      for (const unreg of unregisters) unreg();
-    });
-  });
+  createEffect(() => view()?.entityIds ?? [], registerAll);
 
   return view;
 }
@@ -304,24 +299,59 @@ const DEMO_STATS_CONNECTION = {
 export function useEntityStatistics(
   statisticId: Accessor<string> | string,
   options: Accessor<StatisticsQueryOptions> | StatisticsQueryOptions,
-): Resource<StatisticValue[]> {
+): StatisticsResource {
   const getId = typeof statisticId === "function" ? statisticId : () => statisticId;
   const getOptions = typeof options === "function" ? options : () => options;
 
-  const [data] = createResource(
+  const [value, setValue] = createSignal<StatisticValue[] | undefined>(undefined);
+  const [loading, setLoading] = createSignal(true);
+  const [error, setError] = createSignal<{ cause: unknown } | undefined>(undefined);
+  let latestRun = 0;
+
+  createEffect(
     () => ({ id: getId(), options: getOptions() }),
-    async ({ id, options: opts }) => {
-      if (!id) return [];
-      const conn = privilegedConn();
-      // Demo mode has no real connection; the statistics fetcher synthesizes
-      // data from the energy model and ignores the connection argument.
-      if (!conn && !isDemoMode()) return [];
-      const result = await fetchStatisticsDuringPeriod(conn ?? DEMO_STATS_CONNECTION, [id], opts);
-      return result[id] ?? [];
+    ({ id, options: opts }) => {
+      const run = ++latestRun;
+      setLoading(true);
+      loadStatistics(id, opts).then(
+        (next) => {
+          if (run !== latestRun) return;
+          setValue(next);
+          setError(undefined);
+          setLoading(false);
+        },
+        (cause: unknown) => {
+          if (run !== latestRun) return;
+          setError({ cause });
+          setLoading(false);
+        },
+      );
     },
   );
 
-  return data;
+  const read = () => {
+    const failed = error();
+    if (failed) throw failed.cause;
+    return value();
+  };
+  return Object.defineProperties(read, {
+    loading: { get: loading },
+    error: { get: () => error()?.cause },
+    latest: { get: value },
+  }) as StatisticsResource;
+}
+
+async function loadStatistics(
+  id: string,
+  options: StatisticsQueryOptions,
+): Promise<StatisticValue[]> {
+  if (!id) return [];
+  const conn = privilegedConn();
+  // Demo mode has no real connection; the statistics fetcher synthesizes
+  // data from the energy model and ignores the connection argument.
+  if (!conn && !isDemoMode()) return [];
+  const result = await fetchStatisticsDuringPeriod(conn ?? DEMO_STATS_CONNECTION, [id], options);
+  return result[id] ?? [];
 }
 
 /**
@@ -354,12 +384,10 @@ export function useCalendarEvents(
   options?: CalendarWindowOptions,
 ): Accessor<CalendarEventsData | undefined> {
   const getId = typeof entityId === "function" ? entityId : () => entityId;
-  createEffect(() => {
-    const id = getId();
-    if (!id) return;
-    const untrack = trackCalendarEvents(id, options);
-    onCleanup(untrack);
-  });
+  createEffect(
+    () => getId(),
+    (id) => (id ? trackCalendarEvents(id, options) : undefined),
+  );
   return createMemo(() => state.calendars[getId()]);
 }
 
@@ -372,11 +400,16 @@ export function useForecast(
   types?: ForecastType[],
 ): Accessor<WeatherForecastsData | undefined> {
   const getId = typeof entityId === "function" ? entityId : () => entityId;
-  createEffect(() => {
-    const id = getId();
-    if (!id || !types) return;
-    for (const type of types) onCleanup(trackForecast(id, type));
-  });
+  createEffect(
+    () => getId(),
+    (id) => {
+      if (!id || !types) return;
+      const untrackAll = types.map((type) => trackForecast(id, type));
+      return () => {
+        for (const untrack of untrackAll) untrack();
+      };
+    },
+  );
   return createMemo(() => state.forecasts[getId()]);
 }
 

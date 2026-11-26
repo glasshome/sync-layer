@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { flush } from "solid-js";
 import { setState } from "../core/store";
 import { numericSensorStatistics, synthesizeSensorHistory } from "./sensor-history";
 
@@ -26,14 +27,17 @@ describe("numericSensorStatistics", () => {
   const start = end - 7 * 86_400_000;
 
   test("buckets a numeric sensor's curve by hour, and serves nothing for other entities", () => {
-    setState("entities", {
-      "sensor.hall_temperature": {
-        entity_id: "sensor.hall_temperature",
-        state: "21.4",
-        attributes: {},
-      },
-      "light.hall": { entity_id: "light.hall", state: "on", attributes: {} },
-    } as never);
+    setState((s) => {
+      Object.assign(s.entities, {
+        "sensor.hall_temperature": {
+          entity_id: "sensor.hall_temperature",
+          state: "21.4",
+          attributes: {},
+        },
+        "light.hall": { entity_id: "light.hall", state: "on", attributes: {} },
+      } as never);
+    });
+    flush();
     const hours = numericSensorStatistics("sensor.hall_temperature", start, end, "hour");
     expect(hours.length).toBe(7 * 24);
     for (const b of hours) {

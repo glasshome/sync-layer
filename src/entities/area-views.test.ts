@@ -1,7 +1,6 @@
 import type { EntityRegistryEntry } from "@glasshome/ha-types";
 import { afterEach, describe, expect, test } from "bun:test";
-import { createMemo, createRoot } from "solid-js";
-import { reconcile } from "solid-js/store";
+import { createMemo, createRoot, flush } from "solid-js";
 import { resetStore, setState } from "../core/store";
 import type { AreaRegistryEntry, DeviceRegistryEntry, HassEntity } from "../core/types";
 import { buildAreaView, getAreaViews } from "./area-views";
@@ -109,22 +108,20 @@ function seed(opts: {
   registry?: EntityRegistryEntry[];
   entities?: HassEntity[];
 }) {
-  // reconcile (not a plain object) forces a full replace; a bare object would
-  // shallow-merge into the store record and leak fixtures across tests.
-  setState("areas", reconcile(Object.fromEntries((opts.areas ?? []).map((a) => [a.id, a]))));
-  setState("devices", reconcile(Object.fromEntries((opts.devices ?? []).map((d) => [d.id, d]))));
-  setState(
-    "entityRegistry",
-    reconcile(Object.fromEntries((opts.registry ?? []).map((r) => [r.entity_id, r]))),
-  );
-  setState(
-    "entities",
-    reconcile(Object.fromEntries((opts.entities ?? []).map((e) => [e.entity_id, e]))),
-  );
+  setState((s) => {
+    s.areas = Object.fromEntries((opts.areas ?? []).map((a) => [a.id, a]));
+    s.devices = Object.fromEntries((opts.devices ?? []).map((d) => [d.id, d]));
+    s.entityRegistry = Object.fromEntries((opts.registry ?? []).map((r) => [r.entity_id, r]));
+    s.entities = Object.fromEntries((opts.entities ?? []).map((e) => [e.entity_id, e]));
+  });
+  flush();
 }
 
 describe("area-views membership", () => {
-  afterEach(() => resetStore());
+  afterEach(() => {
+    resetStore();
+    flush();
+  });
 
   test("entity is placed by its own area_id", () => {
     seed({
@@ -173,7 +170,10 @@ describe("area-views membership", () => {
 });
 
 describe("area-views lazy entities", () => {
-  afterEach(() => resetStore());
+  afterEach(() => {
+    resetStore();
+    flush();
+  });
 
   test("entities is a lazy getter, not an eager property", () => {
     seed({
@@ -224,7 +224,11 @@ describe("area-views lazy entities", () => {
     });
     const view = buildAreaView("living");
     expect(view.entities[0]?.state).toBe("off");
-    setState("entities", "light.a", "state", "on");
+    setState((s) => {
+      const entity = s.entities["light.a"];
+      if (entity) entity.state = "on";
+    });
+    flush();
     expect(view.entities[0]?.state).toBe("on");
   });
 });
@@ -241,7 +245,10 @@ function tracked<T>(read: () => T): { value: () => T; runs: () => number; dispos
 }
 
 describe("views shared between readers", () => {
-  afterEach(() => resetStore());
+  afterEach(() => {
+    resetStore();
+    flush();
+  });
 
   test("a registry change in one area leaves a reader of another area still", () => {
     seed({
@@ -254,7 +261,10 @@ describe("views shared between readers", () => {
     const living = tracked(() => buildAreaView("living").entityIds);
     const kitchen = tracked(() => buildAreaView("kitchen").entityIds);
 
-    setState("entityRegistry", "light.c", makeRegistry("light.c", { area_id: "kitchen" }));
+    setState((s) => {
+      s.entityRegistry["light.c"] = makeRegistry("light.c", { area_id: "kitchen" });
+    });
+    flush();
 
     expect(kitchen.value()).toEqual(["light.b", "light.c"]);
     expect(kitchen.runs()).toBe(2);
@@ -272,7 +282,11 @@ describe("views shared between readers", () => {
     const living = tracked(() => buildAreaView("living").entityIds);
     const kitchen = tracked(() => buildAreaView("kitchen").entityIds);
 
-    setState("entityRegistry", "light.a", "area_id", "kitchen");
+    setState((s) => {
+      const entry = s.entityRegistry["light.a"];
+      if (entry) entry.area_id = "kitchen";
+    });
+    flush();
 
     expect(living.value()).toEqual([]);
     expect(kitchen.value()).toEqual(["light.a"]);
@@ -288,7 +302,11 @@ describe("views shared between readers", () => {
     });
     const kitchen = tracked(() => buildAreaView("kitchen").entityIds);
 
-    setState("devices", "dev1", "area_id", "kitchen");
+    setState((s) => {
+      const device = s.devices.dev1;
+      if (device) device.area_id = "kitchen";
+    });
+    flush();
 
     expect(kitchen.value()).toEqual(["switch.b"]);
     kitchen.dispose();
@@ -309,7 +327,11 @@ describe("views shared between readers", () => {
       return rgb?.join(",");
     });
 
-    setState("entities", "light.a", "attributes", "rgb_color", 0, 255);
+    setState((s) => {
+      const rgb = s.entities["light.a"]?.attributes.rgb_color as number[] | undefined;
+      if (rgb) rgb[0] = 255;
+    });
+    flush();
 
     expect(colour.value()).toBe("255,2,3");
     colour.dispose();
@@ -320,7 +342,10 @@ describe("views shared between readers", () => {
     const late = tracked(() => getEntityView("light.late")?.state);
     expect(late.value()).toBeUndefined();
 
-    setState("entities", "light.late", makeEntity("light.late", "on"));
+    setState((s) => {
+      s.entities["light.late"] = makeEntity("light.late", "on");
+    });
+    flush();
 
     expect(late.value()).toBe("on");
     late.dispose();

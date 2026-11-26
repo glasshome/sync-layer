@@ -1,4 +1,3 @@
-import { produce } from "solid-js/store";
 import { setLocalState } from "../core/store";
 import type { EntityId } from "../core/types";
 import { fetchEntityHistory } from "./fetch";
@@ -28,12 +27,9 @@ export async function trackEntityHistory(
 
   const historyData = await fetchEntityHistory(entityId, options);
 
-  setLocalState(
-    "history",
-    produce((map) => {
-      map[entityId] = historyData;
-    }),
-  );
+  setLocalState("history", (map) => {
+    map[entityId] = historyData;
+  });
 
   return historyData;
 }
@@ -47,10 +43,7 @@ export function untrackEntityHistory(entityId: EntityId): void {
   }
   trackedEntities.delete(entityId);
 
-  setLocalState(
-    "history",
-    produce((map) => {
-      delete map[entityId];
-    }),
-  );
+  setLocalState("history", (map) => {
+    delete map[entityId];
+  });
 }

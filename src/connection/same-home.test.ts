@@ -1,6 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { createEffect, createRoot } from "solid-js";
-import { unwrap } from "solid-js/store";
+import { createEffect, createRoot, snapshot } from "solid-js";
 import { resetCalendarTracking, trackCalendarEvents } from "../calendar/track";
 import { resetStore, state } from "../core/store";
 import { entityViewEquals, getEntityView } from "../entities/views";
@@ -52,7 +51,7 @@ async function reconnect(): Promise<void> {
   await settle();
 }
 
-const row = (id: string) => structuredClone(unwrap(state.entities[id]));
+const row = (id: string) => structuredClone(snapshot(state.entities[id]));
 
 beforeEach(() => {
   resetStore();
@@ -351,7 +350,10 @@ describe("calendars across a reconnect", () => {
     expect(state.calendars["calendar.family"]?.events).toHaveLength(2);
     const loading: boolean[] = [];
     const dispose = createRoot((d) => {
-      createEffect(() => loading.push(state.calendars["calendar.family"]?.loading ?? false));
+      createEffect(
+        () => state.calendars["calendar.family"]?.loading ?? false,
+        (value) => void loading.push(value),
+      );
       return d;
     });
     cleanups.push(dispose);
@@ -479,7 +481,7 @@ describe("history", () => {
     home.set("climate.bedroom", { state: "off" });
     await settle();
 
-    const point = unwrap(state.history["climate.bedroom"])?.timeline[0];
+    const point = snapshot(state.history["climate.bedroom"])?.timeline[0];
     expect(point?.attributes).toBe(unwrap(state.entities["climate.bedroom"])?.attributes);
   });
 });

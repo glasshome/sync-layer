@@ -56,7 +56,7 @@
   "scripts": {
     "build": "tsdown && tsc --noEmit && bun scripts/check-widget-reachable-surface.ts",
     "dev": "tsdown --watch",
-    "test": "bun test --isolate --conditions=browser",
+    "test": "bun test --isolate --conditions=browser --conditions=development",
     "lint": "oxlint --type-aware . && oxfmt --check . && tsc --noEmit",
     "gen:demo-ids": "bun scripts/gen-demo-ids.ts",
     "check:dead": "fallow dead-code --fail-on-issues"
@@ -74,13 +74,13 @@
     "oxfmt": "0.65.0",
     "oxlint": "1.81.0",
     "oxlint-tsgolint": "7.0.2001",
-    "solid-js": "^1.9.0",
+    "solid-js": "2.0.3",
     "tsdown": "^0.22.14",
     "typescript": "^7.0.2"
   },
   "peerDependencies": {
     "@glasshome/ha-types": "0.2.0",
-    "solid-js": "^1.9.0"
+    "solid-js": "^2.0.3"
   },
   "peerDependenciesMeta": {
     "@glasshome/ha-types": {

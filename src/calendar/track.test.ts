@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { flush } from "solid-js";
 import { setPrivilegedConn } from "../core/privileged-conn";
 import { resetStore, state } from "../core/store";
 import type { CalendarEvent } from "./types";
@@ -86,10 +87,12 @@ describe("trackCalendarEvents", () => {
     const untrack = trackCalendarEvents(CAL);
     await settle();
 
+    flush();
     expect(state.calendars[CAL]?.loading).toBe(true);
 
     const event: CalendarEvent = { start: "2026-08-11", end: "2026-08-12", summary: "Trip" };
     conn.subs[0]?.callback({ events: [event] });
+    flush();
     expect(state.calendars[CAL]?.events).toEqual([event]);
     expect(state.calendars[CAL]?.loading).toBe(false);
 
@@ -99,6 +102,7 @@ describe("trackCalendarEvents", () => {
       summary: "Dentist",
     };
     conn.subs[0]?.callback({ events: [event, updated] });
+    flush();
     expect(state.calendars[CAL]?.events.length).toBe(2);
 
     untrack();
@@ -165,6 +169,7 @@ describe("trackCalendarEvents", () => {
     await settle();
     await forceResubscribeCalendars();
 
+    flush();
     expect(state.calendars[CAL]?.error).toBeInstanceOf(Error);
     expect(state.calendars[CAL]?.loading).toBe(false);
 

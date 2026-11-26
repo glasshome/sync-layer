@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, test } from "bun:test";
+import { flush } from "solid-js";
 import { bulkUpdateEntities } from "../core/reducers";
 import { resetStore, state } from "../core/store";
 import type { HassEntity } from "../core/types";
@@ -53,13 +54,16 @@ beforeEach(() => {
 describe("get_states", () => {
   test("remote art is replaced by HA's local copy", () => {
     bulkUpdateEntities([entity({ entity_picture: REMOTE, entity_picture_local: LOCAL })]);
+    flush();
     expect(picture()).toBe(LOCAL);
   });
 
   test("art without a local copy is left alone", () => {
     bulkUpdateEntities([entity({ entity_picture: LOCAL })]);
+    flush();
     expect(picture()).toBe(LOCAL);
     bulkUpdateEntities([entity({ entity_picture: REMOTE })]);
+    flush();
     expect(picture()).toBe(REMOTE);
   });
 });
@@ -96,6 +100,7 @@ describe("subscribe_entities", () => {
 
   test("added state stores the local copy", async () => {
     await playing();
+    flush();
     expect(picture()).toBe(LOCAL);
   });
 
@@ -108,14 +113,17 @@ describe("subscribe_entities", () => {
       },
     });
     await settle();
+    flush();
     expect(picture()).toBe(nextLocal);
   });
 
   test("diff carrying only the remote URL keeps the local copy and changes nothing", async () => {
     await playing();
+    flush();
     const before = state.entities[ID]?.last_updated;
     push({ c: { [ID]: { "+": { a: { entity_picture: `${REMOTE}&t=2` }, lu: 1_800_000_000 } } } });
     await settle();
+    flush();
     expect(picture()).toBe(LOCAL);
     expect(state.entities[ID]?.last_updated).toBe(before);
   });
@@ -134,6 +142,7 @@ describe("subscribe_entities", () => {
       },
     });
     await settle();
+    flush();
     expect(picture()).toBe(nextLocal);
   });
 
@@ -143,6 +152,7 @@ describe("subscribe_entities", () => {
       c: { [ID]: { "+": { s: "off" }, "-": { a: ["entity_picture", "entity_picture_local"] } } },
     });
     await settle();
+    flush();
     expect(picture()).toBeUndefined();
   });
 });

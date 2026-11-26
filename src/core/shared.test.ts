@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createMemo, createRoot, createSignal } from "solid-js";
+import { createMemo, createRoot, createSignal, flush } from "solid-js";
 import { createShared } from "./shared";
 
 function reader<T>(read: () => T): { value: () => T; runs: () => number; dispose: () => void } {
@@ -31,6 +31,8 @@ describe("createShared", () => {
     expect(first.value()).toBe(second.value());
 
     setSource(2);
+
+    flush();
 
     expect(computed).toBe(2);
     expect(first.value()).toEqual({ value: 4 });
@@ -72,6 +74,8 @@ describe("createShared", () => {
 
     setSource(5);
 
+    flush();
+
     expect(computed).toBe(2);
     expect(plusOne()).toBe(6);
   });
@@ -89,12 +93,14 @@ describe("createShared", () => {
     first.dispose();
     await settled();
     setSource(2);
+    flush();
     expect(computed).toBe(2);
     expect(second.value()).toBe(2);
 
     second.dispose();
     await settled();
     setSource(3);
+    flush();
 
     expect(computed).toBe(2);
   });
@@ -107,10 +113,12 @@ describe("createShared", () => {
     early.dispose();
     await settled();
     setSource(7);
+    flush();
     const late = reader(tracked);
 
     expect(late.value()).toBe(7);
     setSource(8);
+    flush();
     expect(late.value()).toBe(8);
     late.dispose();
   });
@@ -125,7 +133,10 @@ describe("createShared", () => {
     const only = reader(tracked);
 
     setSource(2);
+
+    flush();
     setSource(3);
+    flush();
 
     expect(only.value()).toBe(3);
     expect(computed).toBe(3);
@@ -142,10 +153,14 @@ describe("createShared", () => {
 
     setSource(3);
 
+    flush();
+
     expect(watching.runs()).toBe(1);
     expect(watching.value()).toBe(before);
 
     setSource(4);
+
+    flush();
 
     expect(watching.runs()).toBe(2);
     expect(watching.value()).toEqual({ odd: false });
@@ -161,6 +176,7 @@ describe("createShared", () => {
     leaving.dispose();
     await settled();
     setSource(2);
+    flush();
 
     expect(staying.value()).toBe(2);
     staying.dispose();

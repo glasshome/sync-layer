@@ -1,4 +1,3 @@
-import { batch } from "solid-js";
 import { forceResubscribeCalendars } from "../calendar/track";
 import { forceResubscribeForecasts } from "../weather/track";
 import { setLocalState } from "../core/store";
@@ -22,12 +21,10 @@ export async function attachBridgeToStore(
   mediaProxyBase?: string,
 ): Promise<void> {
   setPrivilegedConn(bridge.conn);
-  batch(() => {
-    setLocalState("hassUrl", hassUrl.replace(/\/$/, ""));
-    setLocalState("mediaProxyBase", mediaProxyBase ?? null);
-    setLocalState("connectionState", "connected");
-    setLocalState("connectionError", null);
-  });
+  setLocalState("hassUrl", hassUrl.replace(/\/$/, ""));
+  setLocalState("mediaProxyBase", mediaProxyBase ?? null);
+  setLocalState("connectionState", "connected");
+  setLocalState("connectionError", null);
 
   await loadInitialData(bridge.conn);
   await subscribeToUpdates(bridge.conn);
@@ -38,10 +35,8 @@ export async function attachBridgeToStore(
 export function applyBridgeConnState(
   state: "connecting" | "connected" | "disconnected" | "reconnecting",
 ): void {
-  batch(() => {
-    setLocalState("connectionState", state);
-    if (state === "connected") setLocalState("connectionError", null);
-  });
+  setLocalState("connectionState", state);
+  if (state === "connected") setLocalState("connectionError", null);
 }
 
 /**

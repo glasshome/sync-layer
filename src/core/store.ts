@@ -1,7 +1,6 @@
 /** Central reactive state store for sync-layer using SolidJS createStore. */
 
-import type { SetStoreFunction, Store, StoreSetter } from "solid-js/store";
-import { createStore, reconcile } from "solid-js/store";
+import { createStore, reconcile, type Store, type StoreSetter } from "solid-js";
 
 import type { CalendarEventsData } from "../calendar/types";
 import type { CameraStreamData } from "../camera/types";
@@ -30,8 +29,7 @@ import type {
 /**
  * Complete state shape for the sync-layer store
  *
- * All updates use SolidJS store's produce() for mutations
- * or reconcile() for bulk replacements.
+ * All updates go through the store's draft setter, or reconcile() for bulk replacements.
  *
  * NOTE: No EntityIndices field -- indices are derived reactively in Plan 03.
  * NOTE: No _activeSubscriptions -- managed externally.
@@ -177,7 +175,7 @@ globalThis.__GH_SYNC_LAYER_STORE__ = true;
 
 const storeTuple = createStore<GlassHomeState>(emptyState());
 export const state: Store<GlassHomeState> = storeTuple[0];
-export const setState: SetStoreFunction<GlassHomeState> = storeTuple[1];
+export const setState: StoreSetter<GlassHomeState> = storeTuple[1];
 
 /** What Home Assistant sends; only `core/merge.ts` writes these, by key and value. */
 type HaSlice =
@@ -196,9 +194,12 @@ type LocalState = Omit<GlassHomeState, HaSlice>;
 /** Writes one key this package keeps itself; the root and Home Assistant's slices are out of reach. */
 export function setLocalState<K extends keyof LocalState>(
   key: K,
-  setter: StoreSetter<LocalState[K], [K]>,
+  next: LocalState[K] | ((draft: LocalState[K]) => void),
 ): void {
-  (setState as unknown as (key: K, setter: StoreSetter<LocalState[K], [K]>) => void)(key, setter);
+  setState((draft: LocalState) => {
+    if (typeof next === "function") next(draft[key]);
+    else draft[key] = next;
+  });
 }
 
 // ============================================

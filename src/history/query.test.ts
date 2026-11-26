@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { produce } from "solid-js/store";
+import { flush } from "solid-js";
 import { resetStore, setState, state } from "../core/store";
 import { bulkAppendHistoryPoints, type HistoryPoint, MAX_HISTORY_POINTS } from "./points";
 import { isHistoryTracked, trackEntityHistory, untrackEntityHistory } from "./query";
@@ -28,11 +28,10 @@ function seedHistory(count: number): void {
     error: null,
     lastFetched: 0,
   };
-  setState(
-    produce((s) => {
-      s.history[ENTITY_ID] = data;
-    }),
-  );
+  setState((s) => {
+    s.history[ENTITY_ID] = data;
+  });
+  flush();
 }
 
 function makePoints(start: number, count: number): HistoryPoint[] {
@@ -52,6 +51,7 @@ describe("bulkAppendHistoryPoints history cap", () => {
   test("trims to exactly MAX_HISTORY_POINTS keeping the last points", () => {
     seedHistory(0);
     bulkAppendHistoryPoints(makePoints(0, 6000));
+    flush();
 
     const history = state.history[ENTITY_ID];
     expect(history).toBeDefined();
@@ -71,6 +71,7 @@ describe("bulkAppendHistoryPoints history cap", () => {
   test("appending onto an existing 5759 keeps the cap", () => {
     seedHistory(5759);
     bulkAppendHistoryPoints(makePoints(5759, 100));
+    flush();
 
     const history = state.history[ENTITY_ID];
     expect(history).toBeDefined();
@@ -101,6 +102,7 @@ describe("history tracking is ref-counted", () => {
     await trackEntityHistory(ENTITY_ID, opts);
 
     untrackEntityHistory(ENTITY_ID);
+    flush();
 
     expect(isHistoryTracked(ENTITY_ID)).toBe(true);
     expect(state.history[ENTITY_ID]).toBeDefined();
@@ -112,6 +114,7 @@ describe("history tracking is ref-counted", () => {
 
     untrackEntityHistory(ENTITY_ID);
     untrackEntityHistory(ENTITY_ID);
+    flush();
 
     expect(isHistoryTracked(ENTITY_ID)).toBe(false);
     expect(state.history[ENTITY_ID]).toBeUndefined();
@@ -121,6 +124,7 @@ describe("history tracking is ref-counted", () => {
     await trackEntityHistory(ENTITY_ID, opts);
 
     untrackEntityHistory(ENTITY_ID);
+    flush();
 
     expect(isHistoryTracked(ENTITY_ID)).toBe(false);
     expect(state.history[ENTITY_ID]).toBeUndefined();
@@ -131,6 +135,7 @@ describe("history tracking is ref-counted", () => {
 
     await trackEntityHistory(ENTITY_ID, opts);
     untrackEntityHistory(ENTITY_ID);
+    flush();
 
     expect(isHistoryTracked(ENTITY_ID)).toBe(false);
     expect(state.history[ENTITY_ID]).toBeUndefined();
