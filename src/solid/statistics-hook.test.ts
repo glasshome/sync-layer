@@ -154,4 +154,45 @@ describe("useEntityStatistics", () => {
     expect(stats.error).toBeUndefined();
     expect(stats()?.map((b) => b.sum)).toEqual([3]);
   });
+
+  test("refresh asks again quietly and swaps the buckets in when the answer lands", async () => {
+    const stats = mount(() => "hour");
+    flush();
+    home.asks[0]?.answer([bucket(0, 1)]);
+    await settle();
+    flush();
+
+    stats.refresh();
+    flush();
+
+    expect(home.asks).toHaveLength(2);
+    expect(home.asks[1]?.message.period).toBe("hour");
+    expect(stats.loading).toBe(false);
+    expect(stats.state).toBe("ready");
+    expect(stats()?.map((b) => b.sum)).toEqual([1]);
+
+    home.asks[1]?.answer([bucket(0, 5)]);
+    await settle();
+    flush();
+
+    expect(stats()?.map((b) => b.sum)).toEqual([5]);
+  });
+
+  test("refresh reads the options again, so a window counted from now moves with it", async () => {
+    let start = START;
+    const stats = createRoot((d) => {
+      dispose = d;
+      return useEntityStatistics(ID, () => ({ startTime: start, period: "day" }));
+    });
+    flush();
+    home.asks[0]?.answer([bucket(0, 1)]);
+    await settle();
+    flush();
+
+    start = new Date(Date.parse("2026-11-21T00:00:00Z"));
+    stats.refresh();
+    flush();
+
+    expect(home.asks[1]?.message.start_time).toBe("2026-11-21T00:00:00.000Z");
+  });
 });
