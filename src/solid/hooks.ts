@@ -14,7 +14,7 @@
 import { privilegedConn } from "../core/privileged-conn";
 import type { HassConfig, HassUnitSystem } from "@glasshome/ha-types";
 import type { Accessor } from "solid-js";
-import { createEffect, createMemo, createSignal, mapArray } from "solid-js";
+import { createDeferred, createEffect, createMemo, isPending, mapArray, refresh } from "solid-js";
 import type {
   AreaView,
   CameraStreamData,
@@ -60,6 +60,8 @@ export interface StatisticsResource {
   readonly error: unknown;
   readonly latest: StatisticValue[] | undefined;
   readonly state: "pending" | "ready" | "refreshing" | "errored";
+  /** Asks again for the same window, keeping the shown buckets and `loading` unchanged until the answer lands. */
+  refresh(): void;
 }
 
 // ============================================
@@ -298,8 +300,9 @@ const DEMO_STATS_CONNECTION = {
  * Get reactive long-term statistics for a statistic id.
  *
  * Fetches via `recorder/statistics_during_period` and re-fetches whenever the
- * statistic id or options change. The returned Resource exposes `.loading`
- * and `.error` alongside the value accessor.
+ * statistic id or options change, keeping the last buckets until the answer
+ * lands. The returned Resource exposes `.loading` and `.error` alongside the
+ * value accessor.
  */
 export function useEntityStatistics(
   statisticId: Accessor<string> | string,
@@ -308,48 +311,38 @@ export function useEntityStatistics(
   const getId = typeof statisticId === "function" ? statisticId : () => statisticId;
   const getOptions = typeof options === "function" ? options : () => options;
 
-  const [value, setValue] = createSignal<StatisticValue[] | undefined>(undefined);
-  const [loading, setLoading] = createSignal(true);
-  const [error, setError] = createSignal<{ cause: unknown } | undefined>(undefined);
-  let latestRun = 0;
-
-  createEffect(
-    () => ({ id: getId(), options: getOptions() }),
-    ({ id, options: opts }) => {
-      const run = ++latestRun;
-      setLoading(true);
-      loadStatistics(id, opts).then(
-        (next) => {
-          if (run !== latestRun) return;
-          setValue(next);
-          setError(undefined);
-          setLoading(false);
-        },
-        (cause: unknown) => {
-          if (run !== latestRun) return;
-          setError({ cause });
-          setLoading(false);
-        },
-      );
-    },
+  const answer = createDeferred<StatisticsAnswer | undefined>(
+    (prev) =>
+      loadStatistics(getId(), getOptions()).then(
+        (values) => ({ values }),
+        (cause: unknown) => ({ values: prev?.values, failed: { cause } }),
+      ),
+    { loadingValue: undefined },
   );
+  const loading = () => answer() === undefined || isPending(answer);
 
   const read = () => {
-    const failed = error();
+    const failed = answer()?.failed;
     if (failed) throw failed.cause;
-    return value();
+    return answer()?.values;
   };
   return Object.defineProperties(read, {
     loading: { get: loading },
-    error: { get: () => error()?.cause },
-    latest: { get: value },
+    error: { get: () => answer()?.failed?.cause },
+    latest: { get: () => answer()?.values },
     state: {
       get: () => {
-        if (loading()) return value() === undefined ? "pending" : "refreshing";
-        return error() ? "errored" : "ready";
+        if (loading()) return answer()?.values === undefined ? "pending" : "refreshing";
+        return answer()?.failed ? "errored" : "ready";
       },
     },
+    refresh: { value: () => void refresh(answer) },
   }) as StatisticsResource;
+}
+
+interface StatisticsAnswer {
+  values: StatisticValue[] | undefined;
+  failed?: { cause: unknown };
 }
 
 async function loadStatistics(
