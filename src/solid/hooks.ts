@@ -37,6 +37,7 @@ import type {
 // finding 45, inside the package this time. Reach your own modules by path.
 import { areaViewEquals, buildAreaView, getAreaViews } from "../entities/area-views";
 import { entityViewEquals, getEntityView } from "../entities/views";
+import { refreshStream } from "../camera/query";
 import { callService, toggle, turnOff, turnOn } from "../commands/service";
 import { registerEntity } from "../connection/subscription-manager";
 import { trackCalendarEvents } from "../calendar/track";
@@ -369,8 +370,8 @@ export function useCamera(entityId: Accessor<string> | string): {
   return {
     stream: createMemo(() => state.streams[getId()] ?? null),
     refresh: () => {
-      // Camera refresh is handled by the camera query module
-      // This is a placeholder for widget-level refresh triggers
+      const id = getId();
+      if (id) void refreshStream(id);
     },
   };
 }
