@@ -53,15 +53,15 @@ export async function getStream(
 }
 
 /**
- * Refresh stream for a camera entity
+ * Fetch the stream for a camera entity again, keeping the cached one until the answer lands.
  */
 export async function refreshStream(
   entityId: EntityId,
   format: StreamFormat = "hls",
 ): Promise<CameraStreamData> {
+  const streamData = await fetchStreamData(entityId, { format });
   setLocalState("streams", (map) => {
-    delete map[entityId];
+    map[entityId] = streamData;
   });
-
-  return getStream(entityId, { format });
+  return streamData;
 }
