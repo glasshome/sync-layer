@@ -86,6 +86,7 @@ export function buildEntityView(
     areaId,
     deviceId: registry?.device_id ?? null,
     platform: registry?.platform ?? "unknown",
+    translationKey: registry?.translation_key ?? null,
     uniqueId: registry?.unique_id ?? null,
     isDisabled: registry?.disabled_by !== null && registry?.disabled_by !== undefined,
     isHidden: registry?.hidden_by !== null && registry?.hidden_by !== undefined,
